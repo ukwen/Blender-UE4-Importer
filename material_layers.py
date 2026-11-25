@@ -1,4 +1,4 @@
-"""Bounded UE4 layer stacks and detached snapshots with conservative scalar replay."""
+"""Bounded UE4 layer stacks and detached snapshots with conservative typed replay."""
 import json
 from material_attributes import FIELDS, by_id, bundle_source, fail
 
@@ -131,7 +131,7 @@ def explicit_override(props, graph):
         raise ValueError('Invalid layer GUIDs')
     if len(links)!=len(guids) or any(str(v).split('::')[-1] not in ('NotFromParent','UnlinkedFromParent') for v in links):
         raise ValueError('Parent-linked layer reconciliation unsupported')
-    remap_scalars(graph,snapshot,guids)
+    remap_overrides(graph,snapshot,guids)
     return snapshot,guids
 
 
@@ -142,23 +142,23 @@ def reference_key(ref):
     return ref if isinstance(ref,str) else package_reference(ref)
 
 
-def remap_scalars(graph,snapshot,guids):
-    """Replay only known successful scalar overrides on unchanged functions.
+def remap_overrides(graph,snapshot,guids):
+    """Replay only known successful typed overrides on unchanged functions.
 
     A blend is identified by its upper layer GUID and its function package.
     No claim of general Unreal parent-linked reconciliation is made.
     """
     if getattr(graph,'layer_topology_unresolved',False) or getattr(graph,'scoped_remap_blocked',False):
         raise ValueError('Cannot remap inherited scoped parameters safely')
-    ledger=getattr(graph,'scoped_scalar_records',{})
+    ledger=getattr(graph,'scoped_records',{})
     if not getattr(graph,'scoped_history',False): return {}
     old_ids=getattr(graph,'layer_guids',None)
     if not old_ids or not ledger:
-        raise ValueError('Missing stable identity or inherited scalar records')
+        raise ValueError('Missing stable identity or inherited parameter records')
     old_layers,old_blends,old_states=graph.layer_context[3]
     layers,blends,states=snapshot
     result={}
-    for (scope,index,name),record in ledger.items():
+    for (scope,index,name,kind),record in ledger.items():
         old_slot=index if scope=='LayerParameter' else index+1
         if not 0<=old_slot<len(old_ids) or old_ids[old_slot] not in guids:
             raise ValueError('Overridden layer was removed')
@@ -174,7 +174,7 @@ def remap_scalars(graph,snapshot,guids):
             dst=slot-1
         if not reference_key(old_ref) or reference_key(old_ref)!=reference_key(new_ref):
             raise ValueError('Overridden function package changed')
-        result[scope,dst,name]=record
+        result[scope,dst,name,kind]=record
     return result
 
 
@@ -183,7 +183,7 @@ def replace_snapshot(mat,graph,snapshot,guids):
     import bpy
     from types import SimpleNamespace
     from material_stage import incomplete_graph
-    replay=remap_scalars(graph,snapshot,guids)
+    replay=remap_overrides(graph,snapshot,guids)
     data,load,mesh,_=graph.layer_context
     tree=mat.node_tree; old=data.node
     staging=SimpleNamespace(stack=graph.stack,scoped_param_nodes={})
@@ -197,10 +197,34 @@ def replace_snapshot(mat,graph,snapshot,guids):
         group=new.node_tree
         if new.get('UE_attribute_error') or incomplete_graph(group):
             raise ValueError('Replacement layer stack incomplete')
+        from material_instance import CLASSES
+        from umat import SetNodeTexture
         for key,(value,count) in replay.items():
-            targets=[t for t in staging.scoped_param_nodes.get(key,[]) if t.classname=='MaterialExpressionScalarParameter']
-            if len(targets)!=count: raise ValueError('Inherited scalar target count changed')
-            for t in targets: t.node.outputs[0].default_value=value
+            kind=key[3]
+            targets=[t for t in staging.scoped_param_nodes.get(key[:3],[]) if CLASSES.get(t.classname)==kind]
+            if len(targets)!=count: raise ValueError('Inherited parameter target count changed')
+            if kind=='texture':
+                image,package,expected=value
+                nodes=[n for t in targets for n in ([t.node] if t.node.bl_idname=='ShaderNodeTexImage' else getattr(t,'linked_tex_nodes',[]))]
+                if len(nodes)!=expected or not image.packed_file or not package:
+                    raise ValueError('Inherited texture target or packed source changed')
+                for n in nodes:
+                    SetNodeTexture(n,image)
+                    n['UE_texture_package']=package
+            elif kind=='switch':
+                if any(t.node.bl_idname not in ('ShaderNodeMixRGB','ShaderNodeMix') or t.node.inputs[0].is_linked for t in targets):
+                    raise ValueError('Inherited switch target changed')
+                for t in targets:
+                    t.node.inputs[0].default_value=float(value)
+                    if t.node.bl_idname=='ShaderNodeMixRGB': t.node.use_clamp=False
+            elif kind=='vector':
+                for t in targets:
+                    t.node.inputs['RGB'].default_value=value
+                    t.node.inputs['A'].default_value=value[3]
+            elif kind=='scalar':
+                for t in targets: t.node.outputs[0].default_value=value
+            else: raise ValueError('Unknown inherited parameter type')
+        if incomplete_graph(group): raise ValueError('Replayed layer stack incomplete')
         # Preserve the original external links explicitly rather than rely on interface IDs.
         if trial.layer_needs_input and not incoming:
             raise ValueError('Replacement requires missing base attribute input')
@@ -214,7 +238,7 @@ def replace_snapshot(mat,graph,snapshot,guids):
         graph.scoped_param_nodes=staging.scoped_param_nodes
         graph.layer_context=(data,load,mesh,snapshot)
         graph.layer_guids=list(guids)
-        graph.scoped_scalar_records=replay
+        graph.scoped_records=replay
     except Exception:
         if getattr(trial,'node',None) is not None:
             tree.nodes.remove(trial.node)

@@ -124,6 +124,7 @@ def apply_overrides(mat, graph, props, load_texture, set_texture):
         if not targets:
             issues.append(f'No supported {kind} target: {name}')
             continue
+        replay_value=value
         if kind == 'texture':
             texture_nodes = [node for t in targets for node in ([t.node] if t.node.bl_idname == 'ShaderNodeTexImage' else getattr(t, 'linked_tex_nodes', []))]
             if not texture_nodes or value is None:
@@ -138,6 +139,7 @@ def apply_overrides(mat, graph, props, load_texture, set_texture):
                 from material_stage import package_reference
                 package = package_reference(value)
                 if package: node['UE_texture_package'] = package
+            replay_value=(image,package,len(texture_nodes))
         elif kind == 'switch':
             if any(t.node.bl_idname not in ('ShaderNodeMixRGB', 'ShaderNodeMix') or t.node.inputs[0].is_linked for t in targets):
                 issues.append(f'Unsupported static switch target: {name}')
@@ -155,10 +157,10 @@ def apply_overrides(mat, graph, props, load_texture, set_texture):
         result={'kind':kind, 'name':name, 'targets':len(targets)}
         if scope!='GlobalParameter':
             result.update(scope=scope,index=index)
-            if kind=='scalar' and getattr(graph,'layer_guids',None):
-                ledger=getattr(graph,'scoped_scalar_records',{})
-                ledger[scope,index,name.casefold()]=(value,len(targets))
-                graph.scoped_scalar_records=ledger
+            if getattr(graph,'layer_guids',None) and (kind!='texture' or (image.packed_file and package)):
+                ledger=getattr(graph,'scoped_records',{})
+                ledger[scope,index,name.casefold(),kind]=(replay_value,len(targets))
+                graph.scoped_records=ledger
             else: graph.scoped_remap_blocked=True
         applied.append(result)
     history = json.loads(mat.get('UE_instance_overrides', '[]'))
