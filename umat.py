@@ -250,7 +250,11 @@ def HandleDefaultConstants(mapping, node, params):
                     case _:        socket.default_value = value
 def TryRemapNormal(params, node_tree, node_data):
     if 'Normal' in params:
-        normal_map = node_tree.nodes.new('ShaderNodeNormalMap') # TODO: set normal uv
+        normal_map = node_tree.nodes.new('ShaderNodeNormalMap')
+        normal_map.uv_map = 'UV0'  # UE mesh tangent basis, not active Blender UV.
+        if not params.TryGetValue('TangentSpaceNormal', True):
+            node_tree['Error'] = True
+            normal_map['UE_unsupported_normal_space'] = 'World-space input requires a separate basis conversion'
         normal_map.location = node_data.node.location + Vector((-200, -570))
         node_tree.links.new(normal_map.outputs['Normal'], node_data.node.inputs['Normal'])
 
@@ -456,8 +460,9 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             if node_data.input_remap and property in node_data.input_remap: dst_socket = node_data.input_remap[property]
             if src_socket and dst_socket:
                 if node.bl_idname == 'ShaderNodeTexImage' and property == 'Coordinates':
-                    from uv_semantics import sample_coordinates
-                    src_socket = sample_coordinates(node_tree, src_socket)
+                    from uv_semantics import sample_coordinates, connect_sample
+                    connect_sample(node_tree, node, sample_coordinates(node_tree, src_socket))
+                    return True
                 link = node_tree.links.new(src_socket, dst_socket)
                 if mute_fresnel and src_socket.node.bl_idname == 'ShaderNodeFresnel': link.is_muted = True
                 return True

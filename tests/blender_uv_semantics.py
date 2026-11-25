@@ -57,10 +57,13 @@ image=bpy.data.images.new('Sampler',2,2)
 for addr,ext in [('TA_Wrap','REPEAT'),('TA_Clamp','EXTEND'),('TA_Mirror','MIRROR')]:
     image['UE_address_x']=image['UE_address_y']=addr
     umat.SetNodeTexture(a,image); assert a.extension==ext
-# Shared sampler overrides texture asset; mixed axes remain explicitly unresolved.
+# Shared sampler overrides texture asset; mixed axes use a per-texture coordinate stage.
 a['UE_sampler_source']='SSM_Clamp_WorldGroupSettings'; umat.SetNodeTexture(a,image); assert a.extension=='EXTEND'
 a['UE_sampler_source']='SSM_FromTextureAsset'; image['UE_address_y']='TA_Clamp'; umat.SetNodeTexture(a,image)
-assert tree['Error'] and a.get('UE_address_unsupported')
+assert a.get('UE_address_helper') and not a.get('UE_address_unsupported')
+image['UE_address_y']='TA_Mirror'; umat.SetNodeTexture(a,image)
+assert not a.get('UE_address_helper') and a.extension=='MIRROR'
+assert a.inputs['Vector'].links[0].from_node.uv_map=='UV0'
 print('SAMPLER_ADDRESS_PASS')
 # Load scene produced by genuine native project test and check bindings on all original images.
 bpy.ops.wm.open_mainfile(filepath=os.environ['UE_UV_SCENE'])
