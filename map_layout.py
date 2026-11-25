@@ -5,8 +5,8 @@ import umap
 from collections import Counter
 
 
-def import_layout(filepath):
-    """Read actual static actor root transforms; do not load missing dependencies."""
+def import_layout(filepath, mesh_resolver=None):
+    """Read static actors, optionally resolving their mesh data before object creation."""
     collection = bpy.data.collections.new('Unreal layout — ' + bpy.path.display_name_from_filepath(filepath))
     bpy.context.scene.collection.children.link(collection)
     actors = []
@@ -28,14 +28,20 @@ def import_layout(filepath):
                 if mesh is None or mesh.import_ref is None:
                     raise ValueError('missing external mesh reference')
                 path = mesh.import_ref.object_name
-                obj = bpy.data.objects.new(export.properties.TryGetValue('ActorLabel', export.object_name), None)
+                geometry, status = mesh_resolver(path) if mesh_resolver else (None, 'layout_only')
+                obj = bpy.data.objects.new(export.properties.TryGetValue('ActorLabel', export.object_name), geometry)
                 collection.objects.link(obj)
-                obj.empty_display_type = 'ARROWS'
-                obj.empty_display_size = 0.35
+                if geometry is None:
+                    obj.empty_display_type = 'ARROWS'
+                    obj.empty_display_size = 0.35
                 obj.rotation_mode = 'YXZ'
                 obj['UE_actor'] = export.object_name
                 obj['UE_mesh_package'] = path
-                obj['UE_preview_only'] = True
+                obj['UE_preview_only'] = geometry is None
+                obj['UE_geometry_status'] = status
+                overrides = component.properties.TryGetValue('OverrideMaterials', [])
+                if overrides:
+                    obj['UE_material_overrides'] = [str(p.value.object_name) if p.value else '' for p in overrides]
                 umap.Transform(root, obj)
                 actors.append((root, obj))
                 roots[id(root)] = obj

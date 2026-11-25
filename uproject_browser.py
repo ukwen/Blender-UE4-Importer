@@ -94,6 +94,35 @@ class UEIMPORT_OT_import_map(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
+    bl_idname = 'ueimport.reconstruct_static'
+    bl_label = 'Reconstruct Static Geometry'
+    bl_description = 'Decode native static meshes, keep unresolved actors as empties, and write an import report; no materials'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return UEIMPORT_OT_import_map.poll(context)
+
+    def execute(self, context):
+        state = context.scene.ueimport_project
+        try:
+            project, _, maps = discover_maps(bpy.path.abspath(state.project_path))
+            if project != state.scanned_project:
+                raise ValueError('Project changed; scan again')
+            selected = state.maps[state.active].filepath
+            if selected not in {path for _, path in maps}:
+                raise ValueError('Map changed or is missing; scan again')
+            from static_scene import reconstruct_static_map
+            collection, report = reconstruct_static_map(selected)
+        except Exception as exc:
+            self.report({'ERROR'}, f'Reconstruction failed: {exc}')
+            return {'CANCELLED'}
+        count = report['actor_status'].get('reconstructed', 0)
+        self.report({'INFO'}, f'{count}/{report["static_actors"]} static actors reconstructed; report: {collection["UE_report"]}')
+        return {'FINISHED'}
+
+
 class UEIMPORT_PT_project(bpy.types.Panel):
     bl_label = 'Unreal Project Importer'
     bl_idname = 'UEIMPORT_PT_project'
@@ -112,10 +141,13 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.template_list('UI_UL_list', 'unreal_maps', state, 'maps', state, 'active', rows=5)
             layout.prop(state, 'materials')
             layout.operator('ueimport.import_selected_map', icon='IMPORT')
+            layout.separator()
+            layout.operator('ueimport.reconstruct_static', icon='MESH_DATA')
+            layout.label(text='Geometry only; missing assets remain empties.')
             layout.label(text='Legacy UE4 reader; UE5 not yet supported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_PT_project)
 
 
 def register():
