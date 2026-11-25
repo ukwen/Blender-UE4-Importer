@@ -111,12 +111,12 @@ def apply_overrides(mat, graph, props, load_texture, set_texture):
                 package = package_reference(value)
                 if package: node['UE_texture_package'] = package
         elif kind == 'switch':
-            if any(t.node.bl_idname != 'ShaderNodeMixRGB' or t.node.inputs['Fac'].is_linked for t in targets):
+            if any(t.node.bl_idname not in ('ShaderNodeMixRGB', 'ShaderNodeMix') or t.node.inputs[0].is_linked for t in targets):
                 issues.append(f'Unsupported static switch target: {name}')
                 continue
             for t in targets:
-                t.node.inputs['Fac'].default_value = float(value)
-                t.node.use_clamp = False
+                t.node.inputs[0].default_value = float(value)
+                if t.node.bl_idname == 'ShaderNodeMixRGB': t.node.use_clamp = False
         else:
             for t in targets:
                 if kind == 'scalar':

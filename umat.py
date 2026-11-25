@@ -340,6 +340,14 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
             mapping = UE2BlenderNodeMapping('ShaderNodeGroup', node_group.name, hide=False, inputs={'FunctionInputs':tuple(in_order)} if in_order else None)
             for key, entries in fn_graph.param_nodes.items():
                 graph_data.param_nodes.setdefault(key, []).extend(entries)
+    if classname in ('MaterialExpressionStaticSwitch', 'MaterialExpressionStaticSwitchParameter'):
+        from typed_switch import layout
+        typed = layout(params, classname.endswith('Parameter'))
+        if typed is not None:
+            node_data.switch_width, inputs = typed
+            mapping = UE2BlenderNodeMapping('ShaderNodeMix', label='UE typed switch', hide=False, inputs=inputs)
+        else:
+            node_tree['Error'] = True
     node_data.classname = classname
     node_data.mapping = mapping
 
@@ -382,12 +390,11 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
             case 'MaterialExpressionScalarParameter':
                 node.outputs[0].default_value = value
             case 'MaterialExpressionConstant3Vector':
-                node.inputs[0].default_value = value.ToTupleRGB()
+                rgb = tuple(value.ToTupleRGB())[:3]
+                node.inputs[0].default_value = rgb + (1.0,) if node.inputs[0].type == 'RGBA' else rgb
             case 'MaterialExpressionVectorParameter':
                 node.inputs['RGB'].default_value = value.ToTuple()
                 node.inputs['A'].default_value = value.a
-            case 'MaterialExpressionStaticSwitchParameter':
-                node.inputs['Fac'].default_value = 1 if value else 0
     else:
         match classname:
             case 'MaterialExpressionConstant':
@@ -417,9 +424,15 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
 
     if classname == 'MaterialExpressionStaticBool':
         node.outputs[0].default_value = float(bool(params.TryGetValue('Value', False)))
-    if classname == 'MaterialExpressionStaticSwitchParameter':
-        node.inputs['Fac'].default_value = float(bool(params.TryGetValue('DefaultValue', False)))
-        node.use_clamp = False
+    if classname in ('MaterialExpressionStaticSwitch', 'MaterialExpressionStaticSwitchParameter'):
+        default = params.TryGetValue('DefaultValue', False)
+        if hasattr(node_data, 'switch_width'):
+            from typed_switch import configure
+            node_data.link_indirect = [configure(node, node_data.switch_width, default)]
+        else:
+            node.inputs['Fac'].default_value = float(bool(default))
+            node.use_clamp = False
+            node['UE_switch_unsupported'] = 'Unresolved branch width or non-static selector' 
 
     TryRemapNormal(params, node_tree, node_data)
 
