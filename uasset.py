@@ -259,6 +259,9 @@ class UProperty:
                 p = f.Position()
                 p_next = p + self.len
                 match self.struct_type:
+                    case "MaterialLayersFunctions":
+                        self.value = Properties().Read(asset, read_children=read_children)
+                        if f.Position() != p_next: raise ValueError('Unsupported tagged MaterialLayersFunctions layout')
                     case "Guid": self.value = f.ReadGuid()
                     case "ExpressionInput": self.value = FExpressionInput(asset)
                     case "MaterialAttributesInput":
@@ -420,6 +423,15 @@ class UProperty:
                             if logging: print(f"{self.array_name} Array Position Mismatch: {p_diff}")
                 else:
                     self.value = []
+                    if self.name in ('Layers','Blends','LayerStates') and self.array_type in ('ObjectProperty','BoolProperty'):
+                        width = 4 if self.array_type == 'ObjectProperty' else 1
+                        if not 0 <= element_count <= 1024 or self.len != 4+element_count*width:
+                            raise ValueError('Invalid tagged layer array length')
+                        for _ in range(element_count):
+                            prop=UProperty(); prop.name,prop.type,prop.len='',self.array_type,width
+                            if not prop.TryReadData(asset,False,read_children): raise ValueError('Invalid layer array entry')
+                            self.value.append(prop)
+                        return True
                     #size_1 = int(self.len / element_count)
                     size_2 = int((self.len - 4) / element_count)
                     for i in range(element_count):

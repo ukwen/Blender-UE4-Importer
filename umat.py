@@ -94,6 +94,7 @@ class GraphData(): # TODO: redundant, only returned node_guids used
         self.nodes_data:dict[str,NodeData] = {}
         self.node_guids = {}
         self.param_nodes = {}
+        self.scoped_param_nodes = {}
 
 def HandleTextureObject(expr:Import, nodes_data:dict[str,NodeData], node_data:NodeData):
     tex_param_node_exp = expr.value.node
@@ -296,6 +297,11 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
         return None
 
     from material_attributes import KINDS as ATTRIBUTE_KINDS, build as build_attributes
+    if classname == 'MaterialExpressionMaterialAttributeLayers':
+        from material_layers import build
+        node=build(node_tree,node_data,graph_data,ImportMaterialFunction,mesh)
+        SetNodePos(node,params)
+        return node_data
     if classname == 'MaterialExpressionFunctionInput' and params.TryGetValue('InputType') == 'FunctionInput_MaterialAttributes':
         node = build_attributes(node_tree, node_data)
         SetNodePos(node, params)
@@ -499,6 +505,10 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
         node_tree['Error'] = True
         return False
 def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
+    if getattr(node_data,'layer_stack',False):
+        from material_layers import connect
+        connect(node_tree,nodes_data,node_data)
+        return
     if getattr(node_data,'function_interface_bound',False): return
     if hasattr(node_data,'function_input_order') and any(isinstance(i,dict) for i in node_data.function_input_order):
         from material_attributes import connect_call
@@ -652,9 +662,10 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                             from surface_semantics import set_opacity_clip
                             set_opacity_clip(mat, overrides.TryGetValue('OpacityMaskClipValue', 0.333333))
                         if overrides.TryGetValue('bOverride_TwoSided'): SetTwoSided(overrides, mat)
-                case 'MaterialFunction': # TODO: very similar to Material, merge?
+                case 'MaterialFunction' | 'MaterialFunctionMaterialLayer' | 'MaterialFunctionMaterialLayerBlend':
                     out = node_tree = bpy.data.node_groups.new(exp.object_name, 'ShaderNodeTree')
                     graph_data = GraphData(stack) # TODO: replace with attributes on export?
+                    graph_data.inside_function=True
                     nodes_data = graph_data.nodes_data
 
                     in_node = node_tree.nodes.new('NodeGroupInput')
@@ -662,6 +673,7 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                     input_positions = []
                     output_positions = []
                     input_ids, output_ids = {}, {}
+                    priorities = {}
                     
                     from material_attributes import FIELDS, interface_bundle, by_id, bundle_source
                     # Create all nodes first so a function output may reference a later expression.
@@ -683,7 +695,9 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                                     socket=node_tree.interface.new_socket(name=label,in_out='INPUT',socket_type=ue_to_bl_type.get(props.TryGetValue('InputType','FunctionInput_Vector3'),'NodeSocketVector'))
                                     ids=socket.identifier
                                     node_tree.links.new(by_id(in_node.outputs,ids),node_data.node.inputs[0])
-                                if guid is not None: input_ids[str(guid)]=ids
+                                if guid is not None:
+                                    input_ids[str(guid)]=ids
+                                    priorities[str(guid)]=props.TryGetValue('SortPriority',0)
                             case 'MaterialExpressionFunctionOutput':
                                 output_positions.append(node_data.node.location)
                                 label=props.TryGetValue('OutputName','Result')
@@ -701,6 +715,9 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                     import json
                     node_tree['UE_input_ids'] = json.dumps(input_ids)
                     node_tree['UE_output_ids'] = json.dumps(output_ids)
+                    usage={'MaterialFunctionMaterialLayer':'MaterialLayer','MaterialFunctionMaterialLayerBlend':'MaterialLayerBlend'}.get(classname,params.TryGetValue('MaterialFunctionUsage','Default'))
+                    node_tree['UE_function_usage']=str(usage).split('::')[-1]
+                    node_tree['UE_input_order']=json.dumps(sorted(priorities,key=priorities.get) if len(set(priorities.values()))==len(priorities) else [])
                     if len(input_positions) > 0:
                         in_pos = Vector((0,0))
                         for pos in input_positions: in_pos += pos

@@ -12,7 +12,7 @@ CLASSES = {'MaterialExpressionScalarParameter': 'scalar',
            'MaterialExpressionStaticSwitchParameter': 'switch'}
 
 
-def read_overrides(props):
+def read_overrides(props, scoped=False):
     """Read legacy flat names or modern MaterialParameterInfo global names."""
     records, issues = [], []
     containers = [props]
@@ -39,17 +39,19 @@ def read_overrides(props):
             try:
                 p = entry.value
                 info = p.TryGetValue('ParameterInfo')
+                scope,index='GlobalParameter',-1
                 if info is not None:
                     name = info.TryGetValue('Name')
                     association = info.TryGetValue('Association', 'GlobalParameter')
                     index = info.TryGetValue('Index', -1)
-                    if association not in ('GlobalParameter', 0) or index != -1:
+                    scope={0:'LayerParameter',1:'BlendParameter',2:'GlobalParameter'}.get(association,str(association).split('::')[-1])
+                    if not ((scope=='GlobalParameter' and index==-1) or (scoped and scope in ('LayerParameter','BlendParameter') and type(index) is int and index>=0)):
                         raise ValueError(f'unsupported parameter scope {name}: {association}/{index}')
                 else:
                     name = p.TryGetValue('ParameterName')
                 if not isinstance(name, str) or not name or name == 'None':
                     raise ValueError('missing parameter name')
-                key = name.casefold()
+                key = (scope,index,name.casefold())
                 if key in seen:
                     raise ValueError(f'duplicate {kind} parameter {name}')
                 seen.add(key)
@@ -73,7 +75,7 @@ def read_overrides(props):
                     value = tuple(value.ToTuple())
                     if len(value) != 4 or not all(math.isfinite(x) for x in value):
                         raise ValueError(f'invalid vector {name}')
-                records.append((kind, name, value))
+                records.append((kind, name, value, scope, index) if scoped else (kind, name, value))
             except (ValueError, AttributeError, TypeError) as exc:
                 issues.append(f'{array}: {exc}')
     for source in containers:
@@ -88,11 +90,30 @@ def read_overrides(props):
 
 
 def apply_overrides(mat, graph, props, load_texture, set_texture):
-    records, issues = read_overrides(props)
+    scoped_targets=getattr(graph,'scoped_param_nodes',{})
+    records, issues = read_overrides(props, scoped=bool(scoped_targets))
+    containers=[props]
+    for key in ('StaticParameters','StaticParametersRuntime'):
+        value=props.TryGetValue(key)
+        if value is not None:
+            if hasattr(value,'TryGetValue') and not hasattr(props.get(key),'raw'): containers.append(value)
+            else: graph.layer_topology_unresolved=True
+    for c in containers:
+        p=c.get('MaterialLayersParameters')
+        if p is not None and (p.value or getattr(p,'parse_error',None) or hasattr(p,'raw')):
+            graph.layer_topology_unresolved=True
     applied = []
-    for kind, name, value in records:
-        targets = [n for key, nodes in graph.param_nodes.items() if key.casefold() == name.casefold()
-                   for n in nodes if CLASSES.get(n.classname) == kind]
+    for record in records:
+        kind,name,value=record[:3]
+        scope,index=record[3:] if len(record)==5 else ('GlobalParameter',-1)
+        if scope!='GlobalParameter':
+            if getattr(graph,'layer_topology_unresolved',False):
+                issues.append(f'Unresolved layer topology: {name}')
+                continue
+            candidates=scoped_targets.get((scope,index,name.casefold()),[])
+        else:
+            candidates=[n for key,nodes in graph.param_nodes.items() if key.casefold()==name.casefold() for n in nodes]
+        targets=[n for n in candidates if CLASSES.get(n.classname)==kind]
         if not targets:
             issues.append(f'No supported {kind} target: {name}')
             continue
@@ -124,7 +145,9 @@ def apply_overrides(mat, graph, props, load_texture, set_texture):
                 else:
                     t.node.inputs['RGB'].default_value = value
                     t.node.inputs['A'].default_value = value[3]
-        applied.append({'kind':kind, 'name':name, 'targets':len(targets)})
+        result={'kind':kind, 'name':name, 'targets':len(targets)}
+        if scope!='GlobalParameter': result.update(scope=scope,index=index)
+        applied.append(result)
     history = json.loads(mat.get('UE_instance_overrides', '[]'))
     history.append({'applied':applied, 'issues':issues})
     mat['UE_instance_overrides'] = json.dumps(history)
