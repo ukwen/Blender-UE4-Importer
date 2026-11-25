@@ -7,6 +7,7 @@ from bpy_extras.io_utils import ImportHelper
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path: sys.path.append(cur_dir)
 import uasset, umat, register_helper
+from mesh_description import decode_mesh_description
 from uasset import UAsset, Export, FStripDataFlags, FVector, FVector4, FVector2D, FColor, Euler, PrintableStruct
 from umat import TryGetUMaterialImport
 
@@ -99,9 +100,50 @@ def ReadMeshBulkData(self:Export, asset:UAsset, f:uasset.ByteStream):
         payload = f.ReadBytes(bulk.byte_size)
         if bulk.flags & 2: payload = DecodeCompressedRawMesh(payload, bulk.count)
         elif len(payload) != bulk.count: raise ValueError("Raw mesh bulk size mismatch")
+        if asset.summary.custom_versions.get(v_obj_guid, 0) >= 28:
+            return BuildMeshDescription(self, decode_mesh_description(payload))
         return DecodeRawMesh(self, asset, uasset.ByteStream(io.BytesIO(payload)))
     finally:
         f.Seek(pos)
+
+
+def BuildMeshDescription(export, data):
+    # UE uses left-handed winding; swapping X/Y reflects it into Blender space.
+    vertex_ids = sorted(data['vertices'])
+    index = {v: i for i,v in enumerate(vertex_ids)}
+    verts = [(y*.01, x*.01, z*.01) for x,y,z in (data['vertices'][v] for v in vertex_ids)]
+    triangles = data['triangles']
+    faces = [tuple(index[data['instances'][c]] for c in corners) for _,corners in triangles]
+    mesh = bpy.data.meshes.new(export.object_name)
+    try:
+        mesh.from_pydata(verts, [], faces)
+        if mesh.validate(verbose=False): raise ValueError('Blender rejected source topology')
+        mesh.update()
+        if len(mesh.polygons) != len(triangles): raise ValueError('Triangle count mismatch')
+        slot_ids = sorted(data['slots'])
+        mesh['UE_material_slots'] = [data['slots'][g] for g in slot_ids]
+        group_attr = mesh.attributes.new('UE_polygon_group', 'INT', 'FACE')
+        group_attr.data.foreach_set('value', [g for g,_ in triangles])
+        mesh['UE_polygon_group_ids'] = slot_ids
+        mesh['UE_source_format'] = 'Legacy FMeshDescription'
+        mesh['UAsset'] = export.asset.f.byte_stream.name
+        loop_instances = []
+        for poly,(group,corners) in zip(mesh.polygons,triangles):
+            if tuple(poly.vertices) != tuple(index[data['instances'][c]] for c in corners):
+                raise ValueError('Unexpected Blender polygon order')
+            poly.use_smooth = True
+            loop_instances.extend(corners)
+        for channel,values in enumerate(data['uvs']):
+            uv = mesh.uv_layers.new(name=f'UV{channel}')
+            uv.data.foreach_set('uv', [x for c in loop_instances for x in (values[c][0],1-values[c][1])])
+        if data['colors'] is not None:
+            color = mesh.color_attributes.new(name='Color', type='FLOAT_COLOR', domain='CORNER')
+            color.data.foreach_set('color',[x for c in loop_instances for x in data['colors'][c]])
+        mesh.normals_split_custom_set([(y,x,z) for x,y,z in (data['normals'][c] for c in loop_instances)])
+        return mesh
+    except Exception:
+        bpy.data.meshes.remove(mesh)
+        raise
 
 
 def DecodeRawMesh(self, asset, f):
@@ -212,21 +254,27 @@ def ImportStaticMesh(self:Export, import_materials=True, log=True):
     v_obj = asset.summary.custom_versions.get(v_obj_guid, 0)
     editor = not (asset.summary.package_flags & 0x8)
 
+    mesh = None
     if not editor_data_stripped:
         for src_model in self.properties['SourceModels'].value:
             if v_obj < 28: # FEditorObjectVersion::StaticMeshDeprecatedRawMesh
                 lod_mesh = ReadMeshBulkData(self, asset, f)
-                if lod_mesh: mesh = lod_mesh
+                if lod_mesh:
+                    if mesh is None: mesh = lod_mesh
+                    else: bpy.data.meshes.remove(lod_mesh)
                 guid, is_hash = (f.ReadGuid(), f.ReadBool32())
             elif f.ReadBool32():
                 lod_mesh = ReadMeshBulkData(self, asset, f)
-                if lod_mesh: mesh = lod_mesh
+                if lod_mesh:
+                    if mesh is None: mesh = lod_mesh
+                    else: bpy.data.meshes.remove(lod_mesh)
 
                 if v_obj >= 29: guid = f.ReadGuid() # FEditorObjectVersion::MeshDescriptionBulkDataGuid
                 v_enterprise_obj = asset.summary.custom_versions.get(v_ent_obj_guid, 0)
                 if v_enterprise_obj >= 8: is_hash = f.ReadBool32() # FEnterpriseObjectVersion::MeshDescriptionBulkDataGuidIsHash
 
     assert not cooked
+    if mesh is None: raise NotImplementedError("No supported editor source mesh")
 
     ue4_v = asset.summary.compatible_version
     ue4_14_or_above = ue4_v.major >= 4 and ue4_v.minor >= 14
@@ -236,6 +284,7 @@ def ImportStaticMesh(self:Export, import_materials=True, log=True):
 
         if v_obj >= 8:
             # TArray<FStaticMaterial> StaticMaterials
+            source_slots = []
             for i in range(f.ReadInt32()):
                 mat_interface, mat_slot_name = (asset.DecodePackageIndex(f.ReadInt32()), f.ReadFName(asset.names))
                 if editor: imported_mat_slot_name = f.ReadFName(asset.names)
@@ -243,7 +292,23 @@ def ImportStaticMesh(self:Export, import_materials=True, log=True):
                     initialized, override_densities = (f.ReadBool32(), f.ReadBool32())
                     local_uv_densities = (f.ReadFloat(), f.ReadFloat(), f.ReadFloat(), f.ReadFloat())
                 
-                if import_materials: mesh.materials.append(TryGetUMaterialImport(mat_interface, mesh=mesh))
+                source_slots.append(imported_mat_slot_name if editor else mat_slot_name)
+                if import_materials:
+                    mat = TryGetUMaterialImport(mat_interface, mesh=mesh) if mat_interface else None
+                    if mat is None:
+                        mat = bpy.data.materials.new(mat_slot_name)
+                        mat['UE_unresolved_material'] = True
+                    mesh.materials.append(mat)
+            if mesh.get('UE_source_format') == 'Legacy FMeshDescription':
+                names = list(mesh['UE_material_slots'])
+                ids = list(mesh['UE_polygon_group_ids'])
+                mesh['UE_static_material_slots'] = source_slots
+                if import_materials:
+                    mapping = {g: source_slots.index(n) for g,n in zip(ids,names) if source_slots.count(n)==1}
+                    if len(mapping) != len(ids):
+                        raise ValueError('MeshDescription material slot mapping is ambiguous or missing')
+                    for poly,entry in zip(mesh.polygons,mesh.attributes['UE_polygon_group'].data):
+                        poly.material_index = mapping[entry.value]
     elif import_materials:
         material_props:list[uasset.UProperty] = self.properties.TryGetValue('Materials', [])
         for mat_prop in material_props:
