@@ -297,7 +297,9 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
 
     from material_attributes import KINDS as ATTRIBUTE_KINDS, build as build_attributes
     if classname == 'MaterialExpressionFunctionInput' and params.TryGetValue('InputType') == 'FunctionInput_MaterialAttributes':
-        node_tree['Error'] = True
+        node = build_attributes(node_tree, node_data)
+        SetNodePos(node, params)
+        return node_data
     if classname in ATTRIBUTE_KINDS:
         node = build_attributes(node_tree, node_data)
         SetNodePos(node, params)
@@ -339,20 +341,10 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
             output_ids = json.loads(node_group.get('UE_output_ids', '{}'))
             call_inputs = params.TryGetValue('FunctionInputs', ())
             call_outputs = params.TryGetValue('FunctionOutputs', ())
-            def indices(calls, ids, sockets, key):
-                if len(calls) != len(sockets):
-                    raise ValueError('Material function interface size mismatch')
-                result = []
-                for item in calls:
-                    prop = item.TryGetValue(key)
-                    ident = ids.get(str(prop))
-                    matches = [i for i,s in enumerate(sockets) if s.identifier == ident]
-                    if len(matches) != 1: raise ValueError('Unmatched material function socket ID')
-                    result.append(matches[0])
-                if len(set(result)) != len(result): raise ValueError('Duplicate function socket ID')
-                return result
-            in_order = indices(call_inputs, input_ids, inputs, 'ExpressionInputId')
-            node_data.function_output_order = indices(call_outputs, output_ids, outputs, 'ExpressionOutputId')
+            from material_attributes import interface_order
+            in_order = interface_order(call_inputs, input_ids, inputs, 'ExpressionInputId')
+            node_data.function_output_order = interface_order(call_outputs, output_ids, outputs, 'ExpressionOutputId')
+            node_data.function_input_order = in_order
             mapping = UE2BlenderNodeMapping('ShaderNodeGroup', node_group.name, hide=False, inputs={'FunctionInputs':tuple(in_order)} if in_order else None)
             for key, entries in fn_graph.param_nodes.items():
                 graph_data.param_nodes.setdefault(key, []).extend(entries)
@@ -378,7 +370,8 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
         SetNodePos(node, node_data.export.properties)
 
     if hasattr(node_data, 'function_output_order'):
-        node_data.link_indirect = [node.outputs[i] for i in node_data.function_output_order]
+        node_data.function_bundles = {j:{k:node.outputs[i] for k,i in entry.items()} for j,entry in enumerate(node_data.function_output_order) if isinstance(entry,dict)}
+        node_data.link_indirect = [None if isinstance(i,dict) else node.outputs[i] for i in node_data.function_output_order]
     if (sx := params.TryGetValue('SizeX')) != None: node.width = sx
     elif mapping.width: node.width = mapping.width
     if (sy := params.TryGetValue('SizeY')) != None: node.height = sy
@@ -476,7 +469,8 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             node, link_node = (node_data.node, link_node_data.node)
             if node is None or link_node is None:
                 raise ValueError(f'Unresolved expression link: {link_node_exp.object_name} -> {property}')
-            if getattr(link_node_data, "attribute_bundle", False) and not (getattr(link_node_data,"attribute_kind",None)=="GetMaterialAttributes" and inp is not None and inp.node_output_i>0):
+            from material_attributes import bundle_outputs
+            if bundle_outputs(link_node_data, inp.node_output_i if inp is not None else 0) is not None:
                 raise NotImplementedError("Material attributes require explicit field selection")
             if getattr(link_node_data, "channel_spec", (0,))[0] == 4:
                 raise NotImplementedError("Float4 requires explicit typed channel selection")
@@ -505,6 +499,11 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
         node_tree['Error'] = True
         return False
 def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
+    if getattr(node_data,'function_interface_bound',False): return
+    if hasattr(node_data,'function_input_order') and any(isinstance(i,dict) for i in node_data.function_input_order):
+        from material_attributes import connect_call
+        connect_call(node_tree,nodes_data,node_data,TryLinkSocket)
+        return
     if hasattr(node_data, 'attribute_kind'):
         from material_attributes import connect
         connect(node_tree, nodes_data, node_data, TryLinkSocket)
@@ -664,22 +663,41 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                     output_positions = []
                     input_ids, output_ids = {}, {}
                     
+                    from material_attributes import FIELDS, interface_bundle, by_id, bundle_source
+                    # Create all nodes first so a function output may reference a later expression.
                     for exr_exp in params.TryGetValue('FunctionExpressions', ()):
-                        if node_data := CreateNode(exr_exp.value, node_tree, nodes_data, graph_data, None):
-                            props = node_data.export.properties
-                            match node_data.classname:
-                                case 'MaterialExpressionFunctionInput':
-                                    input_positions.append(node_data.node.location)
-                                    socket = node_tree.interface.new_socket(name=props.TryGetValue('InputName', 'In'), in_out='INPUT', socket_type=ue_to_bl_type.get(props.TryGetValue('InputType', 'FunctionInput_Vector3'), 'NodeSocketVector'))
-                                    guid = props.TryGetValue('Id')
-                                    if guid is not None: input_ids[str(guid)] = socket.identifier
-                                    node_tree.links.new(next(s for s in in_node.outputs if s.identifier == socket.identifier), node_data.node.inputs[0])
-                                case 'MaterialExpressionFunctionOutput':
-                                    output_positions.append(node_data.node.location)
-                                    socket = node_tree.interface.new_socket(name=props.TryGetValue('OutputName', 'Result'), in_out='OUTPUT', socket_type='NodeSocketVector')
-                                    guid = props.TryGetValue('Id')
-                                    if guid is not None: output_ids[str(guid)] = socket.identifier
-                                    node_tree.links.new(node_data.node.outputs[0], next(s for s in out_node.inputs if s.identifier == socket.identifier))
+                        CreateNode(exr_exp.value, node_tree, nodes_data, graph_data, None)
+                    for node_data in nodes_data.values():
+                        if node_data.node is None: continue
+                        props = node_data.export.properties
+                        guid=props.TryGetValue('Id')
+                        match node_data.classname:
+                            case 'MaterialExpressionFunctionInput':
+                                input_positions.append(node_data.node.location)
+                                label=props.TryGetValue('InputName','In')
+                                if props.TryGetValue('InputType')=='FunctionInput_MaterialAttributes':
+                                    ids=interface_bundle(node_tree,label,'INPUT')
+                                    for k,ident in ids.items(): node_tree.links.new(by_id(in_node.outputs,ident),node_data.node.inputs[k])
+                                    node_data.function_interface_bound=True
+                                else:
+                                    socket=node_tree.interface.new_socket(name=label,in_out='INPUT',socket_type=ue_to_bl_type.get(props.TryGetValue('InputType','FunctionInput_Vector3'),'NodeSocketVector'))
+                                    ids=socket.identifier
+                                    node_tree.links.new(by_id(in_node.outputs,ids),node_data.node.inputs[0])
+                                if guid is not None: input_ids[str(guid)]=ids
+                            case 'MaterialExpressionFunctionOutput':
+                                output_positions.append(node_data.node.location)
+                                label=props.TryGetValue('OutputName','Result')
+                                try: source=bundle_source(nodes_data,props.get('A'))
+                                except ValueError: source=None
+                                if source is not None:
+                                    ids=interface_bundle(node_tree,label,'OUTPUT')
+                                    for k,ident in ids.items(): node_tree.links.new(source[k],by_id(out_node.inputs,ident))
+                                    node_data.function_interface_bound=True
+                                else:
+                                    socket=node_tree.interface.new_socket(name=label,in_out='OUTPUT',socket_type='NodeSocketVector')
+                                    ids=socket.identifier
+                                    node_tree.links.new(node_data.node.outputs[0],by_id(out_node.inputs,ids))
+                                if guid is not None: output_ids[str(guid)]=ids
                     import json
                     node_tree['UE_input_ids'] = json.dumps(input_ids)
                     node_tree['UE_output_ids'] = json.dumps(output_ids)

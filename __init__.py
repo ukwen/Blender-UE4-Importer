@@ -3,7 +3,7 @@ bl_info = {
     "author" : "Waffle1434",
     "description" : "Import UE4 meshes, materials, & maps.",
     "blender" : (4, 2, 0),
-    "version" : (0, 10, 20),
+    "version" : (0, 10, 21),
     "location" : "",
     "warning" : "",
     "category" : "Import-Export",

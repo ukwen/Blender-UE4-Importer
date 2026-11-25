@@ -100,14 +100,60 @@ def build(tree,data):
     return node
 
 
+def bundle_outputs(data,index):
+    if hasattr(data,'function_bundles'):
+        return data.function_bundles.get(index)
+    if index==0 and getattr(data,'attribute_bundle',False):
+        return data.node.outputs
+    return None
+
+
 def bundle_source(nodes,prop):
     inp=prop.value if prop else None
-    if inp is None or getattr(inp,'node',None) is None or inp.node_output_i!=0 or getattr(inp,'mask',0):
+    if inp is None or getattr(inp,'node',None) is None or getattr(inp,'mask',0):
         raise ValueError('Expected unmasked material attribute bundle')
     src=nodes.get(inp.node.object_name)
-    if src is None or not getattr(src,'attribute_bundle',False): raise ValueError('Unsupported material attribute source')
-    return src.node.outputs
+    sockets=bundle_outputs(src,inp.node_output_i)
+    if sockets is None: raise ValueError('Unsupported material attribute source')
+    return sockets
 
+
+def interface_bundle(tree,name,direction):
+    return {key:tree.interface.new_socket(name=name+'.'+key,in_out=direction,
+             socket_type='NodeSocketVector' if isinstance(value,tuple) else 'NodeSocketFloat').identifier
+            for key,value in FIELDS.items()}
+
+
+def by_id(sockets,ident):
+    matches=[s for s in sockets if s.identifier==ident]
+    if len(matches)!=1: raise ValueError('Unmatched function socket ID')
+    return matches[0]
+
+
+def interface_order(calls,ids,sockets,key):
+    if len(calls)!=len(ids): raise ValueError('Material function logical interface size mismatch')
+    result=[]; seen=set()
+    for item in calls:
+        guid=str(item.TryGetValue(key))
+        if guid not in ids or guid in seen: raise ValueError('Unmatched or duplicate function GUID')
+        seen.add(guid); ident=ids[guid]
+        if isinstance(ident,dict):
+            if set(ident)!=set(FIELDS): raise ValueError('Invalid function attribute interface')
+            result.append({k:next(i for i,s in enumerate(sockets) if s.identifier==ident[k]) for k in FIELDS})
+        else: result.append(next(i for i,s in enumerate(sockets) if s.identifier==ident))
+    return result
+
+
+def connect_call(tree,nodes,data,link_socket):
+    entries=data.export.properties.TryGetValue('FunctionInputs',())
+    for i,(item,index) in enumerate(zip(entries,data.function_input_order)):
+        prop=item.get('Input')
+        if isinstance(index,dict):
+            try:
+                source=bundle_source(nodes,prop)
+                for key,dst in index.items(): tree.links.new(source[key],data.node.inputs[dst])
+            except (KeyError,ValueError,AttributeError,IndexError) as exc: fail(tree,data.node,str(exc))
+        elif prop is not None: link_socket(tree,nodes,data,prop,i,index)
 
 def connect(tree,nodes,data,link_socket):
     p=data.export.properties; node=data.node
