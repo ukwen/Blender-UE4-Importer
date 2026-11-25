@@ -249,7 +249,7 @@ def HandleDefaultConstants(mapping, node, params):
                     case 'RGBA':   socket.default_value = (value, value, value, 1)
                     case _:        socket.default_value = value
 def TryRemapNormal(params, node_tree, node_data):
-    if 'Normal' in params:
+    if 'Normal' in params or params.TryGetValue('bUseMaterialAttributes', False):
         normal_map = node_tree.nodes.new('ShaderNodeNormalMap')
         normal_map.uv_map = 'UV0'  # UE mesh tangent basis, not active Blender UV.
         if not params.TryGetValue('TangentSpaceNormal', True):
@@ -294,6 +294,14 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
     if classname in class_blacklist:
         if classname.startswith('MaterialExpression'): node_tree['Error'] = True
         return None
+
+    from material_attributes import KINDS as ATTRIBUTE_KINDS, build as build_attributes
+    if classname == 'MaterialExpressionFunctionInput' and params.TryGetValue('InputType') == 'FunctionInput_MaterialAttributes':
+        node_tree['Error'] = True
+    if classname in ATTRIBUTE_KINDS:
+        node = build_attributes(node_tree, node_data)
+        SetNodePos(node, params)
+        return node_data
 
     if classname in ('MaterialExpressionAppendVector', 'MaterialExpressionComponentMask'):
         from channel_ops import plan, build
@@ -468,6 +476,8 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             node, link_node = (node_data.node, link_node_data.node)
             if node is None or link_node is None:
                 raise ValueError(f'Unresolved expression link: {link_node_exp.object_name} -> {property}')
+            if getattr(link_node_data, "attribute_bundle", False):
+                raise NotImplementedError("Material attributes require explicit field selection")
             if getattr(link_node_data, "channel_spec", (0,))[0] == 4:
                 raise NotImplementedError("Float4 requires explicit typed channel selection")
             outputs = link_node_data.link_indirect if link_node_data.link_indirect else link_node.outputs
@@ -495,6 +505,14 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
         node_tree['Error'] = True
         return False
 def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
+    if hasattr(node_data, 'attribute_kind'):
+        from material_attributes import connect
+        connect(node_tree, nodes_data, node_data, TryLinkSocket)
+        return
+    if node_data.classname == 'Material' and node_data.export.properties.TryGetValue('bUseMaterialAttributes', False):
+        from material_attributes import connect_surface
+        connect_surface(node_tree, nodes_data, node_data)
+        return
     if hasattr(node_data, 'channel_spec'):
         from channel_ops import connect
         connect(node_tree, nodes_data, node_data)
@@ -622,6 +640,9 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
 
                     if overrides := params.TryGetValue('BasePropertyOverrides'):
                         if overrides.TryGetValue('bOverride_BlendMode'):
+                            if graph_data.nodes_data['Principled BSDF'].export.properties.TryGetValue('bUseMaterialAttributes', False):
+                                mat.node_tree['Error'] = True
+                                mat['UE_attribute_blend_override_unsupported'] = True
                             SetBlend(overrides, mat, graph_data.nodes_data['Principled BSDF'])
                             from surface_semantics import set_opacity_clip, clear_opacity_clip
                             if overrides.TryGetValue('BlendMode') == 'BLEND_Masked':

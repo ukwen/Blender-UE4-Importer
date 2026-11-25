@@ -261,6 +261,13 @@ class UProperty:
                 match self.struct_type:
                     case "Guid": self.value = f.ReadGuid()
                     case "ExpressionInput": self.value = FExpressionInput(asset)
+                    case "MaterialAttributesInput":
+                        if asset.summary.version_ue4 >= 514 and self.len == 36:
+                            self.value = FExpressionInput(asset)
+                        else:
+                            self.value = None
+                            self.material_input_unsupported = True
+                        f.Seek(p_next)
                     case "ColorMaterialInput" | "ScalarMaterialInput" | "VectorMaterialInput":
                         if asset.summary.version_ue4 >= 514 and self.len == (52 if self.struct_type == "VectorMaterialInput" else 44):
                             self.material_input = inp = FExpressionInput(asset)
