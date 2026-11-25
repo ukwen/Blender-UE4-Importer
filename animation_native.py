@@ -27,9 +27,9 @@ def read_raw_tracks(r, frame_count, expected=None):
     return tracks
 
 
-def read_export(data,names,name):
-    """Decode the tagged UE4.27 editor export and its native raw-track arrays."""
-    r=Reader(data); tags={}; kinds={}
+def read_tagged_properties(r,names):
+    """Read bounded UE4 tagged fields without interpreting unrelated payloads."""
+    tags={}; kinds={}
     simple={'IntProperty','FloatProperty','ObjectProperty','NameProperty','StrProperty','Int64Property','UInt32Property','DoubleProperty','TextProperty','SoftObjectProperty'}
     while True:
         key=r.name(names)
@@ -44,6 +44,12 @@ def read_export(data,names,name):
         guid=r.unpack('B')[0]; require(guid in (0,1),'Invalid property GUID flag')
         if guid: r.take(16)
         tags[key]=flag if typ=='BoolProperty' else r.take(size); kinds[key]=(typ,inner)
+    return tags,kinds
+
+
+def read_export(data,names,name):
+    """Decode the tagged UE4.27 editor export and its native raw-track arrays."""
+    r=Reader(data); tags,kinds=read_tagged_properties(r,names)
     def field(key,typ,fmt,default=None):
         if key not in tags: return default
         require(kinds[key][0]==typ,'Unexpected '+key+' type')
@@ -62,7 +68,13 @@ def read_export(data,names,name):
     tr=Reader(tags['AnimationTrackNames']); count=tr.count(8192); tracks=[tr.name(names) for _ in range(count)]
     require(tr.pos==len(tr.data) and count and len({n.casefold() for n in tracks})==count,'Invalid raw track names')
     skeleton=field('Skeleton','ObjectProperty','i'); require(skeleton is not None and skeleton<0,'Missing imported skeleton reference')
-    require(r.i()==0,'Unsupported animation object GUID')
+    guid=r.i(); require(guid in (0,1),'Unsupported animation object GUID');
+    if guid: r.take(16)
+    # Observed UE4.27 AnimationAsset editor native GUID, distinct from RawDataGuid.
+    native_guid=None
+    if 'RawDataGuid' in tags:
+        require(kinds['RawDataGuid']==('StructProperty','Guid') and len(tags['RawDataGuid'])==16,'Unsupported raw-data GUID tag')
+        native_guid=r.take(16).hex()
     require(r.unpack('BB')==(0,0),'Editor raw tracks unavailable or unsupported strip flags')
     raw=read_raw_tracks(r,frames,count)
     # Editor-only source tracks may also be present. Validate their extent; do not use them.
@@ -70,7 +82,7 @@ def read_export(data,names,name):
     compressed=r.i(); require(compressed in (0,1),'Invalid compressed-data flag')
     if not compressed: require(r.pos==len(r.data),'Unexpected animation trailer')
     else: require(r.pos<len(r.data),'Truncated compressed trailer')
-    return dict(name=name,frames=frames,duration=duration,tracks=dict(zip(tracks,raw)),skeleton_index=skeleton,compressed_tail=len(r.data)-r.pos,source_tracks=len(source),ignored_curve_metadata=[key for key in tags if 'Curve' in key or 'Notify' in key])
+    return dict(name=name,frames=frames,duration=duration,tracks=dict(zip(tracks,raw)),skeleton_index=skeleton,compressed_tail=len(r.data)-r.pos,source_tracks=len(source),native_guid=native_guid,ignored_curve_metadata=[key for key in tags if 'Curve' in key or 'Notify' in key])
 
 
 def read_animation(path):
@@ -79,7 +91,7 @@ def read_animation(path):
     from uasset import UAsset
     from material_stage import package_reference
     path=Path(path); meta=inspect_package(path)
-    require(meta.get('status')=='tables_inspected' and meta.get('legacy')==-7 and meta.get('ue4')==522 and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected versioned monolithic UE4.27 editor animation')
+    require(meta.get('status')=='tables_inspected' and meta.get('legacy')==-7 and meta.get('ue4')==522 and meta.get('ue5') is None and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected versioned monolithic UE4.27 editor animation')
     asset=UAsset(str(path),False)
     try:
         asset.Read(False)
@@ -95,7 +107,7 @@ def read_animation(path):
     finally: asset.Close()
 
 
-def make_action(arm,data,scene,start=1.):
+def make_action(arm,data,scene,start=1.,allow_subset=False):
     """Convert sampled UE local transforms to Blender rest-relative pose channels."""
     import bpy
     from mathutils import Matrix, Quaternion, Vector
@@ -105,7 +117,10 @@ def make_action(arm,data,scene,start=1.):
     require(not any(b.constraints for b in arm.pose.bones),'Constrained armatures unsupported')
     bones=sorted(arm.data.bones,key=lambda b:b.get('UE_bone_index',-1)); names=[b.name for b in bones]
     require(bones and [b.get('UE_bone_index') for b in bones]==list(range(len(bones))),'Native reference bone metadata required')
-    require(set(data['tracks']).issubset(names),'Animation tracks do not match selected skeleton')
+    source_package=data.get('skeleton_package'); target_package=arm.get('UE_skeleton_package')
+    require(not target_package or target_package==source_package,'Animation skeleton package does not match selected armature')
+    dropped=sorted(set(data['tracks'])-set(names))
+    require(not dropped or (allow_subset and source_package and source_package==target_package and set(data['tracks']).intersection(names)), 'Animation tracks do not match selected skeleton; enable same-package subset explicitly')
     n=data['frames']; require(n*len(bones)<=250000,'Animation sample limit exceeded')
     axis=Matrix(((0,1,0,0),(1,0,0,0),(0,0,1,0),(0,0,0,1)))
     rest=[]; defaults=[]; parents=[]
@@ -148,6 +163,7 @@ def make_action(arm,data,scene,start=1.):
                     for key in fc.keyframe_points: key.interpolation='LINEAR'
                     fc.update()
         action['UE_duration_seconds']=data['duration']; action['UE_source_frames']=n; action['UE_source_skeleton']=data.get('skeleton_package',''); action['UE_compressed_tail_bytes']=data['compressed_tail']
+        action['UE_omitted_tracks']=','.join(dropped); action['UE_animation_semantics']='raw_local_transforms_no_engine_retargeting'
         for b in arm.pose.bones: b.rotation_mode='QUATERNION'
         arm.animation_data_create().action=action
         return action

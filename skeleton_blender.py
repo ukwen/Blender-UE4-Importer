@@ -1,6 +1,6 @@
 """Import verified cooked reference-skeleton profiles without Unreal Engine."""
 import bpy
-from bpy.props import EnumProperty, StringProperty, FloatProperty
+from bpy.props import EnumProperty, StringProperty, FloatProperty, BoolProperty
 from bpy_extras.io_utils import ImportHelper
 from skeleton_native import read_cooked_skeleton, build_armature
 
@@ -13,8 +13,16 @@ class ImportUESkeleton(bpy.types.Operator, ImportHelper):
     profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Tagged split package'),('4.27','UE4.27','Tagged split package')],default='4.27')
     def execute(self,context):
         try:
-            name,bones=read_cooked_skeleton(self.filepath,self.profile)
+            from pathlib import Path
+            if Path(self.filepath).with_suffix(".uexp").is_file():
+                name,bones=read_cooked_skeleton(self.filepath,self.profile); sockets=[]
+            else:
+                from editor_skeleton import read_editor_skeleton
+                data=read_editor_skeleton(self.filepath); name,bones,sockets=data["name"],data["bones"],data["sockets"]
             obj=build_armature(name,bones)
+            if sockets:
+                import json
+                obj["UE_socket_definitions"]=json.dumps(sockets)
             obj['UE_skeleton_source']=self.filepath; obj['UE_skeleton_profile']=self.profile
             self.report({'INFO'},f'Imported {len(bones)} reference bones (no mesh or skin weights)')
             return {'FINISHED'}
@@ -45,6 +53,7 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    allow_subset: BoolProperty(name='Allow same-skeleton track subset',description='Omit absent tracks only when original skeleton package identity matches; no engine retargeting',default=False)
     start_frame: FloatProperty(name='Start frame',default=1.,min=0.,max=100000.)
     @classmethod
     def poll(cls,context):
@@ -53,7 +62,7 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
         from animation_native import read_animation, make_action
         try:
             data=read_animation(self.filepath)
-            action=make_action(context.object,data,context.scene,self.start_frame)
+            action=make_action(context.object,data,context.scene,self.start_frame,self.allow_subset)
             self.report({'INFO'},f"Imported {data['frames']} raw samples, {len(data['tracks'])} tracks; curves/notifies and compressed data not imported")
             return {'FINISHED'}
         except (OSError,ValueError,RuntimeError,NotImplementedError,KeyError) as exc:
