@@ -79,12 +79,31 @@ class ImportUECookedStatic(bpy.types.Operator, ImportHelper):
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
 
 
+class BindUEAccessory(bpy.types.Operator):
+    bl_idname='object.ue_bind_accessory'
+    bl_label='UE Bind Compatible Skeletal Accessory'
+    bl_description='Select one native accessory mesh and its target armature (active). Align in verified reference space; keep original rig'
+    bl_options={'REGISTER','UNDO'}
+    @classmethod
+    def poll(cls,context):
+        return context.mode=='OBJECT' and context.object is not None and context.object.type=='ARMATURE' and len(context.selected_objects)==2 and any(o.type=='MESH' for o in context.selected_objects)
+    def execute(self,context):
+        from native_attachments import bind_compatible_accessory
+        try:
+            mesh=next(o for o in context.selected_objects if o.type=='MESH')
+            bind_compatible_accessory(mesh,context.object)
+            self.report({'INFO'},'Accessory bound; original armature retained')
+            return {'FINISHED'}
+        except ValueError as exc:
+            self.report({'ERROR'},str(exc)); return {'CANCELLED'}
+
+
 def menu(self,context):
     self.layout.operator(ImportUECookedStatic.bl_idname,text='UE4 Native Cooked Static Mesh (.uasset)')
     self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
     self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4 Native Skeletal Mesh (.uasset)')
     self.layout.operator(ImportUEAnimation.bl_idname,text='UE4.27 Editor Raw Animation (.uasset)')
 def register():
-    bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
+    bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
-    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic)
+    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory)

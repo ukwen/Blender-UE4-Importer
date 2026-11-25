@@ -17,7 +17,7 @@ def read_editor_mesh(path):
         versions={'d78a4a00-4697-e858-b519-a8bab4467d48':18,'e4b068ed-42e9-f494-0bda-31a241bb462e':40,'5579f886-4c1f-933a-7b08-ba832fb96163':2,'12f88b9f-4afc-8875-0cd9-7ca629bd3a38':44}
         require(all(a.summary.custom_versions.get(uuid.UUID(k))==v for k,v in versions.items()),'Unsupported skeletal custom versions')
         exports=[e for e in a.exports if e.export_class_type=='SkeletalMesh' and e.outer_index==0]; require(len(exports)==1,'Expected one root skeletal mesh'); e=exports[0]
-        checked_props(e); off=a.f.Position(); end=e.serial_desc.offset+e.serial_desc.count
+        props=checked_props(e); skeleton_package=package_reference(props.TryGetValue('Skeleton')); off=a.f.Position(); end=e.serial_desc.offset+e.serial_desc.count
         require(e.serial_desc.offset<=off<end<=meta['size'],'Invalid skeletal export extent')
         raw=path.read_bytes(); r=Reader(raw[off:end]); names=a.names
         require(r.unpack('iBB')==(0,0,0),'Unsupported editor skeletal header')
@@ -74,5 +74,5 @@ def read_editor_mesh(path):
             if key in seen:
                 require(seen[key]==(face,slot),'Conflicting duplicate source triangle'); duplicates.append(i); continue
             seen[key]=(face,slot); faces.append(face); slots.append(slot); source_faces.append(i)
-        data.update(colors=colors,lod_count=lod_count,faces=faces,slots=slots,source_faces=source_faces,duplicate_faces=duplicates)
+        data.update(skeleton_package=skeleton_package,colors=colors,lod_count=lod_count,faces=faces,slots=slots,source_faces=source_faces,duplicate_faces=duplicates)
         return data

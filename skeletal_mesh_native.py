@@ -200,7 +200,10 @@ def build_mesh(data, collection=None):
             for j,w in weights.items(): groups[j].add([i],w/255.,'REPLACE')
         obj.parent=arm; mod=obj.modifiers.new('UE native skin','ARMATURE'); mod.object=arm; mod.use_deform_preserve_volume=False
         obj['UE_skeletal_mesh_status']='native_'+('cooked_' if not data['version'].startswith('editor_') else '')+data['version']+'_lod0'; obj['UE_unparsed_tail_bytes']=data['tail_bytes']
-        arm['UE_skeleton_status']='native_skin_bound'; return obj,arm
+        arm['UE_skeleton_status']='native_skin_bound'
+        if data.get('skeleton_package'):
+            arm['UE_skeleton_package']=data['skeleton_package']; obj['UE_skeleton_package']=data['skeleton_package']
+        return obj,arm
     except Exception:
         if obj: bpy.data.objects.remove(obj,do_unlink=True)
         if mesh and mesh.users==0: bpy.data.meshes.remove(mesh)
