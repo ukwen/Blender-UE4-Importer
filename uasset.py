@@ -363,7 +363,7 @@ class UProperty:
                         self.guid = asset.TryReadPropertyGuid()
                     else: raise
 
-                    if self.array_el_full_type in ("ScalarParameterValue", "VectorParameterValue", "TextureParameterValue", "ParameterGroupData", "StaticSwitchParameter"):
+                    if self.array_el_full_type in ("ScalarParameterValue", "VectorParameterValue", "TextureParameterValue", "ParameterGroupData", "StaticSwitchParameter", "StaticMaterialLayersParameter"):
                         # Tagged records have variable lengths (omitted/default fields).
                         # The array's total byte count, not its mean record size, is authoritative.
                         start = f.Position()
@@ -389,7 +389,7 @@ class UProperty:
                         finally:
                             f.Seek(end)
                         return True
-                    if self.array_el_full_type in ('Guid', 'ExpressionInput') and self.name in ('AttributeSetTypes', 'AttributeGetTypes', 'Inputs'):
+                    if self.array_el_full_type in ('Guid', 'ExpressionInput') and self.name in ('AttributeSetTypes', 'AttributeGetTypes', 'Inputs', 'LayerGuids', 'DeletedParentLayerGuids'):
                         width = 16 if self.array_el_full_type == 'Guid' else 36
                         if not 0 <= element_count <= 1024 or self.array_size != element_count * width or (width == 36 and asset.summary.version_ue4 < 514):
                             raise ValueError('Unsupported material attribute array layout')
@@ -431,6 +431,13 @@ class UProperty:
                             prop=UProperty(); prop.name,prop.type,prop.len='',self.array_type,width
                             if not prop.TryReadData(asset,False,read_children): raise ValueError('Invalid layer array entry')
                             self.value.append(prop)
+                        return True
+                    if self.name == 'LayerLinkStates' and self.array_type == 'ByteProperty':
+                        if not 0 <= element_count <= 32 or self.len != 4+8*element_count:
+                            raise ValueError('Unsupported layer link-state layout')
+                        for _ in range(element_count):
+                            prop=UProperty(); prop.name,prop.type,prop.len='',self.array_type,8
+                            prop.TryReadData(asset,False,read_children); self.value.append(prop)
                         return True
                     #size_1 = int(self.len / element_count)
                     size_2 = int((self.len - 4) / element_count)

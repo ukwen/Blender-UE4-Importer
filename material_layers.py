@@ -1,4 +1,4 @@
-"""Bounded default UE4 material layer stacks; no instance topology remapping."""
+"""Bounded UE4 layer stacks and detached instance snapshots; no inferred remapping."""
 import json
 from material_attributes import FIELDS, by_id, bundle_source, fail
 
@@ -22,7 +22,7 @@ def stack_records(props):
     return layers,blends,states
 
 
-def build(tree,data,graph,load,mesh):
+def build(tree,data,graph,load,mesh,records=None):
     import bpy
     group=bpy.data.node_groups.new('UE default layer stack','ShaderNodeTree')
     for direction in ('INPUT','OUTPUT'):
@@ -37,7 +37,7 @@ def build(tree,data,graph,load,mesh):
         if getattr(graph,'inside_function',False): raise ValueError('Layer stack inside function unsupported')
         if getattr(graph,'layer_stack_present',False): raise ValueError('Multiple layer stacks unsupported')
         graph.layer_stack_present=True
-        layers,blends,states=stack_records(data.export.properties)
+        layers,blends,states=records if records is not None else stack_records(data.export.properties)
         def call(ref,scope,index,sources):
             fn,fg=load(ref,mesh,graph.stack)
             expected='MaterialLayer' if scope=='LayerParameter' else 'MaterialLayerBlend'
@@ -68,6 +68,7 @@ def build(tree,data,graph,load,mesh):
         for field in FIELDS: group.links.new(current[field],out.inputs[field])
         graph.scoped_param_nodes.update(registry)
         node['UE_layer_states']=json.dumps(states)
+        graph.layer_context=(data,load,mesh,(layers,blends,states))
     except (ValueError,KeyError,TypeError,AttributeError,FileNotFoundError,RuntimeError) as exc:
         graph.layer_topology_unresolved=True
         fail(tree,node,str(exc)); group['Error']=True
@@ -84,3 +85,94 @@ def connect(tree,nodes,data):
         source=bundle_source(nodes,prop)
         for field in FIELDS: tree.links.new(source[field],data.node.inputs[field])
     except (ValueError,KeyError,AttributeError) as exc: fail(tree,data.node,str(exc))
+
+
+def explicit_override(props, graph):
+    """Accept only one complete, detached snapshot, not parent-link reconciliation."""
+    from types import SimpleNamespace
+    from uuid import UUID
+    containers=[props]
+    for key in ('StaticParameters','StaticParametersRuntime'):
+        p=props.get(key)
+        if p is not None:
+            if hasattr(p,'raw') or not hasattr(p.value,'TryGetValue'):
+                raise ValueError('Unreadable static parameter set')
+            containers.append(p.value)
+    records=[]
+    for c in containers:
+        p=c.get('MaterialLayersParameters')
+        if p is not None:
+            if hasattr(p,'raw') or getattr(p,'parse_error',None) or not isinstance(p.value,list):
+                raise ValueError('Unreadable layer override records')
+            records.extend(p.value)
+    if not records: return None
+    if len(records)!=1: raise ValueError('Multiple layer overrides unsupported')
+    record=records[0].value
+    if not hasattr(record,'TryGetValue'): raise ValueError('Invalid layer override record')
+    enabled=record.TryGetValue('bOverride',False)
+    if type(enabled) is not bool: raise ValueError('Invalid layer override flag')
+    if not enabled: return False
+    if not hasattr(graph,'layer_context'): raise ValueError('No default layer stack')
+    data,_,_,_=graph.layer_context
+    info=record.TryGetValue('ParameterInfo')
+    if not hasattr(info,'TryGetValue') or info.TryGetValue('Association','GlobalParameter') not in ('GlobalParameter',2) or info.TryGetValue('Index',-1)!=-1:
+        raise ValueError('Invalid layer override scope')
+    name=info.TryGetValue('Name'); expected=data.export.properties.TryGetValue('ParameterName')
+    if not isinstance(name,str) or not isinstance(expected,str) or name.casefold()!=expected.casefold():
+        raise ValueError('Layer parameter name mismatch')
+    value=record.TryGetValue('Value')
+    snapshot=stack_records(SimpleNamespace(TryGetValue=lambda key: value))
+    def values(key):
+        p=value.get(key)
+        if p is None or getattr(p,'parse_error',None): raise ValueError('Missing '+key)
+        return [entry.value for entry in p.value]
+    guids=values('LayerGuids'); links=values('LayerLinkStates')
+    if len(guids)!=len(snapshot[0]) or len(set(guids))!=len(guids) or any(not isinstance(g,UUID) or not g.int for g in guids):
+        raise ValueError('Invalid layer GUIDs')
+    if len(links)!=len(guids) or any(str(v).split('::')[-1] not in ('NotFromParent','UnlinkedFromParent') for v in links):
+        raise ValueError('Parent-linked layer reconciliation unsupported')
+    if getattr(graph,'layer_topology_unresolved',False) or getattr(graph,'scoped_history',False):
+        raise ValueError('Cannot remap inherited scoped parameters safely')
+    return snapshot,guids
+
+
+def replace_snapshot(mat,graph,snapshot,guids):
+    """Build off to the side; swap only after all functions and links validate."""
+    import bpy
+    from types import SimpleNamespace
+    from material_stage import incomplete_graph
+    data,load,mesh,_=graph.layer_context
+    tree=mat.node_tree; old=data.node
+    staging=SimpleNamespace(stack=graph.stack,scoped_param_nodes={})
+    trial=SimpleNamespace(export=data.export)
+    stores=(bpy.data.node_groups,bpy.data.images)
+    before={item.as_pointer() for store in stores for item in store}
+    incoming=[(s.name,l.from_socket) for s in old.inputs for l in s.links]
+    outgoing=[(s.name,l.to_socket) for s in old.outputs for l in s.links]
+    try:
+        new=build(tree,trial,staging,load,mesh,records=snapshot)
+        group=new.node_tree
+        if new.get('UE_attribute_error') or incomplete_graph(group):
+            raise ValueError('Replacement layer stack incomplete')
+        # Preserve the original external links explicitly rather than rely on interface IDs.
+        if trial.layer_needs_input and not incoming:
+            raise ValueError('Replacement requires missing base attribute input')
+        new.location=old.location.copy(); new.label=old.label
+        new['UE_layer_guids']=json.dumps([str(g) for g in guids])
+        for key,source in incoming: tree.links.new(source,new.inputs[key])
+        for key,target in outgoing: tree.links.new(new.outputs[key],target)
+        name=old.name; old_group=old.node_tree
+        tree.nodes.remove(old); new.name=name
+        data.node=new; data.layer_needs_input=trial.layer_needs_input
+        graph.scoped_param_nodes=staging.scoped_param_nodes
+        graph.layer_context=(data,load,mesh,snapshot)
+    except Exception:
+        if getattr(trial,'node',None) is not None:
+            tree.nodes.remove(trial.node)
+        # Restore outgoing links in case a connection failed mid-swap.
+        for key,target in outgoing: tree.links.new(old.outputs[key],target)
+        # Remove only newly created groups/images, never the existing imported stack.
+        created=[item for store in stores for item in store if item.as_pointer() not in before]
+        if created: bpy.data.batch_remove(ids=created)
+        raise
+    if old_group.users==0: bpy.data.node_groups.remove(old_group)

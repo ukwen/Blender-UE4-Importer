@@ -12,7 +12,7 @@ CLASSES = {'MaterialExpressionScalarParameter': 'scalar',
            'MaterialExpressionStaticSwitchParameter': 'switch'}
 
 
-def read_overrides(props, scoped=False):
+def read_overrides(props, scoped=False, layers_handled=False):
     """Read legacy flat names or modern MaterialParameterInfo global names."""
     records, issues = [], []
     containers = [props]
@@ -80,7 +80,7 @@ def read_overrides(props, scoped=False):
                 issues.append(f'{array}: {exc}')
     for source in containers:
         for key in ('StaticComponentMaskParameters', 'StaticComponentMaskParameterValues', 'MaterialLayersParameters', 'TerrainLayerWeightParameters'):
-            if source.TryGetValue(key):
+            if source.TryGetValue(key) and not (key=='MaterialLayersParameters' and layers_handled):
                 issues.append(f'Unsupported static/layer parameter data: {key}')
         if source is not props:
             for key in source:
@@ -90,18 +90,23 @@ def read_overrides(props, scoped=False):
 
 
 def apply_overrides(mat, graph, props, load_texture, set_texture):
+    from material_layers import explicit_override, replace_snapshot
+    handled=False; topology_issues=[]
+    try:
+        snapshot=explicit_override(props,graph)
+        if snapshot:
+            replace_snapshot(mat,graph,*snapshot)
+            handled=True
+        elif snapshot is False: handled=True
+    except (ValueError,KeyError,AttributeError,TypeError,RuntimeError) as exc:
+        graph.layer_topology_unresolved=True
+        topology_issues.append(str(exc))
     scoped_targets=getattr(graph,'scoped_param_nodes',{})
-    records, issues = read_overrides(props, scoped=bool(scoped_targets))
-    containers=[props]
-    for key in ('StaticParameters','StaticParametersRuntime'):
-        value=props.TryGetValue(key)
-        if value is not None:
-            if hasattr(value,'TryGetValue') and not hasattr(props.get(key),'raw'): containers.append(value)
-            else: graph.layer_topology_unresolved=True
-    for c in containers:
-        p=c.get('MaterialLayersParameters')
-        if p is not None and (p.value or getattr(p,'parse_error',None) or hasattr(p,'raw')):
-            graph.layer_topology_unresolved=True
+    records, issues = read_overrides(props, scoped=bool(scoped_targets) or hasattr(graph,'layer_context'), layers_handled=handled)
+    issues.extend(topology_issues)
+    # Any scoped record, including unresolved records, prevents unsafe later remapping.
+    if (hasattr(graph,'layer_context') and issues) or any(len(record)==5 and record[3]!='GlobalParameter' for record in records):
+        graph.scoped_history=True
     applied = []
     for record in records:
         kind,name,value=record[:3]
