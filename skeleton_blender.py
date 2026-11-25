@@ -21,8 +21,27 @@ class ImportUESkeleton(bpy.types.Operator, ImportHelper):
         except (OSError,ValueError,RuntimeError,NotImplementedError) as exc:
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
 
-def menu(self,context): self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
+class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
+    bl_idname='import.ue_native_skeletal_mesh'
+    bl_label='Import UE4.18 native skeletal mesh'
+    bl_options={'REGISTER','UNDO'}
+    filename_ext='.uasset'
+    filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    def execute(self,context):
+        from skeletal_mesh_native import read_mesh, build_mesh
+        try:
+            data=read_mesh(self.filepath); obj,arm=build_mesh(data)
+            obj['UE_source_package']=self.filepath
+            self.report({'INFO'},f"Imported {len(data['positions'])} skinned vertices, {len(data['bones'])} bones (material placeholders)")
+            return {'FINISHED'}
+        except (OSError,ValueError,RuntimeError,NotImplementedError) as exc:
+            self.report({'ERROR'},str(exc)); return {'CANCELLED'}
+
+
+def menu(self,context):
+    self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
+    self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4.18 Native Skeletal Mesh (.uasset)')
 def register():
-    bpy.utils.register_class(ImportUESkeleton); bpy.types.TOPBAR_MT_file_import.append(menu)
+    bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
-    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUESkeleton)
+    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton)
