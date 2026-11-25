@@ -1,6 +1,6 @@
 """Import verified cooked reference-skeleton profiles without Unreal Engine."""
 import bpy
-from bpy.props import EnumProperty, StringProperty
+from bpy.props import EnumProperty, StringProperty, FloatProperty
 from bpy_extras.io_utils import ImportHelper
 from skeleton_native import read_cooked_skeleton, build_armature
 
@@ -39,10 +39,32 @@ class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
 
 
+class ImportUEAnimation(bpy.types.Operator, ImportHelper):
+    bl_idname='import.ue_raw_animation'
+    bl_label='Import UE4.27 editor raw animation'
+    bl_options={'REGISTER','UNDO'}
+    filename_ext='.uasset'
+    filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    start_frame: FloatProperty(name='Start frame',default=1.,min=0.,max=100000.)
+    @classmethod
+    def poll(cls,context):
+        return context.object is not None and context.object.type=='ARMATURE' and context.object.mode=='OBJECT'
+    def execute(self,context):
+        from animation_native import read_animation, make_action
+        try:
+            data=read_animation(self.filepath)
+            action=make_action(context.object,data,context.scene,self.start_frame)
+            self.report({'INFO'},f"Imported {data['frames']} raw samples, {len(data['tracks'])} tracks; curves/notifies and compressed data not imported")
+            return {'FINISHED'}
+        except (OSError,ValueError,RuntimeError,NotImplementedError,KeyError) as exc:
+            self.report({'ERROR'},str(exc)); return {'CANCELLED'}
+
+
 def menu(self,context):
     self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
     self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4 Native Skeletal Mesh (.uasset)')
+    self.layout.operator(ImportUEAnimation.bl_idname,text='UE4.27 Editor Raw Animation (.uasset)')
 def register():
-    bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.types.TOPBAR_MT_file_import.append(menu)
+    bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
-    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton)
+    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton)
