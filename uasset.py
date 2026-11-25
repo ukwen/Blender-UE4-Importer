@@ -84,7 +84,9 @@ class PrintableStruct(Structure):
 
 class FExpressionInput:
     def __init__(self, asset:UAsset, editor=True):
-        self.node = asset.GetExport(asset.f.ReadInt32()) if editor else None
+        index = asset.f.ReadInt32() if editor else 0
+        self.node = asset.GetExport(index) if index > 0 else None
+        self.node_index = index
         self.node_output_i = asset.f.ReadInt32()
         self.input_name = asset.f.ReadFName(asset.names) if asset.summary.version_ue4 >= 514 else asset.f.ReadFString()
         if editor:
@@ -260,8 +262,18 @@ class UProperty:
                     case "Guid": self.value = f.ReadGuid()
                     case "ExpressionInput": self.value = FExpressionInput(asset)
                     case "ColorMaterialInput" | "ScalarMaterialInput" | "VectorMaterialInput":
-                        p = f.Position()
-                        self.value = asset.GetExport(f.ReadInt32())# TODO: other data is default value?
+                        if asset.summary.version_ue4 >= 514 and self.len == (52 if self.struct_type == "VectorMaterialInput" else 44):
+                            self.material_input = inp = FExpressionInput(asset)
+                            flag = f.ReadInt32()
+                            if flag not in (0, 1): raise ValueError("Invalid material input constant flag")
+                            inp.use_constant = bool(flag)
+                            inp.constant = (f.ReadStructure(FColor) if self.struct_type == "ColorMaterialInput" else
+                                            f.ReadStructure(FVector) if self.struct_type == "VectorMaterialInput" else f.ReadFloat())
+                            self.value = inp.node
+                        else:
+                            index = f.ReadInt32()
+                            self.value = asset.GetExport(index) if index > 0 else None
+                            self.material_input_unsupported = True
                         f.Seek(p_next)
                     case _:
                         structure = struct_map.get(self.struct_type)

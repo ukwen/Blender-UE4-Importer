@@ -32,6 +32,14 @@ def TryGetExtractedImport(imp:Import, extract_dir):
             return imp.extracted
         except Exception as exc:
             print(f"Native editor texture unavailable for {archive_path}: {exc}")
+        try:
+            asset_path = imp.asset.ToProjectPath(archive_path)
+            if not os.path.isfile(asset_path):
+                imp.extracted = None
+                return None
+        except (OSError, ValueError):
+            imp.extracted = None
+            return None
         extracted_path = os.path.normpath(extract_dir + archive_path + ".png")
         if not os.path.exists(extracted_path):
             asset_path = imp.asset.ToProjectPath(archive_path)
@@ -250,7 +258,7 @@ def TryRemapNormal(params, node_tree, node_data):
         n2rgb.hide = True
         node_tree.links.new(n2rgb.outputs['RGB'], normal_map.inputs['Color'])
 
-        node_data.input_remap = { 'Normal':n2rgb.inputs['Normal'] }
+        node_data.input_remap = {**(node_data.input_remap or {}), 'Normal':n2rgb.inputs['Normal']}
 def SetBlend(params, mat, node_data):
     match params.TryGetValue('BlendMode'):
         case 'BLEND_Translucent':
@@ -277,7 +285,9 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
     nodes_data[name] = node_data = NodeData(exp)
     params = exp.properties
 
-    if classname in class_blacklist: return None # TODO: iterate material expression array instead?
+    if classname in class_blacklist:
+        if classname.startswith('MaterialExpression'): node_tree['Error'] = True
+        return None
 
     mapping = UE2BlenderNode_dict.get(classname)
     if classname == 'MaterialExpressionMaterialFunctionCall':
@@ -288,7 +298,18 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
         mapping = UE2BlenderNode_dict.get(classname)
         if not mapping or (mapping.bl_idname == 'ShaderNodeGroup' and mapping.subtype not in bpy.data.node_groups):
             # Each imported call owns its group, so instance edits cannot mutate siblings.
-            node_group, fn_graph = ImportMaterialFunction(matfnc_imp, mesh, graph_data.stack)
+            try:
+                node_group, fn_graph = ImportMaterialFunction(matfnc_imp, mesh, graph_data.stack)
+            except FileNotFoundError as exc:
+                # Keep the genuine surface graph inspectable when a function is absent.
+                # Never substitute a fabricated function or claim material acceptance.
+                import json
+                missing = json.loads(node_tree.get('UE_missing_functions', '[]'))
+                missing.append({'name': classname, 'error': str(exc)})
+                node_tree['UE_missing_functions'] = json.dumps(missing)
+                node_tree['Error'] = True
+                print(f'Missing material function {classname}: {exc}')
+                return None
             inputs = tuple(i for i in node_group.interface.items_tree if i.item_type == 'SOCKET' and i.in_out == 'INPUT')
             outputs = tuple(i for i in node_group.interface.items_tree if i.item_type == 'SOCKET' and i.in_out == 'OUTPUT')
             import json
@@ -390,6 +411,8 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
                 node_data.link_indirect = mult.outputs
         case 'MaterialExpressionTextureSampleParameter2D' | 'MaterialExpressionTextureSample':
             if tex_imp := params.TryGetValue('Texture'):
+                from material_stage import package_reference
+                node['UE_texture_package'] = package_reference(tex_imp)
                 if tex := TryGetExtractedImport(tex_imp, exp.asset.extract_dir):
                     SetNodeTexture(node, tex)
                     if params.TryGetValue('SamplerType') == 'SAMPLERTYPE_Normal': node.interpolation = 'Smart'
@@ -408,20 +431,31 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
     return node_data
 def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, expr:UProperty, property:str, dst_index):
     try:
-        link_node_exp = expr.value.node if expr.struct_type == 'ExpressionInput' else expr.value
+        from surface_semantics import constant_value, masked_socket
+        inp = getattr(expr, 'material_input', None)
+        if getattr(expr, 'material_input_unsupported', False):
+            raise NotImplementedError('Unsupported material input layout')
+        if inp is not None and inp.use_constant:
+            dst = node_data.input_remap.get(property) if node_data.input_remap and property in node_data.input_remap else node_data.node.inputs[dst_index]
+            dst.default_value = constant_value(inp)
+            return True
+        if inp is None and expr.struct_type == 'ExpressionInput': inp = expr.value
+        link_node_exp = inp.node if inp is not None else expr.value
+        if link_node_exp is None:
+            if inp is not None and getattr(inp, 'node_index', 0) < 0: raise NotImplementedError('External expression input')
+            return False
         if link_node_data := nodes_data.get(link_node_exp.object_name):
             link_node_type = link_node_data.classname
-            if link_node_type in class_blacklist: return False
+            if link_node_type in class_blacklist: raise NotImplementedError('Unsupported linked expression '+link_node_type)
             
             node, link_node = (node_data.node, link_node_data.node)
             outputs = link_node_data.link_indirect if link_node_data.link_indirect else link_node.outputs
 
-            src_i = expr.value.node_output_i if expr.struct_type == 'ExpressionInput' else 0
-            if src_i >= len(outputs): raise Exception(f"Link Failed, Missing Output Socket: {node.name}.{property} {src_i}/{len(outputs)}")
+            src_i = inp.node_output_i if inp is not None else 0
+            if not 0 <= src_i < len(outputs): raise Exception(f"Link Failed, Missing Output Socket: {node.name}.{property} {src_i}/{len(outputs)}")
             src_socket = outputs[src_i]
-            while src_socket.hide or src_socket.is_unavailable: # TODO: this is awful
-                src_i += 1
-                src_socket = outputs[src_i]
+            if src_socket.is_unavailable: raise ValueError('Selected output is unavailable')
+            if inp is not None: src_socket = masked_socket(node_tree, src_socket, inp, link_node_data.link_indirect)
 
             if link_node_type == 'MaterialExpressionAppendVector' and node.bl_idname == 'ShaderNodeCombineXYZ': raise Exception("Link Failed, Unreal's append is annoying")
             dst_socket = node.inputs[dst_index]
@@ -515,12 +549,20 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                         node_data.input_remap = { 'EmissiveColor':emission.inputs['Color'] }
 
                     SetBlend(params, mat, node_data)
+                    if 'EmissiveColor' in params: node.inputs['Emission Strength'].default_value = 1.0
+                    if 'WorldPositionOffset' in params:
+                        mat['UE_unimplemented_surface_inputs'] = 'WorldPositionOffset'
+                        node_tree['Error'] = True
                     SetTwoSided(params, mat)
 
                     TryRemapNormal(params, node_tree, node_data)
 
                     for name in nodes_data: LinkSockets(node_tree, nodes_data, nodes_data[name]) # TODO: this iterates nodes without links!
                     
+                    if params.TryGetValue('BlendMode') == 'BLEND_Masked':
+                        from surface_semantics import set_opacity_clip
+                        set_opacity_clip(mat, params.TryGetValue('OpacityMaskClipValue', 0.333333))
+                        if 'UE_BlendModeApproximation' in mat: del mat['UE_BlendModeApproximation']
                     ior = node.inputs['IOR']
                     if ior.is_linked: ior.links[0].is_muted = mute_ior
                 case 'MaterialInstanceConstant':
@@ -544,7 +586,16 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                     mat['UAsset'] = str(pathlib.Path(filepath).resolve())
 
                     if overrides := params.TryGetValue('BasePropertyOverrides'):
-                        if overrides.TryGetValue('bOverride_BlendMode'): SetBlend(overrides, mat, graph_data.nodes_data['Principled BSDF'])
+                        if overrides.TryGetValue('bOverride_BlendMode'):
+                            SetBlend(overrides, mat, graph_data.nodes_data['Principled BSDF'])
+                            from surface_semantics import set_opacity_clip, clear_opacity_clip
+                            if overrides.TryGetValue('BlendMode') == 'BLEND_Masked':
+                                set_opacity_clip(mat, mat.get('UE_opacity_mask_clip', 0.333333))
+                                if 'UE_BlendModeApproximation' in mat: del mat['UE_BlendModeApproximation']
+                            else: clear_opacity_clip(mat)
+                        if overrides.TryGetValue('bOverride_OpacityMaskClipValue') and 'UE_opacity_mask_clip' in mat:
+                            from surface_semantics import set_opacity_clip
+                            set_opacity_clip(mat, overrides.TryGetValue('OpacityMaskClipValue', 0.333333))
                         if overrides.TryGetValue('bOverride_TwoSided'): SetTwoSided(overrides, mat)
                 case 'MaterialFunction': # TODO: very similar to Material, merge?
                     out = node_tree = bpy.data.node_groups.new(exp.object_name, 'ShaderNodeTree')
@@ -588,6 +639,13 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                         LinkSockets(node_tree, nodes_data, nodes_data[name]) # TODO: this iterates nodes without links!
     
     if log and out is not None: print(f"Imported {out.name}: {(time.time() - t0) * 1000:.2f}ms")
+    if isinstance(out, bpy.types.Material):
+        from material_stage import incomplete_graph
+        if incomplete_graph(out.node_tree):
+            out['UE_material_status'] = 'partial_graph_unresolved'
+            out['UE_unresolved_material'] = True
+        else:
+            out['UE_material_status'] = 'graph_imported_unverified'
     return (out, graph_data)
 def TryGetUMaterialImport(mat_imp:Import, mesh=None):
     mat = bpy.data.materials.get(mat_imp.object_name)
