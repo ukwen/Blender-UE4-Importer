@@ -55,7 +55,7 @@ load=lambda ref,_: ref.image
 parent=props(ScalarParameterValues=[entry('Roughness',.7)],VectorParameterValues=[entry('Tint',uasset.FLinearColor(.2,.4,.6,.8))],TextureParameterValues=[entry('Diffuse',ra)])
 child=props(ScalarParameterValues=[entry('roughness',.3)],TextureParameterValues=[entry('Diffuse',rb)])
 assert not mi.apply_overrides(m,g,parent,load,umat.SetNodeTexture)[1]
-assert t.image==a and t.interpolation=='Closest' and t.extension=='CLIP'
+assert t.image==a and t.interpolation=='Closest' and t.extension=='EXTEND'
 assert not mi.apply_overrides(m,g,child,load,umat.SetNodeTexture)[1]
 assert abs(s.outputs[0].default_value-.3)<1e-6 and abs(v.inputs['A'].default_value-.8)<1e-6
 assert t.image==b and t.interpolation=='Linear' and t.extension=='REPEAT'

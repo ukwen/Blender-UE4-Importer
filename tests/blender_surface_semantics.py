@@ -76,7 +76,7 @@ with patch.object(umat.subprocess,'run',side_effect=AssertionError('Missing depe
     native,graph=umat.ImportNodeGraph(str(base))
 assert native['UE_material_status']=='partial_graph_unresolved' and native['UE_unresolved_material']
 assert native['UE_unimplemented_surface_inputs']=='WorldPositionOffset'
-assert len(native.node_tree.nodes)==23 and len(native.node_tree.links)==25
+assert len(native.node_tree.nodes)==24 and len(native.node_tree.links)==28
 shader=native.node_tree.nodes['Principled BSDF']
 assert all(shader.inputs[n].is_linked for n in ('Base Color','Metallic','Roughness','Normal','Emission Color'))
 assert shader.inputs['Emission Strength'].default_value==1

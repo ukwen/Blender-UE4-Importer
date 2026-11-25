@@ -14,7 +14,7 @@ def load_editor_texture(filepath, project=None):
     stat=source.stat()
     key=f'{source}|{stat.st_size}|{stat.st_mtime_ns}'
     for image in bpy.data.images:
-        if image.get('UE_editor_texture_key')==key and image.packed_file:
+        if image.get('UE_editor_texture_key')==key and image.packed_file and 'UE_address_x' in image and 'UE_address_y' in image:
             return image
     png,meta=read_editor_texture(source,project)
     with tempfile.TemporaryDirectory() as temp:
@@ -33,6 +33,7 @@ def load_editor_texture(filepath, project=None):
             image['UE_mips_validated']=meta['mips']
             image['flip_y']=meta['flip_y']
             image['clamp']=meta['clamp']
+            image['UE_address_x']=meta['address_x']; image['UE_address_y']=meta['address_y']
             image['nearest']=meta['nearest']
         except Exception:
             bpy.data.images.remove(image)

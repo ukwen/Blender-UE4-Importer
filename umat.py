@@ -61,6 +61,8 @@ def TryGetExtractedImport(imp:Import, extract_dir):
                         export.ReadProperties(False)
                         tex.colorspace_settings.name = 'sRGB' if export.properties.TryGetValue('SRGB',True) else 'Non-Color'
                         tex['flip_y'] = export.properties.TryGetValue('bFlipGreenChannel',False)
+                        tex['UE_address_x'] = export.properties.TryGetValue('AddressX', 'TA_Wrap')
+                        tex['UE_address_y'] = export.properties.TryGetValue('AddressY', 'TA_Wrap')
                         tex['clamp'] = export.properties.TryGetValue('AddressX', 'TA_Wrap') == 'TA_Clamp' and export.properties.TryGetValue('AddressY', 'TA_Wrap') == 'TA_Clamp'
                         break
         except: imp.extracted = None
@@ -395,27 +397,17 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
                 node.inputs[2].hide = True
     match classname:
         case 'MaterialExpressionTextureCoordinate':
-            if (uv_i := params.TryGetValue('CoordinateIndex')) != None:
-                if mesh == None: node.uv_map = f"UV{uv_i}"
-                else:
-                    try: node.uv_map = mesh.uv_layers.keys()[uv_i]
-                    except: print(f"Failed to use UV{uv_i} from mesh")
-            tiling = (params.TryGetValue('UTiling', 1), params.TryGetValue('VTiling', 1))
-            if tiling[0] != 1 or tiling[1] != 1:
-                mult:bpy.types.ShaderNode = node_tree.nodes.new('ShaderNodeVectorMath')
-                mult.operation = 'MULTIPLY'
-                mult.inputs[1].default_value = (tiling[0], tiling[1], 0)
-                mult.width = 100
-                mult.location = node.location + Vector((160,-32))
-                node_tree.links.new(node.outputs[0], mult.inputs[0])
-                node_data.link_indirect = mult.outputs
+            from uv_semantics import unreal_coordinates
+            node_data.link_indirect = [unreal_coordinates(node_tree, node, params)]
         case 'MaterialExpressionTextureSampleParameter2D' | 'MaterialExpressionTextureSample':
+            from uv_semantics import texture_coordinates
+            node['UE_sampler_source'] = params.TryGetValue('SamplerSource', 'SSM_FromTextureAsset')
+            texture_coordinates(node_tree, node, params)
             if tex_imp := params.TryGetValue('Texture'):
                 from material_stage import package_reference
                 node['UE_texture_package'] = package_reference(tex_imp)
                 if tex := TryGetExtractedImport(tex_imp, exp.asset.extract_dir):
                     SetNodeTexture(node, tex)
-                    if params.TryGetValue('SamplerType') == 'SAMPLERTYPE_Normal': node.interpolation = 'Smart'
                 else: print(f"Missing Texture \"{tex_imp.import_ref.object_name}\"")
         #case 'MaterialExpressionMakeMaterialAttributes': node_tree.links.new(node.outputs[0], node_tree.nodes['Material Output'].inputs['Surface'])
 
@@ -463,6 +455,9 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             dst_socket = node.inputs[dst_index]
             if node_data.input_remap and property in node_data.input_remap: dst_socket = node_data.input_remap[property]
             if src_socket and dst_socket:
+                if node.bl_idname == 'ShaderNodeTexImage' and property == 'Coordinates':
+                    from uv_semantics import sample_coordinates
+                    src_socket = sample_coordinates(node_tree, src_socket)
                 link = node_tree.links.new(src_socket, dst_socket)
                 if mute_fresnel and src_socket.node.bl_idname == 'ShaderNodeFresnel': link.is_muted = True
                 return True
@@ -486,7 +481,8 @@ def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
                             for i, elem in enumerate(expr.value): TryLinkSocket(node_tree, nodes_data, node_data, elem['Input'], i, map_val[i])
 def SetNodeTexture(node, image):
     node.image = image
-    node.extension = 'CLIP' if image.get('clamp', False) else 'REPEAT'
+    from uv_semantics import set_address
+    set_address(node, image)
     node.interpolation = 'Closest' if image.get('nearest', False) else 'Linear'
 
     links = node.outputs['Color'].links

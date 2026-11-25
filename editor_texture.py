@@ -132,6 +132,7 @@ def read_editor_texture(filepath, project=None):
         png=source_png(data,w,h,fmt,mips,compressed)
         return png, {'width':w,'height':h,'format':fmt,'mips':mips,'source_png':compressed,
                      'srgb':props.TryGetValue('SRGB',True),'flip_y':props.TryGetValue('bFlipGreenChannel',False),
+                     'address_x':props.TryGetValue('AddressX','TA_Wrap'),'address_y':props.TryGetValue('AddressY','TA_Wrap'),
                      'clamp':props.TryGetValue('AddressX','TA_Wrap')=='TA_Clamp' and props.TryGetValue('AddressY','TA_Wrap')=='TA_Clamp',
                      'nearest':props.TryGetValue('Filter')=='TF_Nearest'}
     finally: asset.Close()
