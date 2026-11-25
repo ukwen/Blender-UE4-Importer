@@ -100,6 +100,9 @@ def decode_mesh_description(payload):
     normals = required(ia,'Normal',1,1)[0]
     uvs = required(ia,'TextureCoordinate',2) if 'TextureCoordinate' in ia else []
     colors = required(ia,'Color',0,1)[0] if 'Color' in ia else None
+    tangents = required(ia,'Tangent',1,1)[0] if 'Tangent' in ia else None
+    signs = required(ia,'BinormalSign',3,1)[0] if 'BinormalSign' in ia else None
+    hard_edges = required(ea,'IsHard',5,1)[0] if 'IsHard' in ea else None
     slots = required(ga,'ImportedMaterialSlotName',6,1)[0]
     if not vertices or not triangles or not groups: raise ValueError('Empty MeshDescription')
     if any(v[0] not in vertices for v in instances.values()): raise ValueError('Invalid vertex instance reference')
@@ -108,8 +111,10 @@ def decode_mesh_description(payload):
     for *corners,poly in triangles.values():
         if poly not in polygons or any(c not in instances for c in corners): raise ValueError('Invalid triangle reference')
         if len({instances[c][0] for c in corners}) != 3: raise ValueError('Degenerate triangle')
-    for values in [pos,normals,*uvs]+([colors] if colors is not None else []):
+    for values in [pos,normals,*uvs]+[v for v in (colors,tangents,signs) if v is not None]:
         if any(not math.isfinite(x) for item in values for x in item): raise ValueError('Non-finite mesh attribute')
     return dict(vertices={i:pos[i] for i in vertices}, instances={i:v[0] for i,v in instances.items()},
                 triangles=[(polygons[p][1],tuple(c)) for *c,p in triangles.values()], normals=normals,
-                uvs=uvs, colors=colors, slots={i:slots[i] for i in groups}, edges=edges)
+                uvs=uvs, colors=colors, tangents=tangents, signs=signs,
+                slots={i:slots[i] for i in groups}, edges=edges,
+                hard_edges={i:bool(hard_edges[i][0]) for i in edges} if hard_edges is not None else None)

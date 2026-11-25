@@ -116,7 +116,7 @@ def BuildMeshDescription(export, data):
     faces = [tuple(index[data['instances'][c]] for c in corners) for _,corners in triangles]
     mesh = bpy.data.meshes.new(export.object_name)
     try:
-        mesh.from_pydata(verts, [], faces)
+        mesh.from_pydata(verts, [tuple(index[v] for v in edge) for edge in data['edges'].values()], faces)
         if mesh.validate(verbose=False): raise ValueError('Blender rejected source topology')
         mesh.update()
         if len(mesh.polygons) != len(triangles): raise ValueError('Triangle count mismatch')
@@ -139,6 +139,19 @@ def BuildMeshDescription(export, data):
         if data['colors'] is not None:
             color = mesh.color_attributes.new(name='Color', type='FLOAT_COLOR', domain='CORNER')
             color.data.foreach_set('color',[x for c in loop_instances for x in data['colors'][c]])
+        if data.get('tangents') is not None:
+            attr = mesh.attributes.new('UE_source_tangent', 'FLOAT_VECTOR', 'CORNER')
+            attr.data.foreach_set('vector', [v for c in loop_instances for v in (data['tangents'][c][1],data['tangents'][c][0],data['tangents'][c][2])])
+        if data.get('signs') is not None:
+            attr = mesh.attributes.new('UE_source_binormal_sign', 'FLOAT', 'CORNER')
+            attr.data.foreach_set('value', [data['signs'][c][0] for c in loop_instances])
+        if data.get('hard_edges') is not None:
+            hard = {tuple(sorted(index[v] for v in data['edges'][i])):flag for i,flag in data['hard_edges'].items()}
+            if any(tuple(sorted(e.vertices)) not in hard for e in mesh.edges):
+                raise ValueError('MeshDescription edge topology mismatch')
+            attr = mesh.attributes.new('UE_source_hard_edge', 'BOOLEAN', 'EDGE')
+            attr.data.foreach_set('value', [hard[tuple(sorted(e.vertices))] for e in mesh.edges])
+            for edge in mesh.edges: edge.use_edge_sharp = hard[tuple(sorted(edge.vertices))]
         mesh.normals_split_custom_set([(y,x,z) for x,y,z in (data['normals'][c] for c in loop_instances)])
         return mesh
     except Exception:
@@ -228,101 +241,119 @@ def ReadFSkelMeshVertexBase(f:uasset.ByteStream, v_ren):
     pos = f.ReadStructure(FVector)
     if v_ren < 26: packed_normals = f.ReadStructure(FPackedNormal * 3) # IncreaseNormalPrecision
     else: new_nx, new_ny, new_nz = (f.ReadStructure(FVector), f.ReadStructure(FVector), f.ReadStructure(FVector4))
-def ImportStaticMesh(self:Export, import_materials=True, log=True):
+def ImportStaticMesh(self:Export, import_materials=True, log=True, all_lods=False):
+    """Import explicit editor source LODs; generated/cooked LODs are not invented."""
+    existing = {m.as_pointer() for m in bpy.data.meshes}
+    try:
+        return _ImportStaticMesh(self, import_materials, log, all_lods)
+    except Exception:
+        for candidate in list(bpy.data.meshes):
+            if candidate.as_pointer() not in existing and candidate.users == 0:
+                bpy.data.meshes.remove(candidate)
+        raise
+
+
+def _ImportStaticMesh(self, import_materials, log, all_lods):
+    import json
     t0 = time.time()
     asset = self.asset
-    f = self.asset.f
-    
+    f = asset.f
     self.ReadProperties(False, False)
     if f.ReadInt32(): self.guid = f.ReadGuid()
-    
     strip_flags = ReadStripFlags(f, asset.summary)
     cooked = f.ReadBool32()
-    body_setup = asset.DecodePackageIndex(f.ReadInt32())
-    if asset.summary.version_ue4 >= 216: nav_collision = asset.DecodePackageIndex(f.ReadInt32())
-    
-    editor_data_stripped = strip_flags.StripForEditor()
-    if not editor_data_stripped:
-        assert asset.summary.version_ue4 >= 242
-        highres_source_mesh_name, crc = (f.ReadFString(), f.ReadUInt32())
-
-    lighting_guid = f.ReadGuid()
-
-    socket_count = f.ReadInt32()# TArray<UStaticMeshSocket*> Sockets
-    assert socket_count == 0
-
+    asset.DecodePackageIndex(f.ReadInt32()) # BodySetup
+    if asset.summary.version_ue4 >= 216: asset.DecodePackageIndex(f.ReadInt32()) # NavCollision
+    if cooked or strip_flags.StripForEditor():
+        raise NotImplementedError('Cooked or editor-stripped static mesh')
+    if asset.summary.version_ue4 < 242:
+        raise NotImplementedError('Unsupported static mesh editor header')
+    f.ReadFString(); f.ReadUInt32() # high-resolution source name, CRC
+    f.ReadGuid() # lighting GUID
+    socket_count = f.ReadInt32()
+    if not 0 <= socket_count <= 1024: raise ValueError('Invalid socket count')
+    sockets = [asset.DecodePackageIndex(f.ReadInt32()) for _ in range(socket_count)]
+    socket_names = [ref.object_name if ref is not None else None for ref in sockets]
     v_obj = asset.summary.custom_versions.get(v_obj_guid, 0)
     editor = not (asset.summary.package_flags & 0x8)
-
-    mesh = None
-    if not editor_data_stripped:
-        for src_model in self.properties['SourceModels'].value:
-            if v_obj < 28: # FEditorObjectVersion::StaticMeshDeprecatedRawMesh
-                lod_mesh = ReadMeshBulkData(self, asset, f)
-                if lod_mesh:
-                    if mesh is None: mesh = lod_mesh
-                    else: bpy.data.meshes.remove(lod_mesh)
-                guid, is_hash = (f.ReadGuid(), f.ReadBool32())
-            elif f.ReadBool32():
-                lod_mesh = ReadMeshBulkData(self, asset, f)
-                if lod_mesh:
-                    if mesh is None: mesh = lod_mesh
-                    else: bpy.data.meshes.remove(lod_mesh)
-
-                if v_obj >= 29: guid = f.ReadGuid() # FEditorObjectVersion::MeshDescriptionBulkDataGuid
-                v_enterprise_obj = asset.summary.custom_versions.get(v_ent_obj_guid, 0)
-                if v_enterprise_obj >= 8: is_hash = f.ReadBool32() # FEnterpriseObjectVersion::MeshDescriptionBulkDataGuidIsHash
-
-    assert not cooked
-    if mesh is None: raise NotImplementedError("No supported editor source mesh")
-
+    source_models = self.properties.TryGetValue('SourceModels', [])
+    if not 1 <= len(source_models) <= 64: raise ValueError('Invalid source LOD count')
+    meshes = []
+    missing_lods = []
+    for lod_index, src_model in enumerate(source_models):
+        lod_mesh = None
+        if v_obj < 28:
+            lod_mesh = ReadMeshBulkData(self, asset, f)
+            f.ReadGuid(); f.ReadBool32()
+        elif f.ReadBool32():
+            lod_mesh = ReadMeshBulkData(self, asset, f)
+            if v_obj >= 29: f.ReadGuid()
+            if asset.summary.custom_versions.get(v_ent_obj_guid, 0) >= 8: f.ReadBool32()
+        if lod_mesh is None:
+            missing_lods.append(lod_index)
+        else:
+            lod_mesh['UE_lod_index'] = lod_index
+            meshes.append(lod_mesh)
+    if not meshes: raise NotImplementedError('No supported editor source mesh')
+    primary = meshes[0]
+    if not all_lods:
+        for lod_mesh in meshes[1:]: bpy.data.meshes.remove(lod_mesh)
+        meshes = [primary]
     ue4_v = asset.summary.compatible_version
     ue4_14_or_above = ue4_v.major >= 4 and ue4_v.minor >= 14
     if ue4_14_or_above:
-        speedtree_wind = f.ReadBool32()
-        assert not speedtree_wind
-
+        if f.ReadBool32(): raise NotImplementedError('SpeedTree wind serialization')
         if v_obj >= 8:
-            # TArray<FStaticMaterial> StaticMaterials
-            source_slots = []
-            source_packages = []
-            for i in range(f.ReadInt32()):
+            source_slots, source_packages, interfaces, display_names = [], [], [], []
+            slot_count = f.ReadInt32()
+            if not 0 <= slot_count <= 4096: raise ValueError('Invalid static material count')
+            for _ in range(slot_count):
                 mat_interface, mat_slot_name = (asset.DecodePackageIndex(f.ReadInt32()), f.ReadFName(asset.names))
-                if editor: imported_mat_slot_name = f.ReadFName(asset.names)
+                imported_mat_slot_name = f.ReadFName(asset.names) if editor else mat_slot_name
                 if v_obj >= 10:
-                    initialized, override_densities = (f.ReadBool32(), f.ReadBool32())
-                    local_uv_densities = (f.ReadFloat(), f.ReadFloat(), f.ReadFloat(), f.ReadFloat())
-                
-                source_slots.append(imported_mat_slot_name if editor else mat_slot_name)
+                    f.ReadBool32(); f.ReadBool32()
+                    for _ in range(4): f.ReadFloat()
                 from material_stage import package_reference
+                source_slots.append(imported_mat_slot_name)
                 source_packages.append(package_reference(mat_interface))
-                if import_materials:
-                    mat = TryGetUMaterialImport(mat_interface, mesh=mesh) if mat_interface else None
-                    if mat is None:
-                        mat = bpy.data.materials.new(mat_slot_name)
-                        mat['UE_unresolved_material'] = True
-                    mesh.materials.append(mat)
-            import json
-            mesh['UE_material_bindings'] = json.dumps(list(zip(source_slots, source_packages)))
-            if mesh.get('UE_source_format') == 'Legacy FMeshDescription':
-                names = list(mesh['UE_material_slots'])
-                ids = list(mesh['UE_polygon_group_ids'])
+                interfaces.append(mat_interface); display_names.append(mat_slot_name)
+            for mesh in meshes:
+                mesh['UE_material_bindings'] = json.dumps(list(zip(source_slots, source_packages)))
                 mesh['UE_static_material_slots'] = source_slots
-                if import_materials:
-                    mapping = {g: source_slots.index(n) for g,n in zip(ids,names) if source_slots.count(n)==1}
-                    if len(mapping) != len(ids):
-                        raise ValueError('MeshDescription material slot mapping is ambiguous or missing')
-                    for poly,entry in zip(mesh.polygons,mesh.attributes['UE_polygon_group'].data):
-                        poly.material_index = mapping[entry.value]
+                if mesh.get('UE_source_format') == 'Legacy FMeshDescription':
+                    names = list(mesh['UE_material_slots']); ids = list(mesh['UE_polygon_group_ids'])
+                    mapping = {g:source_slots.index(n) for g,n in zip(ids,names) if source_slots.count(n)==1}
+                    if len(mapping)!=len(ids):
+                        mesh['UE_material_binding_error'] = 'MeshDescription material slot mapping is ambiguous or missing'
+                        if import_materials: raise ValueError(mesh['UE_material_binding_error'])
+                    else:
+                        indices = [mapping[entry.value] for entry in mesh.attributes['UE_polygon_group'].data]
+                        attr = mesh.attributes.new('UE_source_material_index', 'INT', 'FACE')
+                        attr.data.foreach_set('value',indices)
+            if import_materials:
+                materials = []
+                for ref,name in zip(interfaces,display_names):
+                    mat = TryGetUMaterialImport(ref, mesh=primary) if ref else None
+                    if mat is None:
+                        mat = bpy.data.materials.new(name); mat['UE_unresolved_material'] = True
+                    materials.append(mat)
+                for mesh in meshes:
+                    for mat in materials: mesh.materials.append(mat)
+                    attr = mesh.attributes.get('UE_source_material_index')
+                    if attr is not None:
+                        for poly,entry in zip(mesh.polygons,attr.data): poly.material_index = entry.value
     elif import_materials:
-        material_props:list[uasset.UProperty] = self.properties.TryGetValue('Materials', [])
-        for mat_prop in material_props:
-            mesh.materials.append(TryGetUMaterialImport(mat_prop.value, mesh=mesh))
+        materials = [TryGetUMaterialImport(p.value,mesh=primary) for p in self.properties.TryGetValue('Materials',[])]
+        for mesh in meshes:
+            for mat in materials: mesh.materials.append(mat)
+    for mesh in meshes:
+        mesh['UE_source_lod_count'] = len(source_models)
+        mesh['UE_missing_source_lods'] = json.dumps(missing_lods)
+        mesh['UE_socket_references'] = json.dumps(socket_names)
+        if all_lods: mesh.name = f"{self.object_name}_LOD{mesh['UE_lod_index']}"
+        if log: print(f"Imported {mesh.name} ({len(mesh.vertices)} Verts, {len(mesh.polygons)} Tris): {(time.time()-t0)*1000:.2f}ms")
+    return meshes if all_lods else primary
 
-    # remaining is SpeedTree
-
-    if log: print(f"Imported {self.object_name} ({len(mesh.vertices)} Verts, {len(mesh.polygons)} Tris, {len(mesh.materials)} Materials): {(time.time() - t0) * 1000:.2f}ms")
-    return mesh
 def ImportSkeletalMesh(self:Export, import_materials=True, o=None):
     asset = self.asset
     f = asset.f
@@ -594,18 +625,30 @@ def ImportSkeletalMesh(self:Export, import_materials=True, o=None):
 
             return mesh
     else: raise # TODO
-def ImportMeshUAsset(filepath:str, uproject=None, import_materials=True, log=False, o=None):
+def ImportMeshUAsset(filepath:str, uproject=None, import_materials=True, log=False, o=None, all_lods=False):
     with UAsset(filepath, False, uproject) as asset:
         for export in asset.exports:
             match export.export_class_type:
-                case 'StaticMesh': return ImportStaticMesh(export, import_materials, log)
-                case 'SkeletalMesh': return ImportSkeletalMesh(export, import_materials, o)
+                case 'StaticMesh': return ImportStaticMesh(export, import_materials, log, all_lods)
+                case 'SkeletalMesh':
+                    if all_lods: raise NotImplementedError('All source LODs currently supported for static meshes only')
+                    return ImportSkeletalMesh(export, import_materials, o)
         if log: print(f"\"{filepath}\" Mesh Export Not Found")
     return None
-def ImportUMeshAsObject(filepath:str, uproject=None, materials=True):
-    mesh = ImportMeshUAsset(filepath, uproject, materials, True)
-    o = bpy.data.objects.new(mesh.name, mesh)
-    bpy.context.collection.objects.link(o)
+def ImportUMeshAsObject(filepath:str, uproject=None, materials=True, all_lods=False):
+    result = ImportMeshUAsset(filepath, uproject, materials, True, all_lods=all_lods)
+    if result is None: raise ValueError('No mesh export found')
+    meshes = result if isinstance(result,list) else [result]
+    objects = []
+    for i,mesh in enumerate(meshes):
+        obj = next((o for o in bpy.data.objects if o.type=='MESH' and o.data==mesh),None)
+        if obj is None:
+            obj = bpy.data.objects.new(mesh.name,mesh)
+            bpy.context.collection.objects.link(obj)
+        if all_lods and i:
+            obj.hide_set(True); obj.hide_render=True
+        objects.append(obj)
+    return objects
 
 def menu_import_umesh(self, context): self.layout.operator(ImportUMesh.bl_idname, text="UE Mesh (.uasset)")
 class ImportUMesh(bpy.types.Operator, ImportHelper):
@@ -619,10 +662,20 @@ class ImportUMesh(bpy.types.Operator, ImportHelper):
 
     materials:   BoolProperty(name="Materials", default=True, description="Import Mesh Materials (this is usually the slowest part).")
 
+    all_lods: BoolProperty(name="All static source LODs", default=False, description="Import explicitly stored editor LOD meshes; lower-detail objects are hidden initially")
+
     def execute(self, context):
-        for file in self.files:
-            if file.name != "": ImportUMeshAsObject(self.directory + file.name, materials=self.materials)
-        return {'FINISHED'}
+        paths = [os.path.join(self.directory,f.name) for f in self.files if f.name] or [self.filepath]
+        successes, failures = 0, []
+        for path in paths:
+            try:
+                ImportUMeshAsObject(path, materials=self.materials, all_lods=self.all_lods)
+                successes += 1
+            except Exception as exc:
+                failures.append(f"{os.path.basename(path)}: {type(exc).__name__}: {exc}")
+        for failure in failures: print(failure)
+        self.report({'WARNING'} if failures else {'INFO'}, f"Imported {successes}/{len(paths)} mesh packages; {len(failures)} failed (see console)")
+        return {'FINISHED'} if successes else {'CANCELLED'}
 
 reg_classes = ( ImportUMesh, )
 
