@@ -420,7 +420,7 @@ def SetNodeTexture(node, image):
     links = node.outputs['Color'].links
     if len(links) > 0:
         linked_node = links[0].to_node
-        if linked_node.node_tree.name.startswith('RGBtoNormal'):
+        if linked_node.type == 'GROUP' and linked_node.node_tree and linked_node.node_tree.name.startswith('RGBtoNormal'):
             linked_node.node_tree = bpy.data.node_groups['RGBtoNormal' if image.get('flip_y', False) else 'RGBtoNormalY-']
 def ImportMaterialFunction(mat_fnc_imp:Import, mesh=None):
     node_graph_name = mat_fnc_imp.object_name

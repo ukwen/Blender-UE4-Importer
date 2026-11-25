@@ -16,6 +16,17 @@ def package_reference(ref):
     return ''
 
 
+def incomplete_graph(tree, seen=None):
+    seen = set() if seen is None else seen
+    if tree.as_pointer() in seen: return False
+    seen.add(tree.as_pointer())
+    if tree.get('Error'): return True
+    for node in tree.nodes:
+        if node.type == 'TEX_IMAGE' and node.image is None: return True
+        if node.type == 'GROUP' and (node.node_tree is None or incomplete_graph(node.node_tree, seen)): return True
+    return False
+
+
 class MaterialResolver:
     def __init__(self, project):
         self.project = project
@@ -62,20 +73,23 @@ class MaterialResolver:
         status = 'unbound' if not package else 'missing_dependencies' if record['missing'] else 'unsupported_dependencies' if record['errors'] else 'graph_failed'
         if package and not record['missing'] and not record['errors']:
             import umat
-            before = {m.as_pointer() for m in bpy.data.materials}
+            # Keep the bundled node library out of the failed-import transaction.
+            umat.TryAppendNodeGroups()
+            stores = (bpy.data.materials, bpy.data.node_groups, bpy.data.images)
+            before = {item.as_pointer() for store in stores for item in store}
             try:
                 mat, _ = umat.ImportNodeGraph(self.project.resolve_package(package), self.project)
                 if not isinstance(mat, bpy.types.Material) or not mat.node_tree:
                     raise ValueError('Not a material graph')
-                if mat.node_tree.get('Error') or any(n.type == 'TEX_IMAGE' and n.image is None for n in mat.node_tree.nodes):
+                if incomplete_graph(mat.node_tree):
                     raise ValueError('Incomplete graph or missing image')
                 status = 'graph_imported_unverified'
             except Exception as exc:
                 record['errors']['graph'] = f'{type(exc).__name__}: {exc}'
                 mat = None
-                for candidate in list(bpy.data.materials):
-                    if candidate.as_pointer() not in before and candidate.users == 0:
-                        bpy.data.materials.remove(candidate)
+                created = [item for store in stores for item in store if item.as_pointer() not in before]
+                if created:
+                    bpy.data.batch_remove(ids=created)
         if mat is None:
             mat = bpy.data.materials.new('UNRESOLVED - ' + (package.rsplit('/', 1)[-1] if package else slot))
             mat.diffuse_color = (0.5, 0.5, 0.5, 1)

@@ -134,6 +134,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
     def draw(self, context):
         state = context.scene.ueimport_project
         layout = self.layout
+        layout.operator('ueimport.native_texture', icon='IMAGE_DATA')
         layout.prop(state, 'project_path')
         layout.operator('ueimport.scan_project', icon='FILE_REFRESH')
         if state.scanned_project:

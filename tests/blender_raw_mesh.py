@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as temp:
     fixture(path)
     with path.open('rb') as file:
         stream = uasset.ByteStream(file)
-        asset = SimpleNamespace(f=stream, summary=SimpleNamespace(version_ue4=522, compression_flags=0, bulk_data_offset=0))
+        asset = SimpleNamespace(f=stream, summary=SimpleNamespace(version_ue4=522, compression_flags=0, bulk_data_offset=0, custom_versions={}))
         exp = SimpleNamespace(object_name='SyntheticTriangle', asset=asset)
         mesh = umesh.ReadMeshBulkData(exp, asset, stream)
         assert len(mesh.vertices)==3 and len(mesh.polygons)==1
