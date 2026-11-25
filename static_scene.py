@@ -11,8 +11,9 @@ import map_layout
 
 class MeshResolver:
     """One native decode per canonical package path, including cached failures."""
-    def __init__(self, project):
+    def __init__(self, project, cooked_profile='4.27'):
         self.project = project
+        self.cooked_profile = cooked_profile
         self.cache = {}
         self.records = {}
         self.decode_attempts = 0
@@ -37,13 +38,9 @@ class MeshResolver:
             else:
                 self.decode_attempts += 1
                 existing = {m.as_pointer() for m in bpy.data.meshes}
-                asset = uasset.UAsset(str(path), False, self.project)
                 try:
-                    asset.Read(False)
-                    exports = [e for e in asset.exports if e.export_class_type == 'StaticMesh']
-                    if len(exports) != 1:
-                        raise NotImplementedError('Expected one StaticMesh export')
-                    mesh = umesh.ImportStaticMesh(exports[0], import_materials=False, log=False)
+                    from project_geometry import load_static
+                    mesh = load_static(path, self.project, self.cooked_profile)
                     if mesh is None or not len(mesh.vertices) or not len(mesh.polygons):
                         raise ValueError('No usable native geometry')
                     mesh['UE_mesh_package'] = package
@@ -55,8 +52,6 @@ class MeshResolver:
                             bpy.data.meshes.remove(candidate)
                     mesh = None
                     raise
-                finally:
-                    asset.Close()
         except FileNotFoundError as exc:
             detail = str(exc)
         except (NotImplementedError, AssertionError) as exc:
@@ -69,9 +64,9 @@ class MeshResolver:
         return mesh, status
 
 
-def reconstruct_static_map(filepath, materials=False, allow_partial_materials=False):
+def reconstruct_static_map(filepath, materials=False, allow_partial_materials=False, cooked_profile='4.27'):
     """Return a new collection plus measured per-actor and per-package results."""
-    resolver = MeshResolver(uasset.UProject(filepath))
+    resolver = MeshResolver(uasset.UProject(filepath), cooked_profile)
     collection, report = map_layout.import_layout(filepath, mesh_resolver=resolver)
     counts = Counter(o['UE_geometry_status'] for o in collection.objects)
     report.update(actor_status=dict(counts), decode_attempts=resolver.decode_attempts,

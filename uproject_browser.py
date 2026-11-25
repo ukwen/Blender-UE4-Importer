@@ -2,7 +2,7 @@
 from pathlib import Path
 import json
 import bpy
-from bpy.props import StringProperty, BoolProperty, IntProperty, CollectionProperty, PointerProperty
+from bpy.props import StringProperty, BoolProperty, IntProperty, CollectionProperty, PointerProperty, EnumProperty
 
 
 def discover_maps(descriptor):
@@ -40,6 +40,8 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     engine: StringProperty(options={'HIDDEN'})
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
+    cooked_profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers')],default='4.27')
+    geometry_folder: StringProperty(name='Content subfolder',description='Relative to Content; empty imports all supported geometry assets')
     materials: BoolProperty(name='Materials', default=True)
     static_materials: BoolProperty(name='Bind materials (experimental)', default=False)
     partial_materials: BoolProperty(name='Keep incomplete surface previews', default=False, description='Keep connected material graphs with resolved surface images; missing functions and unsupported effects remain marked')
@@ -116,12 +118,30 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
             if selected not in {path for _, path in maps}:
                 raise ValueError('Map changed or is missing; scan again')
             from static_scene import reconstruct_static_map
-            collection, report = reconstruct_static_map(selected, materials=state.static_materials, allow_partial_materials=state.partial_materials)
+            collection, report = reconstruct_static_map(selected, materials=state.static_materials, allow_partial_materials=state.partial_materials, cooked_profile=state.cooked_profile)
         except Exception as exc:
             self.report({'ERROR'}, f'Reconstruction failed: {exc}')
             return {'CANCELLED'}
         count = report['actor_status'].get('reconstructed', 0)
         self.report({'INFO'}, f'{count}/{report["static_actors"]} static actors reconstructed; report: {collection["UE_report"]}')
+        return {'FINISHED'}
+
+
+class UEIMPORT_OT_geometry_gallery(bpy.types.Operator):
+    bl_idname = 'ueimport.geometry_gallery'
+    bl_label = 'Import Native Geometry Folder'
+    bl_description = 'Import supported static and skinned meshes as an inspection gallery, not a map'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        state=context.scene.ueimport_project
+        try:
+            from project_geometry import import_geometry_folder
+            collection,report=import_geometry_folder(bpy.path.abspath(state.project_path),state.geometry_folder,state.cooked_profile)
+        except Exception as exc:
+            self.report({'ERROR'},str(exc)); return {'CANCELLED'}
+        count=report['counts'].get('reconstructed',0)
+        self.report({'INFO'},f"Imported {count} geometry assets; report: {collection['UE_report']}")
         return {'FINISHED'}
 
 
@@ -146,6 +166,10 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.prop(state, 'materials')
             layout.operator('ueimport.import_selected_map', icon='IMPORT')
             layout.separator()
+            layout.prop(state, 'cooked_profile')
+            layout.prop(state, 'geometry_folder')
+            layout.operator('ueimport.geometry_gallery', icon='OUTLINER_OB_ARMATURE')
+            layout.separator()
             layout.prop(state, 'static_materials')
             if state.static_materials:
                 layout.prop(state, 'partial_materials')
@@ -154,7 +178,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text='Legacy UE4 reader; UE5 not yet supported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_geometry_gallery, UEIMPORT_PT_project)
 
 
 def register():

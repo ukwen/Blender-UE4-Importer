@@ -156,6 +156,9 @@ def bind_scene_materials(collection, project, allow_partial=False):
             if mapping is not None:
                 for poly, group in zip(mesh.polygons, mesh.attributes['UE_polygon_group'].data):
                     poly.material_index = mapping[group.value]
+            elif mesh.attributes.get('UE_source_material_index') is not None:
+                for poly,entry in zip(mesh.polygons,mesh.attributes['UE_source_material_index'].data):
+                    poly.material_index = entry.value
             bound.add(mesh.as_pointer())
         overrides = json.loads(obj.get('UE_material_override_packages', '[]'))
         for i, package in enumerate(overrides):

@@ -92,7 +92,7 @@ def read_static(path,version):
 
 
 def build_static(data):
-    import bpy
+    import bpy,json
     mesh=bpy.data.meshes.new(data['name']); mats=[]
     try:
         mesh.from_pydata([(y*.01,x*.01,z*.01) for x,y,z in data['positions']],[],data['faces']); mesh.update()
@@ -109,6 +109,8 @@ def build_static(data):
         a=mesh.attributes.new('UE_source_binormal_sign','FLOAT','CORNER'); a.data.foreach_set('value',[data['signs'][l.vertex_index] for l in mesh.loops])
         if data['colors'] is not None:
             a=mesh.color_attributes.new(name='UE_VertexColor',type='BYTE_COLOR',domain='CORNER'); a.data.foreach_set('color_srgb',[x/255 for l in mesh.loops for x in (data['colors'][l.vertex_index][2],data['colors'][l.vertex_index][1],data['colors'][l.vertex_index][0],data['colors'][l.vertex_index][3])])
+        mesh['UE_material_bindings']=json.dumps([(name,package or '') for name,package in data['materials']])
+        a=mesh.attributes.new('UE_source_material_index','INT','FACE'); a.data.foreach_set('value',data['slots'])
         mesh['UE_source_format']='cooked_static_'+data['version']; return mesh
     except Exception:
         bpy.data.meshes.remove(mesh)
