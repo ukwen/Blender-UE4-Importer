@@ -295,6 +295,14 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
         if classname.startswith('MaterialExpression'): node_tree['Error'] = True
         return None
 
+    if classname in ('MaterialExpressionAppendVector', 'MaterialExpressionComponentMask'):
+        from channel_ops import plan, build
+        spec = plan(exp, (id(exp),))
+        if spec is not None:
+            node = build(node_tree, node_data, spec)
+            SetNodePos(node, params)
+            return node_data
+        node_tree['Error'] = True
     mapping = UE2BlenderNode_dict.get(classname)
     if classname == 'MaterialExpressionMaterialFunctionCall':
         matfnc_imp = params.TryGetValue('MaterialFunction')
@@ -460,6 +468,8 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             node, link_node = (node_data.node, link_node_data.node)
             if node is None or link_node is None:
                 raise ValueError(f'Unresolved expression link: {link_node_exp.object_name} -> {property}')
+            if getattr(link_node_data, "channel_spec", (0,))[0] == 4:
+                raise NotImplementedError("Float4 requires explicit typed channel selection")
             outputs = link_node_data.link_indirect if link_node_data.link_indirect else link_node.outputs
 
             src_i = inp.node_output_i if inp is not None else 0
@@ -468,7 +478,6 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             if src_socket.is_unavailable: raise ValueError('Selected output is unavailable')
             if inp is not None: src_socket = masked_socket(node_tree, src_socket, inp, link_node_data.link_indirect)
 
-            if link_node_type == 'MaterialExpressionAppendVector' and node.bl_idname == 'ShaderNodeCombineXYZ': raise Exception("Link Failed, Unreal's append is annoying")
             dst_socket = node.inputs[dst_index]
             if node_data.input_remap and property in node_data.input_remap: dst_socket = node_data.input_remap[property]
             if src_socket and dst_socket:
@@ -486,6 +495,10 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
         node_tree['Error'] = True
         return False
 def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
+    if hasattr(node_data, 'channel_spec'):
+        from channel_ops import connect
+        connect(node_tree, nodes_data, node_data)
+        return
     mapping = getattr(node_data, 'mapping', UE2BlenderNode_dict.get(node_data.classname))
     if mapping and mapping.inputs:
         for property, map_val in mapping.inputs.items():

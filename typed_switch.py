@@ -22,6 +22,10 @@ def expression_width(exp, output=0, stack=()):
         return 1 if output == 0 else None
     if kind in ('MaterialExpressionConstant2Vector', 'MaterialExpressionTextureCoordinate'):
         return 2 if output == 0 else None
+    if kind in ('MaterialExpressionAppendVector','MaterialExpressionComponentMask') and output == 0:
+        from channel_ops import plan
+        spec=plan(exp,stack)
+        return spec[0] if spec else None
     if kind == 'MaterialExpressionConstant3Vector': return 3 if output == 0 else None
     if kind in ('MaterialExpressionVectorParameter', 'MaterialExpressionTextureSample', 'MaterialExpressionTextureSampleParameter2D', 'MaterialExpressionVertexColor'):
         return 3 if output == 0 else 1 if 1 <= output <= 4 else None
@@ -42,7 +46,7 @@ def branch_width(props, stack=()):
 
 def layout(props, parameter):
     width = branch_width(props)
-    if width is None: return None
+    if width is None or width > 3: return None
     if not parameter:
         selector = props.TryGetValue('Value')
         # A static bool is a compile-time selector; arbitrary float selectors
