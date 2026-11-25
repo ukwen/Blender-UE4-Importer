@@ -341,6 +341,32 @@ class UProperty:
                         self.guid = asset.TryReadPropertyGuid()
                     else: raise
 
+                    if self.array_el_full_type in ("ScalarParameterValue", "VectorParameterValue", "TextureParameterValue", "ParameterGroupData"):
+                        # Tagged records have variable lengths (omitted/default fields).
+                        # The array's total byte count, not its mean record size, is authoritative.
+                        start = f.Position()
+                        end = start + self.array_size
+                        self.value = []
+                        if not 0 <= element_count <= 100000 or not 0 <= self.array_size <= self.len:
+                            raise ValueError("Invalid tagged material array size")
+                        try:
+                            for _ in range(element_count):
+                                prop = UProperty()
+                                prop.name, prop.type, prop.struct_type = "", "StructProperty", self.array_el_full_type
+                                pos = f.Position()
+                                prop.value = Properties().Read(asset, read_children=read_children)
+                                prop.len = f.Position() - pos
+                                if not 0 < prop.len <= end - pos:
+                                    raise ValueError("Tagged material record outside array")
+                                self.value.append(prop)
+                            if f.Position() != end:
+                                raise ValueError("Tagged material array length mismatch")
+                        except Exception as exc:
+                            self.value = []
+                            self.parse_error = str(exc)
+                        finally:
+                            f.Seek(end)
+                        return True
                     assert element_count > 0
                     self.value = []
                     next = f.Position() + self.array_size

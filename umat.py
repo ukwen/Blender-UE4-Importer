@@ -79,7 +79,8 @@ class NodeData():
         self.link_indirect = link_indirect
         self.input_remap = input_remap
 class GraphData(): # TODO: redundant, only returned node_guids used
-    def __init__(self):
+    def __init__(self, stack=()):
+        self.stack = stack
         self.nodes_data:dict[str,NodeData] = {}
         self.node_guids = {}
         self.param_nodes = {}
@@ -278,24 +279,43 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
 
     if classname in class_blacklist: return None # TODO: iterate material expression array instead?
 
+    mapping = UE2BlenderNode_dict.get(classname)
     if classname == 'MaterialExpressionMaterialFunctionCall':
         matfnc_imp = params.TryGetValue('MaterialFunction')
+        if matfnc_imp is None:
+            raise ValueError('Missing material function reference')
         classname = matfnc_imp.object_name
         mapping = UE2BlenderNode_dict.get(classname)
         if not mapping or (mapping.bl_idname == 'ShaderNodeGroup' and mapping.subtype not in bpy.data.node_groups):
-            matfnc_subtype = ImportMaterialFunction(matfnc_imp)
-            node_group = bpy.data.node_groups[matfnc_subtype]
-            input_count = len(node_group.inputs)
-            if input_count > 0:
-                inputs = []
-                for i in range(input_count): inputs.append(i)
-                inputs = { 'FunctionInputs':tuple(inputs) }
-            else: inputs = None
-            UE2BlenderNode_dict[classname] = UE2BlenderNodeMapping('ShaderNodeGroup', matfnc_subtype, hide=False, inputs=inputs)
-            if node_group.get('Error', False): UE2BlenderNode_dict[classname].color = Color((1,0,0))
+            # Each imported call owns its group, so instance edits cannot mutate siblings.
+            node_group, fn_graph = ImportMaterialFunction(matfnc_imp, mesh, graph_data.stack)
+            inputs = tuple(i for i in node_group.interface.items_tree if i.item_type == 'SOCKET' and i.in_out == 'INPUT')
+            outputs = tuple(i for i in node_group.interface.items_tree if i.item_type == 'SOCKET' and i.in_out == 'OUTPUT')
+            import json
+            input_ids = json.loads(node_group.get('UE_input_ids', '{}'))
+            output_ids = json.loads(node_group.get('UE_output_ids', '{}'))
+            call_inputs = params.TryGetValue('FunctionInputs', ())
+            call_outputs = params.TryGetValue('FunctionOutputs', ())
+            def indices(calls, ids, sockets, key):
+                if len(calls) != len(sockets):
+                    raise ValueError('Material function interface size mismatch')
+                result = []
+                for item in calls:
+                    prop = item.TryGetValue(key)
+                    ident = ids.get(str(prop))
+                    matches = [i for i,s in enumerate(sockets) if s.identifier == ident]
+                    if len(matches) != 1: raise ValueError('Unmatched material function socket ID')
+                    result.append(matches[0])
+                if len(set(result)) != len(result): raise ValueError('Duplicate function socket ID')
+                return result
+            in_order = indices(call_inputs, input_ids, inputs, 'ExpressionInputId')
+            node_data.function_output_order = indices(call_outputs, output_ids, outputs, 'ExpressionOutputId')
+            mapping = UE2BlenderNodeMapping('ShaderNodeGroup', node_group.name, hide=False, inputs={'FunctionInputs':tuple(in_order)} if in_order else None)
+            for key, entries in fn_graph.param_nodes.items():
+                graph_data.param_nodes.setdefault(key, []).extend(entries)
     node_data.classname = classname
+    node_data.mapping = mapping
 
-    mapping = UE2BlenderNode_dict.get(classname)
     if not mapping:
         print(f"UNKNOWN UMAT CLASS: {classname}")
         mapping = default_mapping
@@ -306,6 +326,8 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
         node_data.node = node = node_tree.nodes['Principled BSDF']
         SetNodePos(node, node_data.export.properties)
 
+    if hasattr(node_data, 'function_output_order'):
+        node_data.link_indirect = [node.outputs[i] for i in node_data.function_output_order]
     if (sx := params.TryGetValue('SizeX')) != None: node.width = sx
     elif mapping.width: node.width = mapping.width
     if (sy := params.TryGetValue('SizeY')) != None: node.height = sy
@@ -409,7 +431,7 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
         node_tree['Error'] = True
         return False
 def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
-    mapping = UE2BlenderNode_dict.get(node_data.classname)
+    mapping = getattr(node_data, 'mapping', UE2BlenderNode_dict.get(node_data.classname))
     if mapping and mapping.inputs:
         for property, map_val in mapping.inputs.items():
             expr = node_data.export.properties.get(property)
@@ -422,19 +444,31 @@ def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
                             for i, elem in enumerate(expr.value): TryLinkSocket(node_tree, nodes_data, node_data, elem['Input'], i, map_val[i])
 def SetNodeTexture(node, image):
     node.image = image
-    if image.get('clamp', False): node.extension = 'CLIP'
-    if image.get('nearest', False): node.interpolation = 'Closest'
+    node.extension = 'CLIP' if image.get('clamp', False) else 'REPEAT'
+    node.interpolation = 'Closest' if image.get('nearest', False) else 'Linear'
 
     links = node.outputs['Color'].links
     if len(links) > 0:
         linked_node = links[0].to_node
         if linked_node.type == 'GROUP' and linked_node.node_tree and linked_node.node_tree.name.startswith('RGBtoNormal'):
             linked_node.node_tree = bpy.data.node_groups['RGBtoNormal' if image.get('flip_y', False) else 'RGBtoNormalY-']
-def ImportMaterialFunction(mat_fnc_imp:Import, mesh=None):
-    node_graph_name = mat_fnc_imp.object_name
-    if node_graph_name not in bpy.data.node_groups: ImportNodeGraph(mat_fnc_imp.asset.ToProjectPath(mat_fnc_imp.import_ref.object_name), mat_fnc_imp.asset.uproject, mesh=mesh)
-    return node_graph_name
-def ImportNodeGraph(filepath, uproject=None, name=None, mesh=None, log=False): # TODO: return asset?
+def ImportMaterialFunction(mat_fnc_imp:Import, mesh=None, stack=()):
+    from material_stage import package_reference
+    package = package_reference(mat_fnc_imp)
+    if not package:
+        raise ValueError('Missing material function package')
+    group, graph = ImportNodeGraph(mat_fnc_imp.asset.ToProjectPath(package), mat_fnc_imp.asset.uproject, mesh=mesh, _stack=stack)
+    if not isinstance(group, bpy.types.ShaderNodeTree):
+        raise ValueError('Referenced package is not a material function')
+    return group, graph
+def ImportNodeGraph(filepath, uproject=None, name=None, mesh=None, log=False, _stack=()):
+    key = str(pathlib.Path(filepath).resolve())
+    if key in _stack or len(_stack) >= 32:
+        raise ValueError(f'Material dependency cycle or depth limit: {key}')
+    return _ImportNodeGraph(filepath, uproject, name, mesh, log, _stack + (key,))
+
+
+def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
     t0 = time.time()
     '''if not os.path.exists(filepath):
         print(f"Error: \"{filepath}\" Does Not Exist!")
@@ -447,7 +481,7 @@ def ImportNodeGraph(filepath, uproject=None, name=None, mesh=None, log=False): #
             params = exp.properties
             match classname:
                 case 'Material': # TODO: can this not be first?
-                    graph_data = GraphData() # TODO: replace with attributes on export?
+                    graph_data = GraphData(stack) # TODO: replace with attributes on export?
                     nodes_data = graph_data.nodes_data
 
                     if not name: name = exp.object_name
@@ -484,42 +518,38 @@ def ImportNodeGraph(filepath, uproject=None, name=None, mesh=None, log=False): #
                     ior = node.inputs['IOR']
                     if ior.is_linked: ior.links[0].is_muted = mute_ior
                 case 'MaterialInstanceConstant':
+                    from material_instance import apply_overrides
+                    from material_stage import package_reference
                     mat_parent = params.TryGetValue('Parent')
-                    mat_path = asset.ToProjectPath(mat_parent.import_ref.object_name)
-                    if not name: name = exp.object_name # TODO: unify
-                    mat, graph_data = ImportNodeGraph(mat_path, uproject, name, mesh) # TODO: handle not found
+                    parent_package = package_reference(mat_parent)
+                    if not parent_package:
+                        raise ValueError('Missing external material parent reference')
+                    mat_path = asset.ToProjectPath(parent_package)
+                    if not name: name = exp.object_name
+                    mat, graph_data = ImportNodeGraph(mat_path, asset.uproject, name, mesh, _stack=stack)
+                    if not isinstance(mat, bpy.types.Material):
+                        raise ValueError('Material instance parent is not a material')
                     out = mat
+                    apply_overrides(mat, graph_data, params, TryGetExtractedImport, SetNodeTexture)
+                    import json
+                    chain = json.loads(mat.get('UE_instance_chain', '[]'))
+                    chain.append(str(pathlib.Path(filepath).resolve()))
+                    mat['UE_instance_chain'] = json.dumps(chain)
+                    mat['UAsset'] = str(pathlib.Path(filepath).resolve())
 
-                    for param in params.TryGetValue('ScalarParameterValues', ()):
-                        for node_data in graph_data.param_nodes.get(param.value.TryGetValue('ParameterName'), []):
-                            node_data.node.outputs[0].default_value = param.value.TryGetValue('ParameterValue')
-                    for param in params.TryGetValue('VectorParameterValues', ()):
-                        for node_data in graph_data.param_nodes.get(param.value.TryGetValue('ParameterName'), []):
-                            node, value = (node_data.node, param.value.TryGetValue('ParameterValue'))
-                            node.inputs['RGB'].default_value = value.ToTuple()
-                            node.inputs['A'].default_value = value.a
-                    for param in params.TryGetValue('TextureParameterValues', ()):
-                        if tex_imp := param.value.TryGetValue('ParameterValue'):
-                            if tex := TryGetExtractedImport(tex_imp, tex_imp.asset.extract_dir): # TODO: reuse?
-                                for tex_node_data in graph_data.param_nodes.get(param.value.TryGetValue('ParameterName'), []):
-                                    tex_node = tex_node_data.node
-                                    if tex_node.bl_idname == 'ShaderNodeTexImage': SetNodeTexture(tex_node, tex)
-                                    else:
-                                        for tex_node in tex_node_data.linked_tex_nodes: SetNodeTexture(tex_node, tex)
-                            else: print(f"Missing Texture \"{tex_imp.import_ref.object_name}\"")
-                    
                     if overrides := params.TryGetValue('BasePropertyOverrides'):
                         if overrides.TryGetValue('bOverride_BlendMode'): SetBlend(overrides, mat, graph_data.nodes_data['Principled BSDF'])
                         if overrides.TryGetValue('bOverride_TwoSided'): SetTwoSided(overrides, mat)
                 case 'MaterialFunction': # TODO: very similar to Material, merge?
                     out = node_tree = bpy.data.node_groups.new(exp.object_name, 'ShaderNodeTree')
-                    graph_data = GraphData() # TODO: replace with attributes on export?
+                    graph_data = GraphData(stack) # TODO: replace with attributes on export?
                     nodes_data = graph_data.nodes_data
 
                     in_node = node_tree.nodes.new('NodeGroupInput')
                     out_node = node_tree.nodes.new('NodeGroupOutput')
                     input_positions = []
                     output_positions = []
+                    input_ids, output_ids = {}, {}
                     
                     for exr_exp in params.TryGetValue('FunctionExpressions', ()):
                         if node_data := CreateNode(exr_exp.value, node_tree, nodes_data, graph_data, None):
@@ -528,11 +558,18 @@ def ImportNodeGraph(filepath, uproject=None, name=None, mesh=None, log=False): #
                                 case 'MaterialExpressionFunctionInput':
                                     input_positions.append(node_data.node.location)
                                     socket = node_tree.interface.new_socket(name=props.TryGetValue('InputName', 'In'), in_out='INPUT', socket_type=ue_to_bl_type.get(props.TryGetValue('InputType', 'FunctionInput_Vector3'), 'NodeSocketVector'))
+                                    guid = props.TryGetValue('Id')
+                                    if guid is not None: input_ids[str(guid)] = socket.identifier
                                     node_tree.links.new(next(s for s in in_node.outputs if s.identifier == socket.identifier), node_data.node.inputs[0])
                                 case 'MaterialExpressionFunctionOutput':
                                     output_positions.append(node_data.node.location)
                                     socket = node_tree.interface.new_socket(name=props.TryGetValue('OutputName', 'Result'), in_out='OUTPUT', socket_type='NodeSocketVector')
+                                    guid = props.TryGetValue('Id')
+                                    if guid is not None: output_ids[str(guid)] = socket.identifier
                                     node_tree.links.new(node_data.node.outputs[0], next(s for s in out_node.inputs if s.identifier == socket.identifier))
+                    import json
+                    node_tree['UE_input_ids'] = json.dumps(input_ids)
+                    node_tree['UE_output_ids'] = json.dumps(output_ids)
                     if len(input_positions) > 0:
                         in_pos = Vector((0,0))
                         for pos in input_positions: in_pos += pos
@@ -544,7 +581,7 @@ def ImportNodeGraph(filepath, uproject=None, name=None, mesh=None, log=False): #
                     for name in nodes_data:
                         LinkSockets(node_tree, nodes_data, nodes_data[name]) # TODO: this iterates nodes without links!
     
-    if log: print(f"Imported {mat.name}: {(time.time() - t0) * 1000:.2f}ms")
+    if log and out is not None: print(f"Imported {out.name}: {(time.time() - t0) * 1000:.2f}ms")
     return (out, graph_data)
 def TryGetUMaterialImport(mat_imp:Import, mesh=None):
     mat = bpy.data.materials.get(mat_imp.object_name)
