@@ -1,4 +1,4 @@
-"""Bounded UE4 layer stacks and detached instance snapshots; no inferred remapping."""
+"""Bounded UE4 layer stacks and detached snapshots with conservative scalar replay."""
 import json
 from material_attributes import FIELDS, by_id, bundle_source, fail
 
@@ -131,9 +131,51 @@ def explicit_override(props, graph):
         raise ValueError('Invalid layer GUIDs')
     if len(links)!=len(guids) or any(str(v).split('::')[-1] not in ('NotFromParent','UnlinkedFromParent') for v in links):
         raise ValueError('Parent-linked layer reconciliation unsupported')
-    if getattr(graph,'layer_topology_unresolved',False) or getattr(graph,'scoped_history',False):
-        raise ValueError('Cannot remap inherited scoped parameters safely')
+    remap_scalars(graph,snapshot,guids)
     return snapshot,guids
+
+
+def reference_key(ref):
+    from material_stage import package_reference
+    # String references occur only in controlled fixtures; native references
+    # must resolve to the original canonical package, never a basename.
+    return ref if isinstance(ref,str) else package_reference(ref)
+
+
+def remap_scalars(graph,snapshot,guids):
+    """Replay only known successful scalar overrides on unchanged functions.
+
+    A blend is identified by its upper layer GUID and its function package.
+    No claim of general Unreal parent-linked reconciliation is made.
+    """
+    if getattr(graph,'layer_topology_unresolved',False) or getattr(graph,'scoped_remap_blocked',False):
+        raise ValueError('Cannot remap inherited scoped parameters safely')
+    ledger=getattr(graph,'scoped_scalar_records',{})
+    if not getattr(graph,'scoped_history',False): return {}
+    old_ids=getattr(graph,'layer_guids',None)
+    if not old_ids or not ledger:
+        raise ValueError('Missing stable identity or inherited scalar records')
+    old_layers,old_blends,old_states=graph.layer_context[3]
+    layers,blends,states=snapshot
+    result={}
+    for (scope,index,name),record in ledger.items():
+        old_slot=index if scope=='LayerParameter' else index+1
+        if not 0<=old_slot<len(old_ids) or old_ids[old_slot] not in guids:
+            raise ValueError('Overridden layer was removed')
+        slot=guids.index(old_ids[old_slot])
+        if not old_states[old_slot] or not states[slot]:
+            raise ValueError('Overridden layer disabled')
+        if scope=='LayerParameter':
+            old_ref,new_ref=old_layers[old_slot],layers[slot]
+            dst=slot
+        else:
+            if slot==0: raise ValueError('Overridden blend moved to background')
+            old_ref,new_ref=old_blends[index],blends[slot-1]
+            dst=slot-1
+        if not reference_key(old_ref) or reference_key(old_ref)!=reference_key(new_ref):
+            raise ValueError('Overridden function package changed')
+        result[scope,dst,name]=record
+    return result
 
 
 def replace_snapshot(mat,graph,snapshot,guids):
@@ -141,6 +183,7 @@ def replace_snapshot(mat,graph,snapshot,guids):
     import bpy
     from types import SimpleNamespace
     from material_stage import incomplete_graph
+    replay=remap_scalars(graph,snapshot,guids)
     data,load,mesh,_=graph.layer_context
     tree=mat.node_tree; old=data.node
     staging=SimpleNamespace(stack=graph.stack,scoped_param_nodes={})
@@ -154,6 +197,10 @@ def replace_snapshot(mat,graph,snapshot,guids):
         group=new.node_tree
         if new.get('UE_attribute_error') or incomplete_graph(group):
             raise ValueError('Replacement layer stack incomplete')
+        for key,(value,count) in replay.items():
+            targets=[t for t in staging.scoped_param_nodes.get(key,[]) if t.classname=='MaterialExpressionScalarParameter']
+            if len(targets)!=count: raise ValueError('Inherited scalar target count changed')
+            for t in targets: t.node.outputs[0].default_value=value
         # Preserve the original external links explicitly rather than rely on interface IDs.
         if trial.layer_needs_input and not incoming:
             raise ValueError('Replacement requires missing base attribute input')
@@ -166,6 +213,8 @@ def replace_snapshot(mat,graph,snapshot,guids):
         data.node=new; data.layer_needs_input=trial.layer_needs_input
         graph.scoped_param_nodes=staging.scoped_param_nodes
         graph.layer_context=(data,load,mesh,snapshot)
+        graph.layer_guids=list(guids)
+        graph.scoped_scalar_records=replay
     except Exception:
         if getattr(trial,'node',None) is not None:
             tree.nodes.remove(trial.node)

@@ -105,7 +105,9 @@ def apply_overrides(mat, graph, props, load_texture, set_texture):
     records, issues = read_overrides(props, scoped=bool(scoped_targets) or hasattr(graph,'layer_context'), layers_handled=handled)
     issues.extend(topology_issues)
     # Any scoped record, including unresolved records, prevents unsafe later remapping.
-    if (hasattr(graph,'layer_context') and issues) or any(len(record)==5 and record[3]!='GlobalParameter' for record in records):
+    has_layers=hasattr(graph,'layer_context')
+    if has_layers and issues: graph.scoped_remap_blocked=True
+    if (has_layers and issues) or any(len(record)==5 and record[3]!='GlobalParameter' for record in records):
         graph.scoped_history=True
     applied = []
     for record in records:
@@ -151,11 +153,18 @@ def apply_overrides(mat, graph, props, load_texture, set_texture):
                     t.node.inputs['RGB'].default_value = value
                     t.node.inputs['A'].default_value = value[3]
         result={'kind':kind, 'name':name, 'targets':len(targets)}
-        if scope!='GlobalParameter': result.update(scope=scope,index=index)
+        if scope!='GlobalParameter':
+            result.update(scope=scope,index=index)
+            if kind=='scalar' and getattr(graph,'layer_guids',None):
+                ledger=getattr(graph,'scoped_scalar_records',{})
+                ledger[scope,index,name.casefold()]=(value,len(targets))
+                graph.scoped_scalar_records=ledger
+            else: graph.scoped_remap_blocked=True
         applied.append(result)
     history = json.loads(mat.get('UE_instance_overrides', '[]'))
     history.append({'applied':applied, 'issues':issues})
     mat['UE_instance_overrides'] = json.dumps(history)
     if issues:
+        if has_layers: graph.scoped_remap_blocked=True
         mat.node_tree['Error'] = True
     return applied, issues

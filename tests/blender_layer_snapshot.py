@@ -130,8 +130,28 @@ with tempfile.TemporaryDirectory() as tmp:
     assert not mi.apply_overrides(mat,g,props(ScalarParameterValues=[record('LayerParameter',1,.6)]),None,None)[1]
     render(.3)
     current=tree.nodes['Stack'].node_tree
-    # Refuse later topology changes when ancestor has scoped values.
-    assert mi.apply_overrides(mat,g,snapshot(['layer','layer','replacement'],[None,'blend'],[True,False,True]),None,None)[1]
+    # Stable GUID moves the overridden layer from index 1 to 2, not to the
+    # unrelated layer now occupying index 1.
+    assert not mi.apply_overrides(mat,g,snapshot(['layer','layer','replacement'],[None,'blend'],[True,False,True]),None,None)[1]
+    assert tree.nodes['Stack'].node_tree!=current
+    assert abs(g.scoped_param_nodes['LayerParameter',2,'shared'][0].node.outputs[0].default_value-.6)<1e-6
+    render(.3)
+    assert not mi.apply_overrides(mat,g,props(ScalarParameterValues=[record('LayerParameter',2,.4),record('BlendParameter',1,.5)]),None,None)[1]
+    render(.3)
+    # Move both overrides back to their original indices.
+    assert not mi.apply_overrides(mat,g,snapshot(['layer','replacement','layer'],['blend',None],[True,True,False],[ids[0],ids[2],ids[1]]),None,None)[1]
+    assert abs(g.scoped_param_nodes['LayerParameter',1,'shared'][0].node.outputs[0].default_value-.4)<1e-6
+    assert abs(g.scoped_param_nodes['BlendParameter',0,'shared'][0].node.outputs[0].default_value-.5)<1e-6
+    render(.3)
+    current=tree.nodes['Stack'].node_tree
+    # A missing function must fail atomically even when a valid replay is planned.
+    before={x.as_pointer() for x in bpy.data.node_groups}
+    try: ml.replace_snapshot(mat,g,(['missing','replacement','layer'],['blend',None],[True,True,False]),[ids[0],ids[2],ids[1]])
+    except ValueError: pass
+    else: raise AssertionError('Missing layer accepted')
+    assert {x.as_pointer() for x in bpy.data.node_groups}==before
+    # Same GUID with a different function is NOT safe to remap.
+    assert mi.apply_overrides(mat,g,snapshot(['layer','layer','layer'],['blend',None],[True,True,False],[ids[0],ids[2],ids[1]]),None,None)[1]
     assert tree.nodes['Stack'].node_tree==current
     render(.3)
     before={x.as_pointer() for x in bpy.data.node_groups}
