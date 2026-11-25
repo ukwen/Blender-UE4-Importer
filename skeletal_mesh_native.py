@@ -153,6 +153,12 @@ def assemble(r,name,bones,materials,sections,idx,positions,normals,tangents,sign
     return dict(version=version,name=name,bones=bones,materials=materials,positions=positions,normals=normals,tangents=tangents,signs=signs,uvs=uvs,faces=faces,slots=slots,weights=skin,vertex_map=vertex_map,buffer_end=r.pos,tail_bytes=len(r.data)-r.pos)
 
 
+def read_native_mesh(path, version):
+    if Path(path).with_suffix('.uexp').is_file(): return read_mesh(path, version)
+    from editor_skeletal import read_editor_mesh
+    return read_editor_mesh(path)
+
+
 def build_mesh(data, collection=None):
     """Build an editable armature and skinned mesh from the validated render buffers."""
     import bpy
@@ -180,12 +186,20 @@ def build_mesh(data, collection=None):
         attr=mesh.attributes.new('UE_source_vertex_index','INT','POINT'); attr.data.foreach_set('value',list(range(len(data['positions']))))
         if data['vertex_map'] is not None:
             attr=mesh.attributes.new('UE_import_vertex_index','INT','POINT'); attr.data.foreach_set('value',data['vertex_map'])
+        if 'source_faces' in data:
+            attr=mesh.attributes.new('UE_source_triangle_index','INT','FACE'); attr.data.foreach_set('value',data['source_faces'])
+            mesh['UE_duplicate_source_triangles']=len(data['duplicate_faces'])
+            if data['duplicate_faces']: mesh['UE_removed_source_triangle_indices']=data['duplicate_faces']
+            mesh['UE_source_lod_count']=data['lod_count']
+        if 'colors' in data:
+            attr=mesh.color_attributes.new(name='UE_source_color',type='BYTE_COLOR',domain='POINT')
+            attr.data.foreach_set('color_srgb',[v/255. for rgba in data['colors'] for v in rgba])
         obj=bpy.data.objects.new(data['name'],mesh); collection.objects.link(obj)
         groups=[obj.vertex_groups.new(name=b['name']) for b in data['bones']]
         for i,weights in enumerate(data['weights']):
             for j,w in weights.items(): groups[j].add([i],w/255.,'REPLACE')
         obj.parent=arm; mod=obj.modifiers.new('UE native skin','ARMATURE'); mod.object=arm; mod.use_deform_preserve_volume=False
-        obj['UE_skeletal_mesh_status']='native_cooked_'+data['version']+'_lod0'; obj['UE_unparsed_tail_bytes']=data['tail_bytes']
+        obj['UE_skeletal_mesh_status']='native_'+('cooked_' if not data['version'].startswith('editor_') else '')+data['version']+'_lod0'; obj['UE_unparsed_tail_bytes']=data['tail_bytes']
         arm['UE_skeleton_status']='native_skin_bound'; return obj,arm
     except Exception:
         if obj: bpy.data.objects.remove(obj,do_unlink=True)

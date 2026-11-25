@@ -115,9 +115,8 @@ def build_components(asset,collection,resolver):
                         try:
                             path=Path(resolver.project.resolve_package(package))
                             if not path.is_file(): raise FileNotFoundError(str(path))
-                            if not path.with_suffix('.uexp').is_file(): raise NotImplementedError('Editor skeletal mesh unsupported')
-                            from skeletal_mesh_native import read_mesh
-                            skeletal_attempts+=1; skeletal_cache[package]=(read_mesh(path,resolver.cooked_profile),'reconstructed','')
+                            from skeletal_mesh_native import read_native_mesh
+                            skeletal_attempts+=1; skeletal_cache[package]=(read_native_mesh(path,resolver.cooked_profile),'reconstructed','')
                         except Exception as exc:
                             skeletal_cache[package]=(None,'missing' if isinstance(exc,FileNotFoundError) else 'unsupported' if isinstance(exc,NotImplementedError) else 'failed',str(exc))
                     data,status,detail=skeletal_cache[package]

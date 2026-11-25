@@ -29,9 +29,9 @@ class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
     profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Legacy interleaved buffers'),('4.27','UE4.27','Inline separate render buffers')],default='4.18')
     def execute(self,context):
-        from skeletal_mesh_native import read_mesh, build_mesh
+        from skeletal_mesh_native import read_native_mesh, build_mesh
         try:
-            data=read_mesh(self.filepath,self.profile); obj,arm=build_mesh(data)
+            data=read_native_mesh(self.filepath,self.profile); obj,arm=build_mesh(data)
             obj['UE_source_package']=self.filepath
             self.report({'INFO'},f"Imported {len(data['positions'])} skinned vertices, {len(data['bones'])} bones (material placeholders)")
             return {'FINISHED'}

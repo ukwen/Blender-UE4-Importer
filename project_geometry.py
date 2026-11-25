@@ -69,7 +69,7 @@ def root_class(path,project):
 def import_geometry_folder(descriptor,subfolder='',profile='4.27'):
     """Import supported geometry assets as a gallery, not as a level layout."""
     import bpy,uasset
-    from skeletal_mesh_native import read_mesh,build_mesh
+    from skeletal_mesh_native import read_native_mesh,build_mesh
     from uproject_browser import discover_maps
     if profile not in ('4.18','4.27'): raise ValueError('Select an explicit cooked profile')
     descriptor,_,_=discover_maps(descriptor)
@@ -94,8 +94,7 @@ def import_geometry_folder(descriptor,subfolder='',profile='4.27'):
                 mesh=load_static(path,project,profile)
                 obj=bpy.data.objects.new(mesh.name,mesh); collection.objects.link(obj); root=obj
             else:
-                if not path.with_suffix('.uexp').is_file(): raise NotImplementedError('Editor skeletal meshes unsupported')
-                obj,root=build_mesh(read_mesh(path,profile),collection); mesh=obj.data
+                obj,root=build_mesh(read_native_mesh(path,profile),collection); mesh=obj.data
             if not len(mesh.vertices) or not len(mesh.polygons): raise ValueError('Empty native geometry')
             # A gallery offset is explicit, leaving source mesh coordinates and skin unchanged.
             lo=min(v.co.x for v in mesh.vertices); hi=max(v.co.x for v in mesh.vertices)
