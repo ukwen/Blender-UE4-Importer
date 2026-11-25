@@ -64,7 +64,7 @@ class MeshResolver:
         return mesh, status
 
 
-def reconstruct_static_map(filepath, materials=False, allow_partial_materials=False, cooked_profile='4.27'):
+def reconstruct_static_map(filepath, materials=False, allow_partial_materials=False, cooked_profile='4.27', components=False):
     """Return a new collection plus measured per-actor and per-package results."""
     resolver = MeshResolver(uasset.UProject(filepath), cooked_profile)
     collection, report = map_layout.import_layout(filepath, mesh_resolver=resolver)
@@ -76,9 +76,12 @@ def reconstruct_static_map(filepath, materials=False, allow_partial_materials=Fa
     if materials:
         from material_stage import bind_scene_materials
         report['material_report'] = bind_scene_materials(collection, resolver.project, allow_partial=allow_partial_materials)
+    if components:
+        from component_scene import extend_components
+        report['component_report'] = extend_components(filepath,collection,resolver)
     collection['UE_geometry_only'] = not materials
     collection['UE_reconstructed_actors'] = counts['reconstructed']
-    collection['UE_unresolved_actors'] = len(collection.objects) - counts['reconstructed']
+    collection['UE_unresolved_actors'] = sum(counts.values()) - counts['reconstructed']
     text = bpy.data.texts.new(collection.name + ' - import report.json')
     text.write(json.dumps(report, indent=2, sort_keys=True))
     collection['UE_report'] = text.name

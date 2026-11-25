@@ -43,6 +43,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     cooked_profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers')],default='4.27')
     geometry_folder: StringProperty(name='Content subfolder',description='Relative to Content; empty imports all supported geometry assets')
     materials: BoolProperty(name='Materials', default=True)
+    components: BoolProperty(name='Include Blueprint and skeletal components', default=False, description='Reconstruct map-owned component hierarchies; unresolved defaults and sockets stay diagnostic')
     static_materials: BoolProperty(name='Bind materials (experimental)', default=False)
     partial_materials: BoolProperty(name='Keep incomplete surface previews', default=False, description='Keep connected material graphs with resolved surface images; missing functions and unsupported effects remain marked')
 
@@ -118,7 +119,7 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
             if selected not in {path for _, path in maps}:
                 raise ValueError('Map changed or is missing; scan again')
             from static_scene import reconstruct_static_map
-            collection, report = reconstruct_static_map(selected, materials=state.static_materials, allow_partial_materials=state.partial_materials, cooked_profile=state.cooked_profile)
+            collection, report = reconstruct_static_map(selected, materials=state.static_materials, allow_partial_materials=state.partial_materials, cooked_profile=state.cooked_profile, components=state.components)
         except Exception as exc:
             self.report({'ERROR'}, f'Reconstruction failed: {exc}')
             return {'CANCELLED'}
@@ -170,6 +171,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.prop(state, 'geometry_folder')
             layout.operator('ueimport.geometry_gallery', icon='OUTLINER_OB_ARMATURE')
             layout.separator()
+            layout.prop(state, 'components')
             layout.prop(state, 'static_materials')
             if state.static_materials:
                 layout.prop(state, 'partial_materials')
