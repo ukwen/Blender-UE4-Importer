@@ -7,6 +7,7 @@ import json
 import bpy
 import uasset
 import umap
+from blueprint_defaults import BlueprintResolver
 from material_stage import package_reference
 
 MESH_TYPES={'StaticMeshComponent','SkeletalMeshComponent','InstancedStaticMeshComponent','HierarchicalInstancedStaticMeshComponent'}
@@ -21,6 +22,7 @@ def build_components(asset,collection,resolver):
     """Use only map-owned components. Keep unresolved placements as diagnostic empties."""
     records=[]; actor_count=Counter(); failures=[]; skeletal_cache={}; skeletal_attempts=0
     owners={}; nodes={}; props={}; plans=[]
+    blueprints=BlueprintResolver(resolver.project)
     children=defaultdict(list)
     for c in asset.exports: children[c.outer_index].append(c)
     for index,actor in enumerate(asset.exports,1):
@@ -88,6 +90,13 @@ def build_components(asset,collection,resolver):
         key=id(c); node=nodes[key]; actor,root,label,kind=owners[key]; p=props[key]; cls=c.export_class_type
         field='SkeletalMesh' if cls=='SkeletalMeshComponent' else 'StaticMesh'
         package=package_reference(p.TryGetValue(field)) if cls in MESH_TYPES else ''
+        binding=None
+        if kind.endswith('_C'):
+            bp=blueprints.load(actor); node['UE_blueprint_package']=bp['package']; node['UE_blueprint_status']=bp['status']
+            if cls in MESH_TYPES and field not in p:
+                binding=blueprints.component(actor,c)
+                if binding is not None and binding['explicit']:
+                    package=binding['package']; node['UE_mesh_reference_origin']=binding['origin']; node['UE_mesh_template']=binding['template']
         reason=unresolved_ancestor(key)
         status='anchor_only'; detail=reason or ''; geom=None
         if cls in MESH_TYPES:
@@ -120,5 +129,5 @@ def build_components(asset,collection,resolver):
         if reason: node['UE_placement_unresolved']=reason
         if geom:
             geom['UE_component_actor']=actor.object_name; geom['UE_mesh_package']=package; geom['UE_component_status']=status
-        records.append(dict(actor=actor.object_name,component=c.object_name,kind=cls,package=package,status=status,detail=detail,parent=nodes[edges[key]].name if key in edges else '',socket=node.get('UE_attach_socket','')))
-    return dict(actors=dict(actor_count),components=len(records),status=dict(Counter(r['status'] for r in records)),skeletal_decode_attempts=skeletal_attempts,records=records,failures=failures)
+        records.append(dict(actor=actor.object_name,component=c.object_name,kind=cls,package=package,status=status,detail=detail,parent=nodes[edges[key]].name if key in edges else '',socket=node.get('UE_attach_socket',''),reference_origin=node.get('UE_mesh_reference_origin','map' if field in p else ''),blueprint=node.get('UE_blueprint_package','')))
+    return dict(actors=dict(actor_count),components=len(records),status=dict(Counter(r['status'] for r in records)),skeletal_decode_attempts=skeletal_attempts,records=records,failures=failures,blueprint_dependencies=list(blueprints.cache.values()))
