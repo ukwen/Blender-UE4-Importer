@@ -2,12 +2,12 @@ bl_info = {
     "name" : "Unreal Engine 4",
     "author" : "Waffle1434",
     "description" : "Import UE4 meshes, materials, & maps.",
-    "blender" : (2, 80, 0),
-    "version" : (0, 9, 1),
+    "blender" : (4, 2, 0),
+    "version" : (0, 10, 0),
     "location" : "",
     "warning" : "",
     "category" : "Import-Export",
-    "doc_url": "https://github.com/Waffle1434/Blender-UE4-Importer"
+    "doc_url": "https://github.com/ukwen/Blender-UE4-Importer"
 }
 
 import os, sys

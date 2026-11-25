@@ -86,7 +86,7 @@ def TryGetMesh(static_mesh_comp:Export, m_type, import_materials=True):
                 if not mesh: print(f"Failed to get Mesh \"{mesh_path}\"")
         if import_materials:
             mat_overrides:list[Import] = static_mesh_comp.properties.TryGetValue('OverrideMaterials')
-            if mat_overrides:
+            if mat_overrides and mesh is not None:
                 hash = 1
                 for mat_override in mat_overrides: hash = zlib.adler32(str.encode(mat_override.value.object_name if mat_override.value else "None"), hash)
                 override_mesh_name = f"{mesh_name}_{hash:X}"
@@ -115,7 +115,9 @@ def ProcessUMapExport(export:Export, cfg:UMapImportSettings):
                     export.ReadProperties(True)
                     mesh_comp = export.properties.TryGetValue('SkeletalMeshComponent') if cfg.meshes else None
                     mesh = TryGetMesh(mesh_comp, 'SkeletalMesh', cfg.materials) if mesh_comp else None
-                    obj = bpy.data.objects[mesh.name]
+                    obj = bpy.data.objects.get(mesh.name) if mesh else None
+                    if obj is None:
+                        obj = SetupObjectFull(cfg, export, mesh)
                     #obj = SetupObject(export.object_name, mesh) # TODO
                     TryApplyRootComponent(export, obj)
                 case 'PointLight' | 'SpotLight' | 'DirectionalLight':
@@ -161,7 +163,7 @@ def ProcessUMapExport(export:Export, cfg:UMapImportSettings):
                     if not cfg.cubemaps: return
                     export.ReadProperties(False)
 
-                    probe = bpy.data.lightprobes.new(export.object_name, 'CUBE')
+                    probe = bpy.data.lightprobes.new(export.object_name, 'SPHERE')
                     probe.influence_type = 'BOX'
                     probe.influence_distance = 1
 
@@ -172,15 +174,16 @@ def ProcessUMapExport(export:Export, cfg:UMapImportSettings):
                     TryApplyRootComponent(export, obj, def_scale=FVector(1000,1000,400), scale=0.01)
 
                     if cfg.lightprobes:
-                        irr = bpy.data.lightprobes.new(export.object_name, 'GRID')
-                        irr.influence_distance = 1 / (1 - probe.falloff) - 1
+                        irr = bpy.data.lightprobes.new(export.object_name, 'VOLUME')
+                        if hasattr(irr, 'influence_distance') and probe.falloff < 1:
+                            irr.influence_distance = 1 / (1 - probe.falloff) - 1
                         obj2 = SetupObjectFull(cfg, export, irr, f"{export.object_name}_irridance")
                         TryApplyRootComponent(export, obj2, def_scale=FVector(1000,1000,400), scale=0.01*(1 - probe.falloff))
                 case 'SphereReflectionCapture':
                     if not cfg.cubemaps: return
                     export.ReadProperties(False)
 
-                    probe = bpy.data.lightprobes.new(export.object_name, 'CUBE')
+                    probe = bpy.data.lightprobes.new(export.object_name, 'SPHERE')
                     probe.influence_type = 'ELIPSOID'
                     if cap_comp := export.properties.TryGetProperties('CaptureComponent'): probe.influence_distance = cap_comp.TryGetValue('InfluenceRadius', 3000) * 0.01
                     
@@ -249,10 +252,12 @@ def LoadUMap(filepath, cfg=UMapImportSettings()):
             bpy.context.scene.collection.children.link(map_coll)
             bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection.children[map_coll.name]
 
-        for i, export in enumerate(asset.exports):
-            ProcessUMapExport(export, cfg)
-            bpy.context.window_manager.progress_update(i)
-        bpy.context.window_manager.progress_end()
+        try:
+            for i, export in enumerate(asset.exports):
+                ProcessUMapExport(export, cfg)
+                bpy.context.window_manager.progress_update(i)
+        finally:
+            bpy.context.window_manager.progress_end()
     if hasattr(asset, 'import_cache'):
         for imp_asset in asset.import_cache.values(): imp_asset.Close()
     print(f"Imported {asset}: {(time.time() - t0) * 1000:.2f}ms")

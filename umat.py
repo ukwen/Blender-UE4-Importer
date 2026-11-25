@@ -10,7 +10,7 @@ if cur_dir not in sys.path: sys.path.append(cur_dir)
 import uasset, register_helper
 from uasset import UAsset, Import, Export, Properties, UProperty
 
-umodel_path = cur_dir + r"\umodel.exe"
+umodel_path = os.environ.get('UMODEL_PATH', os.path.join(cur_dir, 'umodel.exe' if os.name == 'nt' else 'umodel'))
 mute_ior = True
 mute_fresnel = True
 
@@ -30,7 +30,12 @@ def TryGetExtractedImport(imp:Import, extract_dir):
             asset_path = imp.asset.ToProjectPath(archive_path)
             extract_dir = os.path.join(extract_dir, "Engine" if archive_path.startswith("/Engine/") else "Game")
             print(f"Extracting {asset_path}")
-            subprocess.run(f"\"{umodel_path}\" -export -png -out=\"{extract_dir}\" \"{asset_path}\"")
+            try:
+                subprocess.run([umodel_path, "-export", "-png", f"-out={extract_dir}", asset_path], check=True, timeout=180)
+            except (OSError, subprocess.SubprocessError) as exc:
+                print(f"Texture extraction failed for {archive_path}: {exc}")
+                imp.extracted = None
+                return None
         try:
             imp.extracted = tex = bpy.data.images.load(extracted_path, check_existing=True)
 
@@ -86,8 +91,8 @@ def HandleTextureObject(expr:Import, nodes_data:dict[str,NodeData], node_data:No
         else: print(f"Missing Texture \"{tex_imp.import_ref.object_name}\"")
 
 default_mapping = UE2BlenderNodeMapping('ShaderNodeMath', label="UNKNOWN", color=Color((1,0,0)))
-mat_mapping = UE2BlenderNodeMapping('ShaderNodeBsdfPrincipled', hide=False, width=None, inputs={ 'BaseColor':'Base Color','Metallic':'Metallic','Specular':'Specular','Roughness':'Roughness',
-                                       'EmissiveColor':'Emission','Opacity':'Alpha','OpacityMask':'Alpha','Normal':'Normal','Refraction':'IOR' }, defaults={'BaseColor':0})
+mat_mapping = UE2BlenderNodeMapping('ShaderNodeBsdfPrincipled', hide=False, width=None, inputs={ 'BaseColor':'Base Color','Metallic':'Metallic','Specular':'Specular IOR Level','Roughness':'Roughness',
+                                       'EmissiveColor':'Emission Color','Opacity':'Alpha','OpacityMask':'Alpha','Normal':'Normal','Refraction':'IOR' }, defaults={'BaseColor':0})
 UE2BlenderNode_dict = {
     'Material'                                 : mat_mapping,
     'MaterialExpressionMakeMaterialAttributes' : mat_mapping,
@@ -241,12 +246,13 @@ def TryRemapNormal(params, node_tree, node_data):
 def SetBlend(params, mat, node_data):
     match params.TryGetValue('BlendMode'):
         case 'BLEND_Translucent':
-            mat.blend_method, mat.shadow_method = ('BLEND', 'HASHED')
-            node_data.node.inputs['Transmission'].default_value = 1
+            mat.surface_render_method = 'BLENDED'
+            node_data.node.inputs['Transmission Weight'].default_value = 1
         case 'BLEND_Masked':
-            mat.blend_method = mat.shadow_method = 'CLIP'
+            mat.surface_render_method = 'DITHERED'
+            mat['UE_BlendModeApproximation'] = 'Masked alpha: dithered, clip threshold not reconstructed'
         case 'BLEND_Additive':
-            mat.blend_method, mat.shadow_method = ('BLEND', 'NONE')
+            mat.surface_render_method = 'BLENDED'
 
             additive = mat.node_tree.nodes.new('ShaderNodeGroup')
             additive.node_tree = bpy.data.node_groups['AdditiveSurface']
@@ -254,7 +260,7 @@ def SetBlend(params, mat, node_data):
             mat.node_tree.links.new(additive.outputs[0], mat.node_tree.nodes['Material Output'].inputs['Surface'])
             node_data.input_remap = { 'EmissiveColor':additive.inputs['Emission'] }
         case _:
-            mat.blend_method = mat.shadow_method = 'OPAQUE'
+            mat.surface_render_method = 'DITHERED'
 def SetTwoSided(params, mat): mat.use_backface_culling = not params.TryGetValue('TwoSided', False)
 
 def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:GraphData, mesh=None):
@@ -513,12 +519,12 @@ def ImportNodeGraph(filepath, uproject=None, name=None, mesh=None, log=False): #
                             match node_data.classname:
                                 case 'MaterialExpressionFunctionInput':
                                     input_positions.append(node_data.node.location)
-                                    node_tree.inputs.new(ue_to_bl_type.get(props.TryGetValue('InputType', 'FunctionInput_Vector3'), 'NodeSocketVector'), props.TryGetValue('InputName', "In"))
-                                    node_tree.links.new(in_node.outputs[len(node_tree.inputs)-1], node_data.node.inputs[0])
+                                    socket = node_tree.interface.new_socket(name=props.TryGetValue('InputName', 'In'), in_out='INPUT', socket_type=ue_to_bl_type.get(props.TryGetValue('InputType', 'FunctionInput_Vector3'), 'NodeSocketVector'))
+                                    node_tree.links.new(next(s for s in in_node.outputs if s.identifier == socket.identifier), node_data.node.inputs[0])
                                 case 'MaterialExpressionFunctionOutput':
                                     output_positions.append(node_data.node.location)
-                                    node_tree.outputs.new('NodeSocketVector', props.TryGetValue('OutputName', "Result"))
-                                    node_tree.links.new(node_data.node.outputs[0], out_node.inputs[len(node_tree.outputs)-1])
+                                    socket = node_tree.interface.new_socket(name=props.TryGetValue('OutputName', 'Result'), in_out='OUTPUT', socket_type='NodeSocketVector')
+                                    node_tree.links.new(node_data.node.outputs[0], next(s for s in out_node.inputs if s.identifier == socket.identifier))
                     if len(input_positions) > 0:
                         in_pos = Vector((0,0))
                         for pos in input_positions: in_pos += pos
@@ -555,6 +561,8 @@ class ImportUMat(bpy.types.Operator, ImportHelper):
             if file.name != "": ImportNodeGraph(self.directory + file.name)
         return {'FINISHED'}
 
+ImportUMat.__annotations__ = {name: eval(value, globals()) if isinstance(value, str) else value
+                              for name, value in ImportUMat.__annotations__.items()}
 reg_classes = ( ImportUMat, )
 
 def register():
