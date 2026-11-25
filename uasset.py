@@ -386,6 +386,17 @@ class UProperty:
                         finally:
                             f.Seek(end)
                         return True
+                    if self.array_el_full_type in ('Guid', 'ExpressionInput') and self.name in ('AttributeSetTypes', 'AttributeGetTypes', 'Inputs'):
+                        width = 16 if self.array_el_full_type == 'Guid' else 36
+                        if not 0 <= element_count <= 1024 or self.array_size != element_count * width or (width == 36 and asset.summary.version_ue4 < 514):
+                            raise ValueError('Unsupported material attribute array layout')
+                        self.value = []
+                        for _ in range(element_count):
+                            prop=UProperty()
+                            prop.name,prop.type,prop.struct_type,prop.len = '', 'StructProperty',self.array_el_full_type,width
+                            if not prop.TryReadData(asset,False,read_children): raise ValueError('Invalid material attribute element')
+                            self.value.append(prop)
+                        return True
                     assert element_count > 0
                     self.value = []
                     next = f.Position() + self.array_size

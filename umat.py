@@ -476,7 +476,7 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             node, link_node = (node_data.node, link_node_data.node)
             if node is None or link_node is None:
                 raise ValueError(f'Unresolved expression link: {link_node_exp.object_name} -> {property}')
-            if getattr(link_node_data, "attribute_bundle", False):
+            if getattr(link_node_data, "attribute_bundle", False) and not (getattr(link_node_data,"attribute_kind",None)=="GetMaterialAttributes" and inp is not None and inp.node_output_i>0):
                 raise NotImplementedError("Material attributes require explicit field selection")
             if getattr(link_node_data, "channel_spec", (0,))[0] == 4:
                 raise NotImplementedError("Float4 requires explicit typed channel selection")
