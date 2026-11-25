@@ -1,4 +1,4 @@
-import os, io, sys, math, uuid, bpy, bmesh, importlib, time, struct
+import os, io, sys, math, uuid, bpy, bmesh, importlib, time, struct, zlib
 from ctypes import *
 from mathutils import Vector, Matrix
 from bpy.props import *
@@ -52,97 +52,136 @@ def ReadFMultisizeIndexContainer(f:uasset.ByteStream, summary:uasset.USummary):
     if summary.version_ue4 < 283: need_cpu_access = f.ReadBool32() # VER_UE4_KEEP_SKEL_MESH_INDEX_DATA
     size = f.ReadUInt8()
     return f.ReadBulkArray(c_uint16 if size == 2 else c_uint32)
-def ReadMeshBulkData(self:Export, asset:UAsset, f:uasset.ByteStream): # FByteBulkData
+def DecodeCompressedRawMesh(payload, expected_size):
+    """Unreal SerializeCompressed, 64-bit little-endian chunk table, zlib only."""
+    max_size = 256 * 1024 * 1024
+    if not 0 < expected_size <= max_size or len(payload) < 32:
+        raise ValueError("Invalid compressed raw mesh size")
+    magic, block_size, compressed_size, total_size = struct.unpack_from('<QQQQ', payload)
+    if magic != 0x9E2A83C1 or not 0 < block_size <= max_size or total_size != expected_size:
+        raise ValueError("Invalid Unreal compressed raw mesh header")
+    blocks = (total_size + block_size - 1) // block_size
+    table_end = 32 + 16 * blocks
+    if table_end > len(payload) or compressed_size != len(payload) - table_end:
+        raise ValueError("Invalid compressed chunk table length")
+    result = bytearray()
+    offset = table_end
+    for i in range(blocks):
+        packed, unpacked = struct.unpack_from('<QQ', payload, 32 + i * 16)
+        expected = min(block_size, total_size - len(result))
+        if unpacked != expected or not packed or packed > len(payload) - offset:
+            raise ValueError("Invalid compressed chunk size")
+        decoder = zlib.decompressobj()
+        data = decoder.decompress(payload[offset:offset+packed], expected + 1)
+        if len(data) != expected or not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+            raise ValueError("Invalid zlib chunk")
+        result.extend(data)
+        offset += packed
+    if offset != len(payload) or len(result) != total_size:
+        raise ValueError("Compressed mesh size mismatch")
+    return bytes(result)
+
+
+def ReadMeshBulkData(self:Export, asset:UAsset, f:uasset.ByteStream):
     bulk = BulkHeader().Read(f, asset.summary)
-
-    if bulk.flags & 0x20 or bulk.count == 0: return None # BULKDATA_Unused, No data
-    assert not (bulk.flags & (0x100 | 0x800)) # PayloadInSeperateFile | OptionalPayload
-    if bulk.flags & 0x1: # PayloadAtEndOfFile
-        assert bulk.offset + 16 <= os.fstat(f.byte_stream.raw.fileno()).st_size, "Offset is outside file"
-        p = f.Position()
-
-        # FByteBulkData::SerializeData
-        assert asset.summary.compression_flags == 0
+    if bulk.flags & 0x20 or bulk.count == 0: return None
+    if bulk.flags & (0x100 | 0x800): raise NotImplementedError("Separate or optional bulk payload")
+    if not bulk.flags & 1: raise NotImplementedError("Non-external raw mesh bulk payload")
+    if bulk.flags & (0x10 | 0x80) or asset.summary.compression_flags:
+        raise NotImplementedError("Non-zlib mesh compression")
+    if not 0 < bulk.byte_size <= 256 * 1024 * 1024 or bulk.offset < 0:
+        raise ValueError("Invalid mesh bulk range")
+    pos = f.Position()
+    try:
+        f.Seek(0, io.SEEK_END)
+        if bulk.offset + bulk.byte_size > f.Position(): raise ValueError("Mesh bulk outside package")
         f.Seek(bulk.offset)
+        payload = f.ReadBytes(bulk.byte_size)
+        if bulk.flags & 2: payload = DecodeCompressedRawMesh(payload, bulk.count)
+        elif len(payload) != bulk.count: raise ValueError("Raw mesh bulk size mismatch")
+        return DecodeRawMesh(self, asset, uasset.ByteStream(io.BytesIO(payload)))
+    finally:
+        f.Seek(pos)
 
-        if bulk.flags & (0x02 | 0x10 | 0x80): raise Exception("CompressedZlib | CompressedLzo | CompressedLzx Unsupported")
-        
-        # FRawMesh
-        version, version_licensee = (f.ReadInt32(), f.ReadInt32())
-        face_mat_indices:list[c_int32] = f.ReadArray(c_int32)
-        f.SkipArray(c_uint32)#face_smoothing_mask = f.ReadArray(c_uint32)
-        vertices:list[FVector] = f.ReadArray(FVector)
-        wedge_indices = f.ReadArray(c_int32)
-        f.SkipArray(FVector)#wedge_tangents = f.ReadArray(FVector)
-        f.SkipArray(FVector)#wedge_binormals = f.ReadArray(FVector)
-        wedge_normals:list[FVector] = f.ReadArray(FVector)
-        wedge_uvs:list[list[FVector2D]] = []
-        for i_uv in range(8): wedge_uvs.append(f.ReadArray(FVector2D))
-        wedge_colors:list[FColor] = f.ReadArray(FColor)
-        if version >= 1: mat_index_to_import_index = f.ReadArray(c_int32)
 
-        bmsh = bmesh.new()
-        for pos in vertices: bmsh.verts.new(Vector((pos.y, pos.x, pos.z)))
-        bmsh.verts.ensure_lookup_table()
-        
-        uvs = []
-        for i_uv in range(len(wedge_uvs)):
-            if len(wedge_uvs[i_uv]) > 0: uvs.append((i_uv, bmsh.loops.layers.uv.new(f"UV{i_uv}")))
-        
-        has_normals = len(wedge_normals) > 0
-        has_colors = len(wedge_colors) > 0
-        if has_colors: col_lay = bmsh.loops.layers.color.new("Color")
-        
-        spl_norms = []
-        for i_wedge in range(0, len(wedge_indices), 3):
-            try:
-                face = bmsh.faces.new((
-                    bmsh.verts[wedge_indices[i_wedge+0]],
-                    bmsh.verts[wedge_indices[i_wedge+1]],
-                    bmsh.verts[wedge_indices[i_wedge+2]]
-                ))
-                loops = face.loops
-                i_poly = int(i_wedge / 3)
-                #face.smooth = face_smoothing_mask[i_poly] == 0
-                face.material_index = face_mat_indices[i_poly]
+def DecodeRawMesh(self, asset, f):
+    # FRawMesh
+    version, version_licensee = (f.ReadInt32(), f.ReadInt32())
+    if version not in (0, 1) or version_licensee != 0:
+        raise NotImplementedError(f"Unsupported mesh payload layout ({version}, {version_licensee}); FMeshDescription decoder required")
+    face_mat_indices:list[c_int32] = f.ReadArray(c_int32)
+    f.SkipArray(c_uint32)#face_smoothing_mask = f.ReadArray(c_uint32)
+    vertices:list[FVector] = f.ReadArray(FVector)
+    wedge_indices = f.ReadArray(c_int32)
+    f.SkipArray(FVector)#wedge_tangents = f.ReadArray(FVector)
+    f.SkipArray(FVector)#wedge_binormals = f.ReadArray(FVector)
+    wedge_normals:list[FVector] = f.ReadArray(FVector)
+    wedge_uvs:list[list[FVector2D]] = []
+    for i_uv in range(8): wedge_uvs.append(f.ReadArray(FVector2D))
+    wedge_colors:list[FColor] = f.ReadArray(FColor)
+    if version >= 1: mat_index_to_import_index = f.ReadArray(c_int32)
 
-                if has_normals:
-                    n1 = wedge_normals[i_wedge + 0]
-                    n2 = wedge_normals[i_wedge + 1]
-                    n3 = wedge_normals[i_wedge + 2]
-                    spl_norms.append(Vector((n1.y, n1.x, n1.z)))
-                    spl_norms.append(Vector((n2.y, n2.x, n2.z)))
-                    spl_norms.append(Vector((n3.y, n3.x, n3.z)))
-                if has_colors:
-                    col1 = wedge_colors[i_wedge + 0]
-                    col2 = wedge_colors[i_wedge + 1]
-                    col3 = wedge_colors[i_wedge + 2]
-                    loops[0][col_lay] = Vector((col1.r,col1.g,col1.b,col1.a)) / 255.0
-                    loops[1][col_lay] = Vector((col2.r,col2.g,col2.b,col2.a)) / 255.0
-                    loops[2][col_lay] = Vector((col3.r,col3.g,col3.b,col3.a)) / 255.0
+    bmsh = bmesh.new()
+    for pos in vertices: bmsh.verts.new(Vector((pos.y, pos.x, pos.z)))
+    bmsh.verts.ensure_lookup_table()
+    
+    uvs = []
+    for i_uv in range(len(wedge_uvs)):
+        if len(wedge_uvs[i_uv]) > 0: uvs.append((i_uv, bmsh.loops.layers.uv.new(f"UV{i_uv}")))
+    
+    has_normals = len(wedge_normals) > 0
+    has_colors = len(wedge_colors) > 0
+    if has_colors: col_lay = bmsh.loops.layers.color.new("Color")
+    
+    spl_norms = []
+    for i_wedge in range(0, len(wedge_indices), 3):
+        try:
+            face = bmsh.faces.new((
+                bmsh.verts[wedge_indices[i_wedge+0]],
+                bmsh.verts[wedge_indices[i_wedge+1]],
+                bmsh.verts[wedge_indices[i_wedge+2]]
+            ))
+            loops = face.loops
+            i_poly = int(i_wedge / 3)
+            #face.smooth = face_smoothing_mask[i_poly] == 0
+            face.material_index = face_mat_indices[i_poly]
 
-                for i_uv, uv_layer in uvs:
-                    uv1 = wedge_uvs[i_uv][i_wedge + 0]
-                    uv2 = wedge_uvs[i_uv][i_wedge + 1]
-                    uv3 = wedge_uvs[i_uv][i_wedge + 2]
-                    loops[0][uv_layer].uv = (uv1.x, 1-uv1.y)
-                    loops[1][uv_layer].uv = (uv2.x, 1-uv2.y)
-                    loops[2][uv_layer].uv = (uv3.x, 1-uv3.y)
-            except ValueError: pass # Face already exists
+            if has_normals:
+                n1 = wedge_normals[i_wedge + 0]
+                n2 = wedge_normals[i_wedge + 1]
+                n3 = wedge_normals[i_wedge + 2]
+                spl_norms.append(Vector((n1.y, n1.x, n1.z)))
+                spl_norms.append(Vector((n2.y, n2.x, n2.z)))
+                spl_norms.append(Vector((n3.y, n3.x, n3.z)))
+            if has_colors:
+                col1 = wedge_colors[i_wedge + 0]
+                col2 = wedge_colors[i_wedge + 1]
+                col3 = wedge_colors[i_wedge + 2]
+                loops[0][col_lay] = Vector((col1.r,col1.g,col1.b,col1.a)) / 255.0
+                loops[1][col_lay] = Vector((col2.r,col2.g,col2.b,col2.a)) / 255.0
+                loops[2][col_lay] = Vector((col3.r,col3.g,col3.b,col3.a)) / 255.0
 
-        mesh = bpy.data.meshes.new(self.object_name)
-        mesh.name = self.object_name
-        bmsh.to_mesh(mesh)
-        bmsh.free()
-        if has_normals: mesh.normals_split_custom_set(spl_norms)
-        if hasattr(mesh, 'use_auto_smooth'):
-            mesh.use_auto_smooth = True
-        mesh.transform(Matrix.Identity(4) * 0.01)
-        mesh["UAsset"] = self.asset.f.byte_stream.name
-        # TODO: flip_normals() faster?
+            for i_uv, uv_layer in uvs:
+                uv1 = wedge_uvs[i_uv][i_wedge + 0]
+                uv2 = wedge_uvs[i_uv][i_wedge + 1]
+                uv3 = wedge_uvs[i_uv][i_wedge + 2]
+                loops[0][uv_layer].uv = (uv1.x, 1-uv1.y)
+                loops[1][uv_layer].uv = (uv2.x, 1-uv2.y)
+                loops[2][uv_layer].uv = (uv3.x, 1-uv3.y)
+        except ValueError: pass # Face already exists
 
-        f.Seek(p)
-        return mesh
+    mesh = bpy.data.meshes.new(self.object_name)
+    mesh.name = self.object_name
+    bmsh.to_mesh(mesh)
+    bmsh.free()
+    if has_normals: mesh.normals_split_custom_set(spl_norms)
+    if hasattr(mesh, 'use_auto_smooth'):
+        mesh.use_auto_smooth = True
+    mesh.transform(Matrix.Identity(4) * 0.01)
+    mesh["UAsset"] = self.asset.f.byte_stream.name
+    # TODO: flip_normals() faster?
+
+    return mesh
 def ReadFSkelMeshVertexBase(f:uasset.ByteStream, v_ren):
     pos = f.ReadStructure(FVector)
     if v_ren < 26: packed_normals = f.ReadStructure(FPackedNormal * 3) # IncreaseNormalPrecision
