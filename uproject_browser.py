@@ -41,6 +41,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
     materials: BoolProperty(name='Materials', default=True)
+    static_materials: BoolProperty(name='Bind materials (experimental)', default=False)
 
 
 class UEIMPORT_OT_scan(bpy.types.Operator):
@@ -97,7 +98,7 @@ class UEIMPORT_OT_import_map(bpy.types.Operator):
 class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
     bl_idname = 'ueimport.reconstruct_static'
     bl_label = 'Reconstruct Static Geometry'
-    bl_description = 'Decode native static meshes, keep unresolved actors as empties, and write an import report; no materials'
+    bl_description = 'Decode native static meshes, keep unresolved actors as empties, and write an import report; optional material binding'
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -114,7 +115,7 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
             if selected not in {path for _, path in maps}:
                 raise ValueError('Map changed or is missing; scan again')
             from static_scene import reconstruct_static_map
-            collection, report = reconstruct_static_map(selected)
+            collection, report = reconstruct_static_map(selected, materials=state.static_materials)
         except Exception as exc:
             self.report({'ERROR'}, f'Reconstruction failed: {exc}')
             return {'CANCELLED'}
@@ -142,8 +143,9 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.prop(state, 'materials')
             layout.operator('ueimport.import_selected_map', icon='IMPORT')
             layout.separator()
+            layout.prop(state, 'static_materials')
             layout.operator('ueimport.reconstruct_static', icon='MESH_DATA')
-            layout.label(text='Geometry only; missing assets remain empties.')
+            layout.label(text='Missing meshes remain empties; unresolved materials marked.')
             layout.label(text='Legacy UE4 reader; UE5 not yet supported.')
 
 

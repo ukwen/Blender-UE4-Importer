@@ -69,7 +69,7 @@ class MeshResolver:
         return mesh, status
 
 
-def reconstruct_static_map(filepath):
+def reconstruct_static_map(filepath, materials=False):
     """Return a new collection plus measured per-actor and per-package results."""
     resolver = MeshResolver(uasset.UProject(filepath))
     collection, report = map_layout.import_layout(filepath, mesh_resolver=resolver)
@@ -78,7 +78,10 @@ def reconstruct_static_map(filepath):
                   unique_reconstructed_meshes=len({o.data.as_pointer() for o in collection.objects if o.type == 'MESH'}),
                   materials_imported=False,
                   dependencies={p: {'status': r['status'], 'detail': r['detail']} for p,r in resolver.records.items()})
-    collection['UE_geometry_only'] = True
+    if materials:
+        from material_stage import bind_scene_materials
+        report['material_report'] = bind_scene_materials(collection, resolver.project)
+    collection['UE_geometry_only'] = not materials
     collection['UE_reconstructed_actors'] = counts['reconstructed']
     collection['UE_unresolved_actors'] = len(collection.objects) - counts['reconstructed']
     text = bpy.data.texts.new(collection.name + ' - import report.json')

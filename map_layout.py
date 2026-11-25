@@ -41,7 +41,10 @@ def import_layout(filepath, mesh_resolver=None):
                 obj['UE_geometry_status'] = status
                 overrides = component.properties.TryGetValue('OverrideMaterials', [])
                 if overrides:
+                    import json
+                    from material_stage import package_reference
                     obj['UE_material_overrides'] = [str(p.value.object_name) if p.value else '' for p in overrides]
+                    obj['UE_material_override_packages'] = json.dumps([package_reference(p.value) for p in overrides])
                 umap.Transform(root, obj)
                 actors.append((root, obj))
                 roots[id(root)] = obj

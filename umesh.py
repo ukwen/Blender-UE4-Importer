@@ -285,6 +285,7 @@ def ImportStaticMesh(self:Export, import_materials=True, log=True):
         if v_obj >= 8:
             # TArray<FStaticMaterial> StaticMaterials
             source_slots = []
+            source_packages = []
             for i in range(f.ReadInt32()):
                 mat_interface, mat_slot_name = (asset.DecodePackageIndex(f.ReadInt32()), f.ReadFName(asset.names))
                 if editor: imported_mat_slot_name = f.ReadFName(asset.names)
@@ -293,12 +294,16 @@ def ImportStaticMesh(self:Export, import_materials=True, log=True):
                     local_uv_densities = (f.ReadFloat(), f.ReadFloat(), f.ReadFloat(), f.ReadFloat())
                 
                 source_slots.append(imported_mat_slot_name if editor else mat_slot_name)
+                from material_stage import package_reference
+                source_packages.append(package_reference(mat_interface))
                 if import_materials:
                     mat = TryGetUMaterialImport(mat_interface, mesh=mesh) if mat_interface else None
                     if mat is None:
                         mat = bpy.data.materials.new(mat_slot_name)
                         mat['UE_unresolved_material'] = True
                     mesh.materials.append(mat)
+            import json
+            mesh['UE_material_bindings'] = json.dumps(list(zip(source_slots, source_packages)))
             if mesh.get('UE_source_format') == 'Legacy FMeshDescription':
                 names = list(mesh['UE_material_slots'])
                 ids = list(mesh['UE_polygon_group_ids'])
