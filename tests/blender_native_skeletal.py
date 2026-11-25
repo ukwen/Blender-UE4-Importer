@@ -7,8 +7,8 @@ from mathutils import Vector
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from skeletal_mesh_native import read_mesh
 import skeleton_blender as sb
-root=Path(os.environ['MATYA_ASSETS']); path=root/'4.18/SK_Worm.uasset'
-d=read_mesh(path); assert len(d['positions'])==640 and len(d['faces'])==572 and len(d['bones'])==6
+root=Path(os.environ['MATYA_ASSETS']); profile=os.environ.get('UE_SKIN_PROFILE','4.18'); path=root/profile/'SK_Worm.uasset'
+d=read_mesh(path,profile); assert len(d['positions'])==640 and len(d['faces'])==572 and len(d['bones'])==6
 raw=(root/'raw/SK_Worm.glb').read_bytes(); n=struct.unpack_from('<I',raw,12)[0]; gltf=json.loads(raw[20:20+n]); binary=raw[28+n:]
 def acc(i):
     a=gltf['accessors'][i]; v=gltf['bufferViews'][a['bufferView']]; width={'VEC3':3,'VEC2':2,'VEC4':4,'SCALAR':1}[a['type']]
@@ -22,9 +22,14 @@ for i,(x,y,z) in enumerate(d['positions']):
     distances=np.linalg.norm(p-np.array([x,z,y])*.01,axis=1); pos_err=max(pos_err,float(distances.min())); match=np.flatnonzero(distances<1e-6); assert len(match)
     actual=np.array([d['weights'][i].get(k,0)/255 for k in range(len(names))]); weight_err=max(weight_err,float(np.abs(reference[match]-actual).max(axis=1).min())); uv_err=max(uv_err,float(np.abs(uv[match]-d['uvs'][i]).max(axis=1).min()))
 assert pos_err<1e-6 and weight_err<=1/255+1e-6 and uv_err<.001
-print('GLB_REFERENCE',pos_err,weight_err,uv_err)
+print('GLB_REFERENCE',profile,pos_err,weight_err,uv_err)
+if profile=='4.27':
+    old=read_mesh(root/'4.18/SK_Worm.uasset','4.18')
+    for key in ('positions','weights','faces','uvs','bones','materials','slots'): assert old[key]==d[key],key
+    assert d['vertex_map'] is None
+    print('CROSS_VERSION_EXACT_PASS')
 bpy.ops.wm.read_factory_settings(use_empty=True); sb.register()
-try: assert getattr(bpy.ops,'import').ue_native_skeletal_mesh(filepath=str(path))=={'FINISHED'}
+try: assert getattr(bpy.ops,'import').ue_native_skeletal_mesh(filepath=str(path),profile=profile)=={'FINISHED'}
 finally: sb.unregister()
 obj=next(o for o in bpy.data.objects if o.type=='MESH'); arm=obj.parent
 assert len(obj.data.vertices)==640 and len(obj.data.polygons)==572 and obj.data.has_custom_normals and len(obj.data.uv_layers)==1 and len(arm.data.bones)==6
@@ -41,13 +46,14 @@ err=max((a-b).length for a,b in zip(moved,expected)); motion=max((a-b).length fo
 print('SKIN_POSE',err,motion,sum((a-b).length>1e-5 for a,b in zip(moved,neutral)))
 bone.rotation_euler.x=0; assert max((a-b).length for a,b in zip(evaluated(),neutral))<1e-5
 # Keep source package intact; truncated and wrong profile must fail before creation.
-for bad in (root/'4.27/SK_Worm.uasset',root/'4.18/SK_Worm_Skeleton.uasset'):
-    try: read_mesh(bad)
+other='4.18' if profile=='4.27' else '4.27'
+for bad in (root/other/'SK_Worm.uasset',root/profile/'SK_Worm_Skeleton.uasset'):
+    try: read_mesh(bad,profile)
     except ValueError: pass
     else: raise AssertionError('Unsupported package accepted')
 with tempfile.TemporaryDirectory() as tmp:
     bad=Path(tmp)/'truncated.uasset'; bad.write_bytes(path.read_bytes()); bad.with_suffix('.uexp').write_bytes(path.with_suffix('.uexp').read_bytes()[:-10])
-    try: read_mesh(bad)
+    try: read_mesh(bad,profile)
     except ValueError: pass
     else: raise AssertionError('Truncated package accepted')
 # Store a short editable pose action as acceptance evidence, not source animation.

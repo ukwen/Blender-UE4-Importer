@@ -23,14 +23,15 @@ class ImportUESkeleton(bpy.types.Operator, ImportHelper):
 
 class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
     bl_idname='import.ue_native_skeletal_mesh'
-    bl_label='Import UE4.18 native skeletal mesh'
+    bl_label='Import native UE4 skeletal mesh'
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Legacy interleaved buffers'),('4.27','UE4.27','Inline separate render buffers')],default='4.18')
     def execute(self,context):
         from skeletal_mesh_native import read_mesh, build_mesh
         try:
-            data=read_mesh(self.filepath); obj,arm=build_mesh(data)
+            data=read_mesh(self.filepath,self.profile); obj,arm=build_mesh(data)
             obj['UE_source_package']=self.filepath
             self.report({'INFO'},f"Imported {len(data['positions'])} skinned vertices, {len(data['bones'])} bones (material placeholders)")
             return {'FINISHED'}
@@ -40,7 +41,7 @@ class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
 
 def menu(self,context):
     self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
-    self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4.18 Native Skeletal Mesh (.uasset)')
+    self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4 Native Skeletal Mesh (.uasset)')
 def register():
     bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
