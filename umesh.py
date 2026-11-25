@@ -87,7 +87,7 @@ def ReadMeshBulkData(self:Export, asset:UAsset, f:uasset.ByteStream): # FByteBul
         
         uvs = []
         for i_uv in range(len(wedge_uvs)):
-            if len(wedge_uvs[i_uv]) > 0: uvs.append(bmsh.loops.layers.uv.new(f"UV{i_uv}"))
+            if len(wedge_uvs[i_uv]) > 0: uvs.append((i_uv, bmsh.loops.layers.uv.new(f"UV{i_uv}")))
         
         has_normals = len(wedge_normals) > 0
         has_colors = len(wedge_colors) > 0
@@ -121,18 +121,19 @@ def ReadMeshBulkData(self:Export, asset:UAsset, f:uasset.ByteStream): # FByteBul
                     loops[1][col_lay] = Vector((col2.r,col2.g,col2.b,col2.a)) / 255.0
                     loops[2][col_lay] = Vector((col3.r,col3.g,col3.b,col3.a)) / 255.0
 
-                for i_uv in range(len(uvs)):
+                for i_uv, uv_layer in uvs:
                     uv1 = wedge_uvs[i_uv][i_wedge + 0]
                     uv2 = wedge_uvs[i_uv][i_wedge + 1]
                     uv3 = wedge_uvs[i_uv][i_wedge + 2]
-                    loops[0][uvs[i_uv]].uv = (uv1.x, 1-uv1.y)
-                    loops[1][uvs[i_uv]].uv = (uv2.x, 1-uv2.y)
-                    loops[2][uvs[i_uv]].uv = (uv3.x, 1-uv3.y)
+                    loops[0][uv_layer].uv = (uv1.x, 1-uv1.y)
+                    loops[1][uv_layer].uv = (uv2.x, 1-uv2.y)
+                    loops[2][uv_layer].uv = (uv3.x, 1-uv3.y)
             except ValueError: pass # Face already exists
 
         mesh = bpy.data.meshes.new(self.object_name)
         mesh.name = self.object_name
         bmsh.to_mesh(mesh)
+        bmsh.free()
         if has_normals: mesh.normals_split_custom_set(spl_norms)
         if hasattr(mesh, 'use_auto_smooth'):
             mesh.use_auto_smooth = True
