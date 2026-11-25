@@ -7,6 +7,39 @@ from bpy_extras.io_utils import ImportHelper
 from native_texture import read_texture, decode_rgba, png_bytes
 
 
+def load_editor_texture(filepath, project=None):
+    """Read and pack source art; reuse only matching native asset revisions."""
+    from editor_texture import read_editor_texture
+    source=Path(filepath).resolve()
+    stat=source.stat()
+    key=f'{source}|{stat.st_size}|{stat.st_mtime_ns}'
+    for image in bpy.data.images:
+        if image.get('UE_editor_texture_key')==key and image.packed_file:
+            return image
+    png,meta=read_editor_texture(source,project)
+    with tempfile.TemporaryDirectory() as temp:
+        p=Path(temp)/'source.png'; p.write_bytes(png)
+        image=bpy.data.images.load(str(p),check_existing=False)
+        try:
+            if tuple(image.size)!=(meta['width'],meta['height']):
+                raise ValueError('Loaded editor source dimensions mismatch')
+            image.colorspace_settings.name='sRGB' if meta['srgb'] else 'Non-Color'
+            image.pack()
+            image.filepath='//'+source.stem+'.png'
+            image.name=source.stem
+            image['UE_editor_texture_key']=key
+            image['UE_texture_format']=meta['format']
+            image['UE_texture_profile']='UE4 editor source'
+            image['UE_mips_validated']=meta['mips']
+            image['flip_y']=meta['flip_y']
+            image['clamp']=meta['clamp']
+            image['nearest']=meta['nearest']
+        except Exception:
+            bpy.data.images.remove(image)
+            raise
+    return image
+
+
 def load_native_texture(filepath, version, srgb=False, normal=False):
     w,h,fmt,raw,count = read_texture(filepath, version)
     pixels = decode_rgba(w,h,fmt,raw)
@@ -40,17 +73,21 @@ def load_native_texture(filepath, version, srgb=False, normal=False):
 
 class UEIMPORT_OT_native_texture(bpy.types.Operator, ImportHelper):
     bl_idname = 'ueimport.native_texture'
-    bl_label = 'Import Native Cooked Texture'
-    bl_description = 'Import and pack a cooked BC1/BC4/BC5 texture with matching sidecars; choose the known asset version'
+    bl_label = 'Import Native Texture'
+    bl_description = 'Import and pack UE4 editor source art or cooked BC1/BC4/BC5 with matching sidecars'
     filename_ext = '.uasset'
     filter_glob: StringProperty(default='*.uasset', options={'HIDDEN'})
-    version: EnumProperty(name='Known asset version', items=[(v,v,'') for v in ('4.18','4.27','5.0')])
+    version: EnumProperty(name='Asset profile', items=[('editor','UE4 editor source','Versioned monolithic source texture')]+[(v,'Cooked '+v,'') for v in ('4.18','4.27','5.0')], default='editor')
     srgb: BoolProperty(name='sRGB color', default=False)
     normal: BoolProperty(name='Reconstruct BC5 normal Z', default=False)
 
     def execute(self, context):
         try:
-            image = load_native_texture(self.filepath, self.version, self.srgb, self.normal)
+            if self.version == 'editor':
+                image=load_editor_texture(self.filepath)
+                image.use_fake_user=True
+            else:
+                image = load_native_texture(self.filepath, self.version, self.srgb, self.normal)
         except Exception as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}

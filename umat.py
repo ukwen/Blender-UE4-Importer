@@ -25,6 +25,13 @@ def TryAppendNodeGroups():
 def TryGetExtractedImport(imp:Import, extract_dir):
     if not hasattr(imp, "extracted"):
         archive_path = imp.import_ref.object_name
+        # Native editor source first; no source-tree writes or external executable.
+        try:
+            from texture_blender import load_editor_texture
+            imp.extracted = load_editor_texture(imp.asset.ToProjectPath(archive_path), imp.asset.uproject)
+            return imp.extracted
+        except Exception as exc:
+            print(f"Native editor texture unavailable for {archive_path}: {exc}")
         extracted_path = os.path.normpath(extract_dir + archive_path + ".png")
         if not os.path.exists(extracted_path):
             asset_path = imp.asset.ToProjectPath(archive_path)
@@ -416,6 +423,7 @@ def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
 def SetNodeTexture(node, image):
     node.image = image
     if image.get('clamp', False): node.extension = 'CLIP'
+    if image.get('nearest', False): node.interpolation = 'Closest'
 
     links = node.outputs['Color'].links
     if len(links) > 0:
