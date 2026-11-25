@@ -449,6 +449,8 @@ def TryLinkSocket(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData, 
             if link_node_type in class_blacklist: raise NotImplementedError('Unsupported linked expression '+link_node_type)
             
             node, link_node = (node_data.node, link_node_data.node)
+            if node is None or link_node is None:
+                raise ValueError(f'Unresolved expression link: {link_node_exp.object_name} -> {property}')
             outputs = link_node_data.link_indirect if link_node_data.link_indirect else link_node.outputs
 
             src_i = inp.node_output_i if inp is not None else 0

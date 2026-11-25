@@ -42,6 +42,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     active: IntProperty(default=0, min=0)
     materials: BoolProperty(name='Materials', default=True)
     static_materials: BoolProperty(name='Bind materials (experimental)', default=False)
+    partial_materials: BoolProperty(name='Keep incomplete surface previews', default=False, description='Keep connected material graphs with resolved surface images; missing functions and unsupported effects remain marked')
 
 
 class UEIMPORT_OT_scan(bpy.types.Operator):
@@ -115,7 +116,7 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
             if selected not in {path for _, path in maps}:
                 raise ValueError('Map changed or is missing; scan again')
             from static_scene import reconstruct_static_map
-            collection, report = reconstruct_static_map(selected, materials=state.static_materials)
+            collection, report = reconstruct_static_map(selected, materials=state.static_materials, allow_partial_materials=state.partial_materials)
         except Exception as exc:
             self.report({'ERROR'}, f'Reconstruction failed: {exc}')
             return {'CANCELLED'}
@@ -145,6 +146,8 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.operator('ueimport.import_selected_map', icon='IMPORT')
             layout.separator()
             layout.prop(state, 'static_materials')
+            if state.static_materials:
+                layout.prop(state, 'partial_materials')
             layout.operator('ueimport.reconstruct_static', icon='MESH_DATA')
             layout.label(text='Missing meshes remain empties; unresolved materials marked.')
             layout.label(text='Legacy UE4 reader; UE5 not yet supported.')

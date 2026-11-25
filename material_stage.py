@@ -27,9 +27,32 @@ def incomplete_graph(tree, seen=None):
     return False
 
 
+def connected_surface(tree):
+    """Conservative partial preview gate: require active surface and no missing upstream images/groups.
+
+    A connected graph is not proof of equivalence. Unresolved nodes on other paths
+    or unsupported surface semantics remain reported by the importer.
+    """
+    outputs = [n for n in tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+    if len(outputs) != 1 or not outputs[0].inputs['Surface'].is_linked:
+        return False
+    pending = [link.from_node for link in outputs[0].inputs['Surface'].links]
+    seen = set()
+    while pending:
+        node = pending.pop()
+        if node.as_pointer() in seen: continue
+        seen.add(node.as_pointer())
+        if node.type == 'TEX_IMAGE' and node.image is None: return False
+        if node.type == 'GROUP' and (node.node_tree is None or incomplete_graph(node.node_tree)): return False
+        for socket in node.inputs:
+            pending.extend(link.from_node for link in socket.links)
+    return True
+
+
 class MaterialResolver:
-    def __init__(self, project):
+    def __init__(self, project, allow_partial=False):
         self.project = project
+        self.allow_partial = allow_partial
         self.cache = {}
         self.records = {}
 
@@ -71,7 +94,7 @@ class MaterialResolver:
         record = self.audit(package)
         mat = None
         status = 'unbound' if not package else 'missing_dependencies' if record['missing'] else 'unsupported_dependencies' if record['errors'] else 'graph_failed'
-        if package and not record['missing'] and not record['errors']:
+        if package and not record['errors'] and (not record['missing'] or (self.allow_partial and package not in record['missing'])):
             import umat
             # Keep the bundled node library out of the failed-import transaction.
             umat.TryAppendNodeGroups()
@@ -81,9 +104,13 @@ class MaterialResolver:
                 mat, _ = umat.ImportNodeGraph(self.project.resolve_package(package), self.project)
                 if not isinstance(mat, bpy.types.Material) or not mat.node_tree:
                     raise ValueError('Not a material graph')
-                if incomplete_graph(mat.node_tree):
-                    raise ValueError('Incomplete graph or missing image')
-                status = 'graph_imported_unverified'
+                if incomplete_graph(mat.node_tree) or record['missing']:
+                    if not self.allow_partial or not connected_surface(mat.node_tree):
+                        raise ValueError('Incomplete graph or missing image')
+                    status = 'partial_graph_unresolved'
+                    mat['UE_unresolved_material'] = True
+                else:
+                    status = 'graph_imported_unverified'
             except Exception as exc:
                 record['errors']['graph'] = f'{type(exc).__name__}: {exc}'
                 mat = None
@@ -102,8 +129,8 @@ class MaterialResolver:
         return mat
 
 
-def bind_scene_materials(collection, project):
-    resolver = MaterialResolver(project)
+def bind_scene_materials(collection, project, allow_partial=False):
+    resolver = MaterialResolver(project, allow_partial=allow_partial)
     bound = set()
     errors = []
     for obj in collection.objects:
@@ -140,4 +167,5 @@ def bind_scene_materials(collection, project):
             slot = obj.material_slots[i]
             slot.link = 'OBJECT'
             slot.material = resolver.resolve(package, slot.name)
-    return {'bound_meshes': len(bound), 'packages': resolver.records, 'errors': errors}
+    return {'bound_meshes': len(bound), 'packages': resolver.records, 'errors': errors,
+            'allow_partial': allow_partial}
