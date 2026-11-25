@@ -555,6 +555,12 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                     if 'WorldPositionOffset' in params:
                         mat['UE_unimplemented_surface_inputs'] = 'WorldPositionOffset'
                         node_tree['Error'] = True
+                        try:
+                            import json
+                            from wind_preview import read_profile
+                            mat['UE_wind_profile'] = json.dumps(read_profile(params), sort_keys=True)
+                        except Exception as exc:
+                            mat['UE_wind_profile_error'] = str(exc)
                     SetTwoSided(params, mat)
 
                     TryRemapNormal(params, node_tree, node_data)
@@ -642,6 +648,8 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
     
     if log and out is not None: print(f"Imported {out.name}: {(time.time() - t0) * 1000:.2f}ms")
     if isinstance(out, bpy.types.Material):
+        from wind_preview import refresh_profile
+        refresh_profile(out, graph_data)
         from material_stage import incomplete_graph
         if incomplete_graph(out.node_tree):
             out['UE_material_status'] = 'partial_graph_unresolved'
