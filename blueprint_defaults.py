@@ -66,6 +66,20 @@ class BlueprintResolver:
                 path=Path(self.project.resolve_package(package))
                 if not path.is_file(): raise FileNotFoundError('Blueprint package unavailable')
                 if path.with_suffix('.uexp').is_file(): raise NotImplementedError('Cooked Blueprint defaults unsupported')
+                from package_inspector import inspect_package
+                meta=inspect_package(path)
+                if meta.get('ue5') is not None:
+                    from ue5_blueprint import inspect_blueprint
+                    result=inspect_blueprint(path)
+                    if result['generated_class']!=key[1]: raise ValueError('Generated class mismatch')
+                    bindings={}
+                    for c in result['components']:
+                        name=c['variable']
+                        if not name or name in bindings: raise ValueError('Ambiguous Blueprint component binding')
+                        bindings[name]={k:c[k] for k in ('package','explicit','origin','template','socket','parent')}
+                        bindings[name]['class']=c['kind']
+                    self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings,'ue5':result['version'],'parent_blueprint':result['parent_blueprint'],'mesh_dependencies':result['mesh_dependencies']}
+                    return self.cache[key]
                 a=uasset.UAsset(str(path),False,self.project); a.Read(False)
                 if not 516<=a.summary.version_ue4<=522: raise NotImplementedError('Unsupported Blueprint package version')
                 bindings=read_bindings(a,key[1]); self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings}

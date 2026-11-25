@@ -73,6 +73,7 @@ def inspect_package(path):
                     names.append(name)
             result.update(status='tables_inspected', header_end=header_end, flags=flags,
                           name_count=names_count, import_count=import_count, export_count=export_count,
+                          name_offset=names_offset, import_offset=import_offset, export_offset=export_offset,
                           names=names)
     except (ValueError, struct.error, OSError) as exc:
         result.update(status='invalid_or_truncated', error=str(exc))

@@ -97,6 +97,7 @@ def build_components(asset,collection,resolver):
                 binding=blueprints.component(actor,c)
                 if binding is not None and binding['explicit']:
                     package=binding['package']; node['UE_mesh_reference_origin']=binding['origin']; node['UE_mesh_template']=binding['template']
+                    if binding.get('socket'): node['UE_template_socket']=binding['socket']
         reason=unresolved_ancestor(key)
         status='anchor_only'; detail=reason or ''; geom=None
         if cls in MESH_TYPES:
