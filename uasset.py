@@ -128,7 +128,7 @@ prop_table_types = { "ExpressionOutput", "ScalarParameterValue", "TextureParamet
                     "KConvexElem", "Transform", "StaticMeshSourceModel", "MeshBuildSettings", "MeshReductionSettings", "MeshUVChannelInfo", "AssetEditorOrbitCameraPosition", "SimpleMemberReference", 
                     "CollisionResponse", "ResponseChannel", "StreamingTextureBuildInfo", "BuilderPoly", "PostProcessSettings", "LevelViewportInfo", "MaterialProxySettings", "MeshProxySettings",
                     "MeshMergingSettings", "HierarchicalSimplification", "Timeline", "TimelineFloatTrack", "ParameterGroupData", "MaterialParameterInfo", "MaterialInstanceBasePropertyOverrides", 
-                    "MaterialCachedExpressionData", "BoneNode", "TextureSource" }
+                    "MaterialCachedExpressionData", "BoneNode", "TextureSource", "StaticParameterSet", "StaticParameterSetRuntimeData" }
 prop_table_blacklist = { "MaterialTextureInfo" }
 struct_map = { "Vector":FVector, "Rotator":FVector, "Vector4":FVector4, "IntPoint":FIntPoint, "Quat":FQuat, "Box":FBox, "Color":FColor, "LinearColor":FLinearColor, "BoxSphereBounds":FBoxSphereBounds }
 temp_struct_blacklist = set()
@@ -341,7 +341,7 @@ class UProperty:
                         self.guid = asset.TryReadPropertyGuid()
                     else: raise
 
-                    if self.array_el_full_type in ("ScalarParameterValue", "VectorParameterValue", "TextureParameterValue", "ParameterGroupData"):
+                    if self.array_el_full_type in ("ScalarParameterValue", "VectorParameterValue", "TextureParameterValue", "ParameterGroupData", "StaticSwitchParameter"):
                         # Tagged records have variable lengths (omitted/default fields).
                         # The array's total byte count, not its mean record size, is authoritative.
                         start = f.Position()
@@ -420,12 +420,15 @@ class UProperty:
                 self.value = []
                 for i in range(f.ReadInt32()): self.value.append((f.ReadInt32(), f.ReadFName(asset.names)))
             case "MapProperty":
-                #if header: self.guid = asset.TryReadPropertyGuid()
-                self.value = [x for x in f.ReadBytes(self.len)]
-                #print("!")
                 if header:
                     self.key_type = f.ReadFName(asset.names)
                     self.value_type = f.ReadFName(asset.names)
+                    self.guid = asset.TryReadPropertyGuid()
+                if not 0 <= self.len <= 128 * 1024 * 1024:
+                    raise ValueError("Invalid map payload length")
+                self.value = f.ReadBytes(self.len)
+                if len(self.value) != self.len:
+                    raise ValueError("Truncated map payload")
             case "TextProperty" | "MulticastSparseDelegateProperty" | "DelegateProperty" | "AssetObjectProperty":
                 if header: self.guid = asset.TryReadPropertyGuid()
                 self.value = [x for x in f.ReadBytes(self.len)]

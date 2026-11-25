@@ -396,6 +396,12 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
                 else: print(f"Missing Texture \"{tex_imp.import_ref.object_name}\"")
         #case 'MaterialExpressionMakeMaterialAttributes': node_tree.links.new(node.outputs[0], node_tree.nodes['Material Output'].inputs['Surface'])
 
+    if classname == 'MaterialExpressionStaticBool':
+        node.outputs[0].default_value = float(bool(params.TryGetValue('Value', False)))
+    if classname == 'MaterialExpressionStaticSwitchParameter':
+        node.inputs['Fac'].default_value = float(bool(params.TryGetValue('DefaultValue', False)))
+        node.use_clamp = False
+
     TryRemapNormal(params, node_tree, node_data)
 
     if expr_guid := params.TryGetValue('ExpressionGUID'): graph_data.node_guids[expr_guid] = node_data
