@@ -3,7 +3,7 @@ bl_info = {
     "author" : "Waffle1434",
     "description" : "Import UE4 meshes, materials, & maps.",
     "blender" : (4, 2, 0),
-    "version" : (0, 10, 26),
+    "version" : (0, 10, 27),
     "location" : "",
     "warning" : "",
     "category" : "Import-Export",
@@ -15,7 +15,7 @@ import os, sys
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path: sys.path.append(cur_dir)
 
-import umap, umesh, umat, uproject_browser, texture_blender, wind_preview
+import umap, umesh, umat, uproject_browser, texture_blender, wind_preview, skeleton_blender
 
 def register():
     umat.register()
@@ -24,8 +24,10 @@ def register():
     uproject_browser.register()
     texture_blender.register()
     wind_preview.register()
+    skeleton_blender.register()
 
 def unregister():
+    skeleton_blender.unregister()
     wind_preview.unregister()
     texture_blender.unregister()
     uproject_browser.unregister()
