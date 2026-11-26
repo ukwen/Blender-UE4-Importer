@@ -49,10 +49,10 @@ def job_fingerprint(plan,path,common,engine_hashes):
 
 
 def identity(plan,path):
-    return digest([str(Path(plan['project']).resolve()),'geometry' if plan['scope']=='GEOMETRY' else 'map',str(Path(path).resolve())])
+    return digest([str(Path(plan['project']).resolve()),'geometry' if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY') else 'map',str(Path(path).resolve())])
 
 def options_key(plan,profile,materials,components,partial,physics):
-    return digest([SCHEMA,profile,physics] if plan['scope']=='GEOMETRY' else [SCHEMA,profile,materials,components,partial])
+    return digest([SCHEMA,profile,physics] if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY') else [SCHEMA,profile,materials,components,partial])
 
 def collection_objects(collection):
     return list(collection.all_objects)
@@ -125,7 +125,7 @@ def run_session(plan,profile='4.27',materials=True,components=True,partial=False
                 rollback_new(before); yield result; continue
             collection=bpy.data.collections.get(result['collection'])
             if collection is None or collection.as_pointer() in before: raise ValueError('Import did not create an owned collection')
-            if plan['scope']=='GEOMETRY': gallery_offset(scene,collection,result)
+            if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY'): gallery_offset(scene,collection,result)
             mark_collection(collection,key,source,options,result)
         except Exception as exc:
             rollback_new(before); result=dict(job=path,status='failed',detail=f'{type(exc).__name__}: {exc}')

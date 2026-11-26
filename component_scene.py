@@ -101,10 +101,12 @@ def build_components(asset,collection,resolver):
         binding=None
         if kind.endswith('_C'):
             bp=blueprints.load(actor); node['UE_blueprint_package']=bp['package']; node['UE_blueprint_status']=bp['status']
+            if 'lineage_status' in bp: node['UE_blueprint_lineage_status']=bp['lineage_status']; node['UE_blueprint_lineage']=json.dumps(bp['lineage'])
             if cls in MESH_TYPES and field not in p:
                 binding=blueprints.component(actor,c)
                 if binding is not None and binding['explicit']:
                     package=binding['package']; node['UE_mesh_reference_origin']=binding['origin']; node['UE_mesh_template']=binding['template']
+                    if binding.get('mesh_declared_in'): node['UE_mesh_declared_in']=binding['mesh_declared_in']
                     if binding.get('socket'): node['UE_template_socket']=binding['socket']
         reason=unresolved_ancestor(key)
         status='anchor_only'; detail=reason or ''; geom=None
@@ -208,4 +210,4 @@ def build_components(asset,collection,resolver):
         if accessory: records[-1].update(accessory_placement='serialized_template_map',fields=fields,master_pose=master.name if master else '')
         if placement is not None and geom is not None and status=='reconstructed':
             records[-1].update(placement=placement,sockets=socket_result)
-    return dict(actors=dict(actor_count),components=len(records),status=dict(Counter(r['status'] for r in records)),skeletal_decode_attempts=skeletal_attempts,records=records,failures=failures,blueprint_dependencies=list(blueprints.cache.values()))
+    return dict(actors=dict(actor_count),components=len(records),status=dict(Counter(r['status'] for r in records)),skeletal_decode_attempts=skeletal_attempts,records=records,failures=failures,blueprint_dependencies=[blueprints.resolved_cache.get(k,v) for k,v in blueprints.cache.items()])

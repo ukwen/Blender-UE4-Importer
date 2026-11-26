@@ -80,7 +80,7 @@ def inspect_blueprint(path):
     components=[]
     def add(index,name,origin,socket=None,parent=None):
         e=ref(index); require(index>0 and e['outer'] in (ci,di),'Invalid component template')
-        if e['kind'] not in ('StaticMeshComponent','SkeletalMeshComponent'): return
+        if e['kind'] not in ('StaticMeshComponent','SkeletalMeshComponent','SceneComponent','CapsuleComponent','InstancedStaticMeshComponent','HierarchicalInstancedStaticMeshComponent'): return
         p=read_properties(raw,e,names); keys=('SkinnedAsset','SkeletalMesh') if e['kind']=='SkeletalMeshComponent' else ('StaticMesh',)
         fields=[(k,p[k][1]) for k in keys if k in p]
         require(all(type(v) is int for k,v in fields),'Unsupported mesh reference field')
@@ -97,4 +97,15 @@ def inspect_blueprint(path):
             p=read_properties(raw,node,names); val=lambda k:p.get(k,(None,None))[1]
             add(val('ComponentTemplate'),val('InternalVariableName'),'SCS',val('AttachToName'),val('ParentComponentOrVariableName'))
     dependencies=sorted({package(-i) for i,x in enumerate(imports,1) if x['kind'] in ('StaticMesh','SkeletalMesh') and package(-i)})
-    return dict(version=1012,generated_class=cls['name'],parent_blueprint=package(cls['super_index']),components=components,mesh_dependencies=dependencies)
+    si=cls['super_index']; parent=ref(si)
+    require(si<0 and parent is not None,'Unsupported superclass reference')
+    # Preserve direct parent class and native /Script package identity separately.
+    parent_pkg=package(si)
+    if not parent_pkg:
+        seen=set(); idx=si
+        while idx<0:
+            require(idx not in seen,'Superclass import cycle'); seen.add(idx); item=ref(idx)
+            if item['kind']=='Package' and item['name'].startswith('/Script/'):
+                parent_pkg=item['name']; break
+            idx=item['outer']
+    return dict(version=1012,generated_class=cls['name'],parent_blueprint=parent_pkg,parent_class=parent['name'],components=components,mesh_dependencies=dependencies)

@@ -30,3 +30,7 @@ See [Project batch workflow](docs/0.10.47-project-batch.md).
 ## 0.10.48-dev
 
 See [Saved-scene import sessions and asset selection](docs/0.10.48-project-sessions.md).
+
+## 0.10.49-dev
+
+See [UE5 dependency inventory and Blueprint ancestry](docs/0.10.49-ue5-dependencies.md).

@@ -98,3 +98,7 @@ The Unreal sidebar supports dependency preflight and cooperative batch import of
 ### Saved-scene batch recovery (0.10.48-dev)
 
 Refresh the job list, optionally check individual jobs, preflight, then **Run / Resume Batch Import**. Save the .blend after stopping. Completed jobs with unchanged source and settings are reused; stale ownership is blocked. An optional pre-batch recovery copy is available. See [workflow and limitations](docs/0.10.48-project-sessions.md).
+
+### 0.10.49-dev
+
+Selected map geometry imports only known reachable geometry into a resumable gallery. UE5 1012 tagged soft package/object paths and export dependency indices are inspected; Blueprint class ancestry is resolved conservatively. See [development notes](docs/0.10.49-ue5-dependencies.md).

@@ -58,6 +58,14 @@ def read_record(path,project):
             _,_,imports,exports,_,_=read_tables(path)
             classes={e['kind'] for e in exports if not e['outer']}
             refs={i['name'] for i in imports if i['kind']=='Package' and i['name'].startswith('/') and not i['name'].startswith('/Script/')}
+            refs.update(i['package_name'] for i in imports if i['package_name'].startswith('/') and not i['package_name'].startswith('/Script/'))
+            try:
+                from ue5_dependencies import read_dependencies
+                deps=read_dependencies(path)
+                record.update(soft_references=deps['soft_references'],soft_coverage='ue5_1012_summary_tables',
+                              soft_object_paths=deps['soft_object_paths'],export_dependency_rows=len(deps['export_dependency_rows']),
+                              export_dependency_indices=sum(map(len,deps['export_dependency_rows'])))
+            except Exception as exc: record['soft_detail']=str(exc)
         else: return record
         record.update(classes=sorted(classes),references=sorted(refs),coverage='import_table')
     except Exception as exc: record['detail']=f'{type(exc).__name__}: {exc}'
@@ -79,12 +87,23 @@ def preflight(descriptor,scope='ALL_MAPS',selected=None,subfolder='',job_filter=
     for key,p in index.items():
         records[key]=read_record(p,project)
     if scope=='ALL_MAPS': seeds=[package_id(p,content) for _,p in maps]
-    elif scope=='SELECTED_MAP':
+    elif scope in ('SELECTED_MAP','MAP_GEOMETRY'):
         if selected not in {p for _,p in maps}: raise ValueError('Selected map is missing; scan again')
         seeds=[package_id(selected,content)]
     elif scope=='GEOMETRY':
         seeds=[k for k,p in index.items() if p.is_relative_to(folder) and p.suffix.lower()=='.uasset' and (set(records[k]['classes'])&{'StaticMesh','SkeletalMesh'} or records[k]['coverage']=='unknown')]
     else: raise ValueError('Invalid batch scope')
+    root_seeds=list(seeds)
+    if scope=='MAP_GEOMETRY':
+        # Only geometry packages reachable through the selected level's known
+        # dependency graph. Unknown classes remain reported, never imported blindly.
+        reachable=set(); pending=list(seeds)
+        while pending:
+            key=pending.pop()
+            if key in reachable: continue
+            reachable.add(key)
+            pending.extend(ref for ref in set(records[key]['references'])|set(records[key]['soft_references']) if ref in index and ref not in reachable)
+        seeds=sorted(k for k in reachable if index[k].suffix.lower()=='.uasset' and set(records[k]['classes'])&{'StaticMesh','SkeletalMesh'})
     seeds=[k for k in seeds if job_filter.casefold() in k.casefold()]
     if selected_packages is not None:
         if not set(selected_packages)<=set(seeds): raise ValueError("Selection is stale; refresh the job list")
@@ -102,7 +121,8 @@ def preflight(descriptor,scope='ALL_MAPS',selected=None,subfolder='',job_filter=
                 try: status='external_engine_present' if Path(project.resolve_package(ref)).is_file() else 'missing_engine'
                 except (ValueError,OSError): status='missing_engine'
             else: status='unsupported_mount'
-            edge=edges.setdefault(ref,{'status':status,'referenced_by':[],'soft_referenced_by':[]})
+            edge=edges.setdefault(ref,{'status':status,'referenced_by':[],'soft_referenced_by':[],'hard_referenced_by':[]})
             edge['referenced_by'].append(k)
+            if ref in records[k]['references']: edge['hard_referenced_by'].append(k)
             if ref in records[k]['soft_references']: edge['soft_referenced_by'].append(k)
-    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 soft-summary references; does not prove required runtime dependencies. Split/unsupported tables are unknown. Engine packages are not recursively inspected.')
+    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),source_map=root_seeds[0] if scope=='MAP_GEOMETRY' else None,jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 and UE5 1012 soft-summary references; does not prove required runtime dependencies. Split/unsupported tables are unknown. Engine packages are not recursively inspected.')

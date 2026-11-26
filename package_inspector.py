@@ -55,11 +55,20 @@ def inspect_package(path):
             if not f.tell() <= header_end <= size: raise ValueError('invalid header end')
             string(); flags = u32()
             names_count, names_offset = i32(), i32()
-            if ue5 is not None and ue5 >= 1008: read(8)
+            soft_object_count, soft_object_offset = (i32(), i32()) if ue5 is not None and ue5 >= 1008 else (0, 0)
             if ue4 >= 516 and not flags & 0x80000000: string()
             read(8) # gatherable text count and offset
             export_count, export_offset = i32(), i32()
             import_count, import_offset = i32(), i32()
+            # UE5 1012 uses the pre-metadata/Verse summary layout. Record only
+            # the explicitly verified table offsets, not guessed newer layouts.
+            extra = {}
+            if ue5 == 1012:
+                depends_offset, soft_package_count, soft_package_offset, searchable_offset, thumbnail_offset = (i32() for _ in range(5))
+                extra = dict(soft_object_count=soft_object_count, soft_object_offset=soft_object_offset,
+                             depends_offset=depends_offset, soft_package_count=soft_package_count,
+                             soft_package_offset=soft_package_offset, searchable_offset=searchable_offset,
+                             thumbnail_offset=thumbnail_offset)
             for n, o in ((names_count,names_offset),(export_count,export_offset),(import_count,import_offset)):
                 if not 0 <= n <= 2000000 or (n and not f.tell() <= o < header_end):
                     raise ValueError('invalid package table')
@@ -74,7 +83,7 @@ def inspect_package(path):
             result.update(status='tables_inspected', header_end=header_end, flags=flags,
                           name_count=names_count, import_count=import_count, export_count=export_count,
                           name_offset=names_offset, import_offset=import_offset, export_offset=export_offset,
-                          names=names)
+                          names=names, **extra)
     except (ValueError, struct.error, OSError) as exc:
         result.update(status='invalid_or_truncated', error=str(exc))
     return result

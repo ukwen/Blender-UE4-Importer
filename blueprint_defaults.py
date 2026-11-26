@@ -59,10 +59,10 @@ def read_bindings(asset,class_name,read=checked_props):
 
 class BlueprintResolver:
     def __init__(self,project):
-        self.project=project; self.cache={}
+        self.project=project; self.cache={}; self.resolved_cache={}
 
-    def load(self,actor):
-        package=package_reference(actor.export_class); key=(package,actor.export_class_type)
+    def load_local(self,key):
+        package=key[0]
         if key not in self.cache:
             a=None
             try:
@@ -82,16 +82,34 @@ class BlueprintResolver:
                         if not name or name in bindings: raise ValueError('Ambiguous Blueprint component binding')
                         bindings[name]={k:c[k] for k in ('package','explicit','origin','template','socket','parent','fields')}
                         bindings[name]['class']=c['kind']
-                    self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings,'ue5':result['version'],'parent_blueprint':result['parent_blueprint'],'mesh_dependencies':result['mesh_dependencies']}
+                    self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings,'ue5':result['version'],'parent_blueprint':result['parent_blueprint'],'parent_class':result['parent_class'],'mesh_dependencies':result['mesh_dependencies']}
                     return self.cache[key]
                 a=uasset.UAsset(str(path),False,self.project); a.Read(False)
                 if not 516<=a.summary.version_ue4<=522: raise NotImplementedError('Unsupported Blueprint package version')
-                bindings=read_bindings(a,key[1]); self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings}
+                bindings=read_bindings(a,key[1])
+                from blueprint_placement import package4
+                cls=next(e for e in a.exports if e.outer_index==0 and e.export_class_type=='BlueprintGeneratedClass' and e.object_name==key[1])
+                parent=a.GetImport(cls.super_index) if cls.super_index<0 else None
+                self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings,
+                                 'parent_blueprint':package4(a,cls.super_index),'parent_class':parent.object_name if parent else ''}
             except Exception as exc:
                 self.cache[key]={'package':package,'class':key[1],'status':'missing' if isinstance(exc,FileNotFoundError) else 'unresolved','detail':str(exc),'bindings':{}}
             finally:
                 if a is not None and hasattr(a,'f'): a.Close()
         return self.cache[key]
+
+    def load(self,actor):
+        key=(package_reference(actor.export_class),actor.export_class_type)
+        # Keep the local cache separate; ancestral merges must never overwrite
+        # local declarations used by another child.
+        if key in self.resolved_cache: return self.resolved_cache[key]
+        local=self.load_local(key)
+        if local.get('status')!='inspected': return local
+        from blueprint_lineage import resolve_lineage
+        result=dict(local)
+        result.update(resolve_lineage(key,self.load_local))
+        self.resolved_cache[key]=result
+        return result
 
     def component(self,actor,component):
         result=self.load(actor); bindings=result['bindings']

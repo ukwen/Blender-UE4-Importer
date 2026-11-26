@@ -58,7 +58,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     active: IntProperty(default=0, min=0)
     cooked_profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers')],default='4.27')
     geometry_physics: BoolProperty(name='Attach native physics previews',default=False,description='Resolve exact source PhysicsAsset references; missing or unsupported assets are reported without dropping geometry')
-    batch_scope: EnumProperty(name='Batch scope',items=[('ALL_MAPS','All maps','Reconstruct all project maps'),('SELECTED_MAP','Selected map','Reconstruct selected map'),('GEOMETRY','Geometry folder','Native geometry inspection gallery')],default='ALL_MAPS')
+    batch_scope: EnumProperty(name='Batch scope',items=[('ALL_MAPS','All maps','Reconstruct all project maps'),('SELECTED_MAP','Selected map','Reconstruct selected map'),('GEOMETRY','Geometry folder','Native geometry inspection gallery'),('MAP_GEOMETRY','Selected map geometry','Import only known geometry dependencies of selected map into a gallery')],default='ALL_MAPS')
     job_items: CollectionProperty(type=UEIMPORT_Job)
     job_active: IntProperty(default=0,min=0)
     catalog_key: StringProperty(options={'HIDDEN'})
@@ -177,7 +177,7 @@ class UEIMPORT_OT_geometry_gallery(bpy.types.Operator):
 def catalog_key(state):
     from project_session import digest
     selected=state.maps[state.active].filepath if 0<=state.active<len(state.maps) else None
-    return digest([str(Path(bpy.path.abspath(state.project_path)).resolve()),state.batch_scope,selected if state.batch_scope=='SELECTED_MAP' else None,state.geometry_folder if state.batch_scope=='GEOMETRY' else '',state.job_filter])
+    return digest([str(Path(bpy.path.abspath(state.project_path)).resolve()),state.batch_scope,selected if state.batch_scope in ('SELECTED_MAP','MAP_GEOMETRY') else None,state.geometry_folder if state.batch_scope=='GEOMETRY' else '',state.job_filter])
 
 
 def make_plan(state,ignore_selection=False):
@@ -335,8 +335,10 @@ class UEIMPORT_PT_project(bpy.types.Panel):
         layout.operator('ueimport.scan_project', icon='FILE_REFRESH')
         box=layout.box();box.label(text='Project batch workflow')
         box.prop(state,'batch_scope');box.prop(state,'job_filter')
-        if state.batch_scope=='GEOMETRY':
-            box.prop(state,'geometry_folder');box.prop(state,'geometry_physics')
+        if state.batch_scope in ('GEOMETRY','MAP_GEOMETRY'):
+            if state.batch_scope=='GEOMETRY': box.prop(state,'geometry_folder')
+            else: box.label(text='Gallery of selected map dependencies')
+            box.prop(state,'geometry_physics')
         else:
             box.prop(state,'components');box.prop(state,'static_materials')
             if state.static_materials: box.prop(state,'partial_materials')
