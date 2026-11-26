@@ -44,7 +44,7 @@ def inspect_package(path):
             result.update(ue4=ue4, ue5=ue5, licensee=i32())
             if ue4 == 0 or (ue5 is not None and ue5 == 0):
                 result['status'] = 'unversioned_requires_context'; return result
-            if not 516 <= ue4 <= 522 or (ue5 is not None and not 1000 <= ue5 <= 1018):
+            if not (ue4 == 508 and ue5 is None or 516 <= ue4 <= 522) or (ue5 is not None and not 1000 <= ue5 <= 1018):
                 result['status'] = 'unsupported_version'; return result
             if ue5 is not None and ue5 >= 1016:
                 read(20); header_end = i32()
@@ -56,7 +56,7 @@ def inspect_package(path):
             string(); flags = u32()
             names_count, names_offset = i32(), i32()
             if ue5 is not None and ue5 >= 1008: read(8)
-            if not flags & 0x80000000: string()
+            if ue4 >= 516 and not flags & 0x80000000: string()
             read(8) # gatherable text count and offset
             export_count, export_offset = i32(), i32()
             import_count, import_offset = i32(), i32()

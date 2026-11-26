@@ -257,6 +257,9 @@ def _ImportStaticMesh(self, import_materials, log, all_lods):
     import json
     t0 = time.time()
     asset = self.asset
+    if asset.summary.version_ue4 == 508:
+        from legacy_static import import_legacy_static
+        return import_legacy_static(self, import_materials, all_lods)
     f = asset.f
     self.ReadProperties(False, False)
     if f.ReadInt32(): self.guid = f.ReadGuid()
