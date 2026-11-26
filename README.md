@@ -82,3 +82,19 @@ Blender addon to import Unreal Engine 4 asset files. [Download the latest releas
 | [Military Supplies - VOL.8 - Supplies](https://www.unrealengine.com/marketplace/en-US/product/military-supplies-vol-8-field-supplies) | ✔️ | $ |
 | [Twinmotion Construction Vehicles 1](https://www.unrealengine.com/marketplace/en-US/product/twinmotion-construction-vehicles) | ❌ | Compressed (*fml*) |
 | [Toolset Collection - Vol 1](https://www.unrealengine.com/marketplace/en-US/product/toolset-collection-vol-1) | ❌ | Compressed (*fml*) |
+
+### Physics asset preview (development)
+
+Select a native imported armature in Object mode, then File > Import > UE Physics Asset — Collision Preview (.uasset). Requires the original referenced skeletal mesh. Editable bone-parented capsule meshes and joint frames are hidden from renders; simulation is not enabled. See docs/0.10.45-physics-preview.md.
+
+### Native vehicle collision previews (0.10.46-dev)
+
+In the Unreal project sidebar, enable **Attach native physics previews** before **Import Native Geometry Folder**. Matching project-local physics assets are resolved from serialized package references. Missing or unsupported physics dependencies are recorded in the gallery report without discarding the mesh. Supports source capsules and bounded UE4.27 unindexed convex hulls with identity transforms. No rigid-body simulation.
+
+### Project batch workflow (0.10.47-dev)
+
+The Unreal sidebar supports dependency preflight and cooperative batch import of selected/all maps or geometry folders. See [workflow and limits](docs/0.10.47-project-batch.md).
+
+### Saved-scene batch recovery (0.10.48-dev)
+
+Refresh the job list, optionally check individual jobs, preflight, then **Run / Resume Batch Import**. Save the .blend after stopping. Completed jobs with unchanged source and settings are reused; stale ownership is blocked. An optional pre-batch recovery copy is available. See [workflow and limitations](docs/0.10.48-project-sessions.md).

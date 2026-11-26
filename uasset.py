@@ -272,7 +272,7 @@ class UProperty:
                             self.material_input_unsupported = True
                         f.Seek(p_next)
                     case "ColorMaterialInput" | "ScalarMaterialInput" | "VectorMaterialInput":
-                        if asset.summary.version_ue4 >= 514 and self.len == (52 if self.struct_type == "VectorMaterialInput" else 44):
+                        if (asset.summary.version_ue4 >= 514 and self.len == (52 if self.struct_type == "VectorMaterialInput" else 44)) or (asset.summary.version_ue4 == 508 and self.len == (48 if self.struct_type == "VectorMaterialInput" else 40)):
                             self.material_input = inp = FExpressionInput(asset)
                             flag = f.ReadInt32()
                             if flag not in (0, 1): raise ValueError("Invalid material input constant flag")
@@ -280,6 +280,7 @@ class UProperty:
                             inp.constant = (f.ReadStructure(FColor) if self.struct_type == "ColorMaterialInput" else
                                             f.ReadStructure(FVector) if self.struct_type == "VectorMaterialInput" else f.ReadFloat())
                             self.value = inp.node
+                            if f.Position() != p_next: raise ValueError("Material input length mismatch")
                         else:
                             index = f.ReadInt32()
                             self.value = asset.GetExport(index) if index > 0 else None

@@ -80,7 +80,7 @@ def read_editor_texture(filepath, project=None):
     asset=uasset.UAsset(str(path), False, project)
     try:
         asset.Read(False); s=asset.summary; f=asset.f
-        if s.version_legacy != -7 or not 513 <= s.version_ue4 <= 522 or s.version_ue4_licensee or s.package_flags & (0x8|0x2000):
+        if s.version_legacy != -7 or not (s.version_ue4 == 508 or 513 <= s.version_ue4 <= 522) or s.version_ue4_licensee or s.package_flags & (0x8|0x2000):
             raise NotImplementedError('Unsupported UE4 editor source package profile')
         exports=[e for e in asset.exports if e.export_class_type=='Texture2D']
         if len(exports)!=1: raise ValueError('Expected one Texture2D export')

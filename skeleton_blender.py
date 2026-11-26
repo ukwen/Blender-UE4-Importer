@@ -107,7 +107,28 @@ class BindUEAccessory(bpy.types.Operator):
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
 
 
+
+class ImportUEPhysics(bpy.types.Operator, ImportHelper):
+    bl_idname='import.ue_physics_asset'
+    bl_label='Import UE Physics Asset (collision preview)'
+    bl_description='Attach source collision capsules and joint frames to the selected native rig; does not enable simulation'
+    bl_options={'REGISTER','UNDO'}
+    filename_ext='.uasset'
+    filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    @classmethod
+    def poll(cls,context):
+        return context.mode=='OBJECT' and context.object is not None and context.object.type=='ARMATURE' and bool(context.object.get('UE_source_mesh_path'))
+    def execute(self,context):
+        from physics_native import read_physics,build_physics
+        try:
+            arm=context.object;data=read_physics(self.filepath);objects=build_physics(arm,data,arm['UE_source_mesh_path'])
+            self.report({'INFO'},f"Created {len(objects)} collision/joint preview objects; no simulation enabled")
+            return {'FINISHED'}
+        except (OSError,ValueError,RuntimeError,KeyError,TypeError) as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+
 def menu(self,context):
+    self.layout.operator(ImportUEPhysics.bl_idname,text='UE Physics Asset — Collision Preview (.uasset)')
     self.layout.operator(ImportUECookedStatic.bl_idname,text='UE4 Native Cooked Static Mesh (.uasset)')
     self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
     self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4 Native Skeletal Mesh (.uasset)')
@@ -115,8 +136,8 @@ def menu(self,context):
 def register():
     import native_sockets
     native_sockets.register()
-    bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
+    bpy.utils.register_class(ImportUEPhysics); bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
     import native_sockets
     native_sockets.unregister()
-    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory)
+    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory); bpy.utils.unregister_class(ImportUEPhysics)

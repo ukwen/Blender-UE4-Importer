@@ -60,13 +60,19 @@ def root_class(path,project):
     asset=uasset.UAsset(str(path),False,project)
     try:
         asset.Read(False)
-        roots=[e.export_class_type for e in asset.exports if e.outer_index==0 and e.export_class_type!='MetaData']
+        roots=[e for e in asset.exports if e.outer_index==0 and e.export_class_type!='MetaData']
+        primary=[e for e in roots if e.export_class_type=='SkeletalMesh']
+        if len(primary)==1:
+            roots=[e for e in roots if not (e.export_class_type=='SkeletalMeshEditorData' and e.object_name==primary[0].object_name+'_USkeletalMeshEditorData')]
+        roots=[e.export_class_type for e in roots]
         if len(roots)!=1: raise NotImplementedError('Expected one root editor asset')
         return roots[0]
     finally: asset.Close()
 
 
-def import_geometry_folder(descriptor,subfolder='',profile='4.27'):
+class _NonGeometry(Exception): pass
+
+def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,planned_paths=None):
     """Import supported geometry assets as a gallery, not as a level layout."""
     import bpy,uasset
     from skeletal_mesh_native import read_native_mesh,build_mesh
@@ -77,6 +83,9 @@ def import_geometry_folder(descriptor,subfolder='',profile='4.27'):
     folder=(content/subfolder).resolve()
     if not folder.is_relative_to(content) or not folder.is_dir(): raise ValueError('Select a folder inside project Content')
     paths=sorted(p for p in folder.rglob('*.uasset') if p.is_file() and p.resolve().is_relative_to(content) and not any(k in ('__ExternalActors__','__ExternalObjects__') for k in p.relative_to(content).parts))
+    if planned_paths is not None:
+        allowed=set(paths); paths=[Path(p) for p in planned_paths]
+        if len(set(paths))!=len(paths) or any(p not in allowed for p in paths): raise ValueError('Stale or invalid planned package paths')
     if len(paths)>10000: raise ValueError('Select a smaller folder (maximum 10000 packages)')
     project=uasset.UProject(descriptor); collection=bpy.data.collections.new('UE native geometry gallery')
     bpy.context.scene.collection.children.link(collection)
@@ -88,7 +97,7 @@ def import_geometry_folder(descriptor,subfolder='',profile='4.27'):
         try:
             kind=root_class(path,project); record['class']=kind
             if kind not in ('StaticMesh','SkeletalMesh'):
-                record['status']='skipped_non_geometry'; continue
+                raise _NonGeometry()
             before={item.as_pointer() for store in stores for item in store}
             if kind=='StaticMesh':
                 mesh=load_static(path,project,profile)
@@ -103,12 +112,32 @@ def import_geometry_folder(descriptor,subfolder='',profile='4.27'):
             root['UE_gallery_offset_x']=root.location.x
             record.update(status='reconstructed',vertices=len(mesh.vertices),triangles=len(mesh.polygons),bones=len(root.data.bones) if kind=='SkeletalMesh' else 0,object=obj.name)
             totals.update({k:record[k] for k in ('vertices','triangles','bones')})
+            if include_physics and kind=='SkeletalMesh':
+                from physics_native import associate_physics
+                try: record['physics']=associate_physics(root,path,content)
+                except Exception as exc: record['physics']={'status':'unavailable','detail':f'{type(exc).__name__}: {exc}'}
+        except _NonGeometry:
+            record['status']='skipped_non_geometry'
         except Exception as exc:
             if before is not None:
                 created=[item for store in stores for item in store if item.as_pointer() not in before]
                 if created: bpy.data.batch_remove(ids=created)
             record.update(status='unsupported' if isinstance(exc,NotImplementedError) else 'failed',detail=f'{type(exc).__name__}: {exc}')
         finally: records.append(record)
-    report={'profile':profile,'folder':folder.relative_to(content).as_posix(),'layout':'inspection gallery, not level placement','counts':dict(Counter(r['status'] for r in records)),'totals':dict(totals),'assets':records}
+        yield collection, _gallery_report(profile,folder,content,records,totals)
+    return collection,_gallery_report(profile,folder,content,records,totals)
+
+def _gallery_report(profile,folder,content,records,totals):
+    report={'profile':profile,'folder':folder.relative_to(content).as_posix(),'layout':'inspection gallery, not level placement','counts':dict(Counter(r['status'] for r in records)),'totals':dict(totals),'physics_counts':dict(Counter(r['physics']['status'] for r in records if 'physics' in r)),'assets':records}
+    return report
+
+def finish_gallery(collection,report):
+    import bpy
     text=bpy.data.texts.new(collection.name+' - report.json'); text.write(json.dumps(report,indent=2)); collection['UE_report']=text.name
     return collection,report
+
+def import_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False):
+    iterator=iter_geometry_folder(descriptor,subfolder,profile,include_physics)
+    while True:
+        try: next(iterator)
+        except StopIteration as stop: return finish_gallery(*stop.value)

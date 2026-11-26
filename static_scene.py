@@ -69,16 +69,21 @@ def reconstruct_static_map(filepath, materials=False, allow_partial_materials=Fa
     resolver = MeshResolver(uasset.UProject(filepath), cooked_profile)
     collection, report = map_layout.import_layout(filepath, mesh_resolver=resolver)
     counts = Counter(o['UE_geometry_status'] for o in collection.objects)
-    report.update(actor_status=dict(counts), decode_attempts=resolver.decode_attempts,
-                  unique_reconstructed_meshes=len({o.data.as_pointer() for o in collection.objects if o.type == 'MESH'}),
+    static_mesh_count = len({o.data.as_pointer() for o in collection.objects if o.type == 'MESH'})
+    from foliage_legacy import reconstruct_foliage
+    foliage = reconstruct_foliage(filepath, collection, resolver)
+    report.update(foliage_report=foliage, actor_status=dict(counts), decode_attempts=resolver.decode_attempts,
+                  unique_reconstructed_meshes=static_mesh_count,
+                  static_and_foliage_meshes=len({o.data.as_pointer() for o in collection.objects if o.type == 'MESH'}),
                   materials_imported=False,
                   dependencies={p: {'status': r['status'], 'detail': r['detail']} for p,r in resolver.records.items()})
-    if materials:
-        from material_stage import bind_scene_materials
-        report['material_report'] = bind_scene_materials(collection, resolver.project, allow_partial=allow_partial_materials)
     if components:
         from component_scene import extend_components
         report['component_report'] = extend_components(filepath,collection,resolver)
+    if materials:
+        from material_stage import bind_scene_materials
+        report['material_report'] = bind_scene_materials(collection, resolver.project, allow_partial=allow_partial_materials)
+        report['materials_imported'] = bool(report['material_report']['bound_meshes'])
     collection['UE_geometry_only'] = not materials
     collection['UE_reconstructed_actors'] = counts['reconstructed']
     collection['UE_unresolved_actors'] = sum(counts.values()) - counts['reconstructed']

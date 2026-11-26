@@ -85,7 +85,9 @@ def inspect_blueprint(path):
         fields=[(k,p[k][1]) for k in keys if k in p]
         require(all(type(v) is int for k,v in fields),'Unsupported mesh reference field')
         packages={package(v) for k,v in fields if v}; require(len(packages)<=1 and '' not in packages,'Conflicting mesh refs')
-        components.append(dict(variable=name,template=e['name'],kind=e['kind'],origin=origin,package=next(iter(packages),''),socket=socket or '',parent=parent or '',explicit=bool(fields)))
+        from blueprint_placement import props5,FIELDS
+        transform_fields=props5(raw,e,names) if origin=='SCS' else {}
+        components.append(dict(fields={k:transform_fields[k] for k in FIELDS if k in transform_fields},variable=name,template=e['name'],kind=e['kind'],origin=origin,package=next(iter(packages),''),socket=socket or '',parent=parent or '',explicit=bool(fields)))
     for name,(typ,value) in read_properties(raw,default,names).items():
         if typ=='ObjectProperty' and isinstance(value,int) and value>0 and ref(value)['outer']==di: add(value,name,'CDO')
     for si,script in scripts:

@@ -154,9 +154,17 @@ def assemble(r,name,bones,materials,sections,idx,positions,normals,tangents,sign
 
 
 def read_native_mesh(path, version):
-    if Path(path).with_suffix('.uexp').is_file(): return read_mesh(path, version)
-    from editor_skeletal import read_editor_mesh
-    return read_editor_mesh(path)
+    if Path(path).with_suffix('.uexp').is_file(): data=read_mesh(path, version)
+    else:
+        from package_inspector import inspect_package
+        if inspect_package(path).get('ue4') == 508:
+            from legacy_skeletal import read_legacy_skeletal
+            data=read_legacy_skeletal(path)
+        else:
+            from editor_skeletal import read_editor_mesh
+            data=read_editor_mesh(path)
+    data['source_path']=str(Path(path).resolve())
+    return data
 
 
 def build_mesh(data, collection=None):
@@ -176,6 +184,9 @@ def build_mesh(data, collection=None):
             if package: mat['UE_material_package']=package
             mesh.materials.append(mat)
         for poly,slot in zip(mesh.polygons,data['slots']): poly.material_index=slot; poly.use_smooth=True
+        import json
+        mesh['UE_material_bindings']=json.dumps(data['materials'])
+        attr=mesh.attributes.new('UE_source_material_index','INT','FACE'); attr.data.foreach_set('value',data['slots'])
         for channel in range(len(data['uvs'][0])//2):
             layer=mesh.uv_layers.new(name=f'UV{channel}')
             layer.data.foreach_set('uv',[v for loop in mesh.loops for v in (data['uvs'][loop.vertex_index][2*channel],1-data['uvs'][loop.vertex_index][2*channel+1])])
@@ -191,6 +202,7 @@ def build_mesh(data, collection=None):
             mesh['UE_duplicate_source_triangles']=len(data['duplicate_faces'])
             if data['duplicate_faces']: mesh['UE_removed_source_triangle_indices']=data['duplicate_faces']
             mesh['UE_source_lod_count']=data['lod_count']
+            if 'split_source_faces' in data: mesh['UE_split_source_triangles']=len(data['split_source_faces'])
         if 'colors' in data:
             attr=mesh.color_attributes.new(name='UE_source_color',type='BYTE_COLOR',domain='POINT')
             attr.data.foreach_set('color_srgb',[v/255. for rgba in data['colors'] for v in rgba])
@@ -201,6 +213,7 @@ def build_mesh(data, collection=None):
         obj.parent=arm; mod=obj.modifiers.new('UE native skin','ARMATURE'); mod.object=arm; mod.use_deform_preserve_volume=False
         obj['UE_skeletal_mesh_status']='native_'+('cooked_' if not data['version'].startswith('editor_') else '')+data['version']+'_lod0'; obj['UE_unparsed_tail_bytes']=data['tail_bytes']
         arm['UE_skeleton_status']='native_skin_bound'
+        if data.get('source_path'): arm['UE_source_mesh_path']=data['source_path']; obj['UE_source_mesh_path']=data['source_path']
         if data.get('skeleton_package'):
             arm['UE_skeleton_package']=data['skeleton_package']; obj['UE_skeleton_package']=data['skeleton_package']
         return obj,arm

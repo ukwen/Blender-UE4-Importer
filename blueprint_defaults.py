@@ -30,7 +30,8 @@ def read_bindings(asset,class_name,read=checked_props):
         p=read(template); field='SkeletalMesh' if template.export_class_type=='SkeletalMeshComponent' else 'StaticMesh'
         ref=value(p,field)
         if ref is not None and not package_reference(ref): raise ValueError('Invalid template mesh reference')
-        item={'class':template.export_class_type,'package':package_reference(ref),'explicit':field in p,'origin':origin,'template':template.object_name}
+        from blueprint_placement import transform4
+        item={'fields':transform4(p) if origin=='SCS' else {},'class':template.export_class_type,'package':package_reference(ref),'explicit':field in p,'origin':origin,'template':template.object_name}
         if name in bindings and bindings[name]!=item: raise ValueError('Ambiguous Blueprint component binding: '+name)
         bindings[name]=item
     # CDO component pointers are explicit property-name associations, not name guesses.
@@ -50,6 +51,9 @@ def read_bindings(asset,class_name,read=checked_props):
             p=read(node); t=value(p,'ComponentTemplate'); name=value(p,'InternalVariableName')
             if not isinstance(t,uasset.Export) or t.outer_index!=ci: raise ValueError('External SCS template unsupported')
             add(name,t,'SCS')
+            if name in bindings:
+                bindings[name]['socket']=value(p,'AttachToName','None')
+                bindings[name]['parent']=value(p,'ParentComponentOrVariableName','None')
     return bindings
 
 
@@ -76,7 +80,7 @@ class BlueprintResolver:
                     for c in result['components']:
                         name=c['variable']
                         if not name or name in bindings: raise ValueError('Ambiguous Blueprint component binding')
-                        bindings[name]={k:c[k] for k in ('package','explicit','origin','template','socket','parent')}
+                        bindings[name]={k:c[k] for k in ('package','explicit','origin','template','socket','parent','fields')}
                         bindings[name]['class']=c['kind']
                     self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings,'ue5':result['version'],'parent_blueprint':result['parent_blueprint'],'mesh_dependencies':result['mesh_dependencies']}
                     return self.cache[key]

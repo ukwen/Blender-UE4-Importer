@@ -9,7 +9,9 @@ import uasset, blueprint_defaults as bd, static_scene
 
 path=Path(os.environ['UE_TEST_ASSETS'])/'TestEditorAssets/TestActorBP.uasset'
 with uasset.UAsset(str(path)) as a:
-    assert bd.read_bindings(a,'TestActorBP_C')=={'DefaultSceneRoot':{'class':'SceneComponent','package':'','explicit':False,'origin':'SCS','template':'DefaultSceneRoot_GEN_VARIABLE'}}
+    binding=bd.read_bindings(a,'TestActorBP_C')['DefaultSceneRoot']
+    assert all(binding[k]==v for k,v in {'class':'SceneComponent','package':'','explicit':False,'origin':'SCS','template':'DefaultSceneRoot_GEN_VARIABLE'}.items())
+    assert binding['fields']=={}
 print('GENUINE_SCS_PASS')
 def props(**kw): return uasset.Properties({k:NS(value=v) for k,v in kw.items()})
 def export(name,cls,outer=0,ci=0,**kw):
