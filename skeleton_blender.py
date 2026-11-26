@@ -113,6 +113,10 @@ def menu(self,context):
     self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4 Native Skeletal Mesh (.uasset)')
     self.layout.operator(ImportUEAnimation.bl_idname,text='UE4.27 Editor Raw Animation (.uasset)')
 def register():
+    import native_sockets
+    native_sockets.register()
     bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
+    import native_sockets
+    native_sockets.unregister()
     bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory)
