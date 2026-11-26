@@ -23,6 +23,8 @@ def build_components(asset,collection,resolver):
     records=[]; actor_count=Counter(); failures=[]; skeletal_cache={}; skeletal_attempts=0
     owners={}; nodes={}; props={}; plans=[]
     blueprints=BlueprintResolver(resolver.project)
+    from blueprint_placement import resolve_body, place_body, body_sockets
+    placement_cache={}; socket_cache={}
     children=defaultdict(list)
     for c in asset.exports: children[c.outer_index].append(c)
     for index,actor in enumerate(asset.exports,1):
@@ -100,11 +102,18 @@ def build_components(asset,collection,resolver):
                     if binding.get('socket'): node['UE_template_socket']=binding['socket']
         reason=unresolved_ancestor(key)
         status='anchor_only'; detail=reason or ''; geom=None
+        placement=None; socket_result=None
+        if kind.endswith('_C') and cls=='SkeletalMeshComponent' and package and not reason and actor.properties.TryGetValue('Mesh') is c:
+            try:
+                placement=resolve_body(resolver.project,actor,c,root,bp['package'],placement_cache)
+                if nodes[id(root)].parent is not None or node.parent!=nodes[id(root)]: raise ValueError('Unexpected body anchor hierarchy')
+            except Exception as exc:
+                placement=None; detail='Body placement unresolved: '+str(exc)
         if cls in MESH_TYPES:
             if reason: status=reason
             elif cls in ('InstancedStaticMeshComponent','HierarchicalInstancedStaticMeshComponent'): status='instance_transforms_unsupported'
             elif not package: status='inherited_mesh_unresolved' if kind.endswith('_C') else 'mesh_reference_unresolved'
-            elif kind.endswith('_C'): status='blueprint_defaults_unresolved'
+            elif kind.endswith('_C') and placement is None: status='blueprint_defaults_unresolved'
             elif cls=='StaticMeshComponent':
                 mesh,status=resolver(package)
                 if mesh is not None:
@@ -123,6 +132,19 @@ def build_components(asset,collection,resolver):
                     if data is not None:
                         from skeletal_mesh_native import build_mesh
                         geom,arm=build_mesh(data,collection); arm.parent=node
+                        if placement is not None:
+                            place_body(nodes[id(root)],node,arm,placement)
+                            try:
+                                skeleton=arm.get('UE_skeleton_package','')
+                                if not skeleton: raise ValueError('Missing source skeleton package')
+                                if skeleton not in socket_cache:
+                                    from editor_skeleton import read_editor_skeleton
+                                    sk=read_editor_skeleton(resolver.project.resolve_package(skeleton))
+                                    if sk['name']!=skeleton.rsplit('/',1)[-1]: raise ValueError('Skeleton asset identity mismatch')
+                                    socket_cache[skeleton]=sk['sockets']
+                                socket_result=body_sockets(arm,socket_cache[skeleton],collection)
+                            except Exception as exc:
+                                socket_result={'created':0,'detail':str(exc)}
                 except Exception as exc: status='failed'; detail=str(exc)
         node['UE_component_status']=status
         if package: node['UE_mesh_package']=package
@@ -130,4 +152,6 @@ def build_components(asset,collection,resolver):
         if geom:
             geom['UE_component_actor']=actor.object_name; geom['UE_mesh_package']=package; geom['UE_component_status']=status
         records.append(dict(actor=actor.object_name,component=c.object_name,kind=cls,package=package,status=status,detail=detail,parent=nodes[edges[key]].name if key in edges else '',socket=node.get('UE_attach_socket',''),reference_origin=node.get('UE_mesh_reference_origin','map' if field in p else ''),blueprint=node.get('UE_blueprint_package','')))
+        if placement is not None and geom is not None and status=='reconstructed':
+            records[-1].update(placement=placement,sockets=socket_result)
     return dict(actors=dict(actor_count),components=len(records),status=dict(Counter(r['status'] for r in records)),skeletal_decode_attempts=skeletal_attempts,records=records,failures=failures,blueprint_dependencies=list(blueprints.cache.values()))
