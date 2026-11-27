@@ -74,7 +74,10 @@ def read_properties(raw,e,names):
 
 def inspect_blueprint(path):
     meta,raw,imports,exports,ref,package=read_tables(path); names=meta['names']
-    require(meta['ue5']==1012,'UE5.7 Blueprint property reconstruction not yet validated')
+    if meta['ue5']==1018:
+        from ue5_editor_blueprint import inspect_class
+        return inspect_class(path)
+    require(meta['ue5']==1012,'Unsupported Blueprint property profile')
     classes=[(i,e) for i,e in enumerate(exports,1) if e['outer']==0 and e['kind']=='BlueprintGeneratedClass']
     require(len(classes)==1,'Expected one generated class'); ci,cls=classes[0]
     cdo=[(i,e) for i,e in enumerate(exports,1) if e['class_index']==ci and e['outer']==0 and e['name']=='Default__'+cls['name']]; require(len(cdo)==1,'Expected one CDO'); di,default=cdo[0]

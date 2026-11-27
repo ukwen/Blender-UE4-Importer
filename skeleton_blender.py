@@ -253,7 +253,25 @@ class ImportUEEditorCharacter(bpy.types.Operator, ImportHelper):
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 
+class ImportUE57Blueprint(bpy.types.Operator, ImportHelper):
+    bl_idname='import.ue57_blueprint_preview'
+    bl_label='Import UE5.7 Blueprint Component Preview'
+    bl_description='Inspect serialized CDO and SCS topology; unresolved sockets and runtime components remain metadata-only'
+    bl_options={'REGISTER','UNDO'}
+    filename_ext='.uasset'
+    filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    def execute(self,context):
+        from ue5_editor_blueprint import build_preview
+        try:
+            target,data=build_preview(self.filepath,context.collection)
+            self.report({'INFO'},f"{len(target.objects)} component anchors; {len(data['components'])-len(target.objects)} metadata-only. See report.")
+            return {'FINISHED'}
+        except (OSError,ValueError,RuntimeError,KeyError,TypeError) as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+
+
 def menu(self,context):
+    self.layout.operator(ImportUE57Blueprint.bl_idname,text="UE5.7 Blueprint Component Preview (.uasset)")
     self.layout.operator(ImportUEEditorCharacter.bl_idname,text="UE5.6 Blueprint Character Preview (.uasset)")
     self.layout.operator(ImportUECookedMaterialInstance.bl_idname,text='UE Cooked Material Instance Parameters (.uasset)')
     self.layout.operator(ImportUEPhysics.bl_idname,text='UE Physics Asset — Collision Preview (.uasset)')
@@ -264,6 +282,7 @@ def menu(self,context):
 def register():
     import native_sockets
     native_sockets.register()
+    bpy.utils.register_class(ImportUE57Blueprint)
     bpy.utils.register_class(ImportUEEditorCharacter)
     bpy.utils.register_class(SetUELod); bpy.utils.register_class(EnableUELodDistance); bpy.utils.register_class(UELodPanel)
     bpy.utils.register_class(ImportUECookedMaterialInstance); bpy.utils.register_class(ImportUEPhysics); bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
@@ -272,4 +291,5 @@ def unregister():
     bpy.utils.unregister_class(UELodPanel); bpy.utils.unregister_class(EnableUELodDistance); bpy.utils.unregister_class(SetUELod)
     native_sockets.unregister()
     bpy.utils.unregister_class(ImportUEEditorCharacter)
+    bpy.utils.unregister_class(ImportUE57Blueprint)
     bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory); bpy.utils.unregister_class(ImportUEPhysics); bpy.utils.unregister_class(ImportUECookedMaterialInstance)

@@ -20,7 +20,7 @@ class UE57DependencyTests(unittest.TestCase):
                 self.assertEqual(d['soft_references'],['/Game/FirstPerson/Blueprints/'+p.stem]);self.assertEqual(d['import_hierarchy_coverage'],'empty')
                 self.assertEqual(r['soft_coverage'],'ue5_1018_summary_tables');self.assertEqual(r['coverage'],'import_table');self.assertEqual(r['references'],d['hard_references'])
                 self.assertIn('BlueprintGeneratedClass',r['classes'])
-                self.assertRaises(ValueError,inspect_blueprint,p) # no property reconstruction claim
+                blueprint=inspect_blueprint(p);self.assertEqual(blueprint["version"],1018);self.assertEqual(blueprint["generated_class"],p.stem+"_C") # saved composition only
         self.assertEqual(len(self.sources()),5)
     def test_corrupt_subpaths_and_indices(self):
         p=next(p for p in self.sources() if p.stem=='BP_FirstPersonCharacter');m=inspect_package(p);raw=p.read_bytes();off=m['soft_object_offset']
