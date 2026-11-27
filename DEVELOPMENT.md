@@ -109,3 +109,7 @@ See [legacy PNG material channel previews and grid validation](docs/0.10.67-grid
 ## 0.10.68-dev
 
 See [saved UE5.6 spring-arm camera rig previews](docs/0.10.68-camera-preview.md).
+
+## 0.10.69-dev
+
+See [procedural material coordinate and opacity previews](docs/0.10.69-procedural-preview.md).

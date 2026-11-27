@@ -7,7 +7,7 @@ from skeleton_native import Reader
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
-EDITOR_MATERIAL_REVISION = "editor_material_067"
+EDITOR_MATERIAL_REVISION = "editor_material_069"
 
 
 def read_material(path):
@@ -64,6 +64,14 @@ def read_material(path):
         if kind=='ScalarParameter':node['value']=val(p,'DefaultValue',['FloatProperty'],'f',0.)
         if kind=='VectorParameter':node['value']=val(p,'DefaultValue',['StructProperty','LinearColor','/Script/CoreUObject'],'4f',[0.,0.,0.,1.])
         if kind=='Constant':node['value']=val(p,'R',['FloatProperty'],'f',0.)
+        if kind=='Constant2Vector':node['value']=[val(p,k,['FloatProperty'],'f',0.) for k in ('R','G')]
+        if kind=='Power':node['exponent']=val(p,'ConstExponent',['FloatProperty'],'f',2.)
+        if kind=='SphereMask':
+            node['radius']=val(p,'AttenuationRadius',['FloatProperty'],'f',256.);node['hardness_percent']=val(p,'HardnessPercent',['FloatProperty'],'f',100.)
+        if kind=='Panner':
+            node['speed']=[val(p,k,['FloatProperty'],'f',0.) for k in ('SpeedX','SpeedY')];node['fractional']=boolval(p,'bFractionalPart');node['uv_index']=val(p,'ConstCoordinate',['IntProperty'],'i',0)
+        if kind=='Time':node['period']=val(p,'Period',['FloatProperty'],'f',0.) if boolval(p,'bOverride_Period') else None;node['ignore_pause']=boolval(p,'bIgnorePause')
+        if kind=='WorldPosition':node['world_offset']=name(p,'WorldPositionShaderOffset','default_not_serialized')
         if kind=='Constant3Vector':node['value']=val(p,'Constant',['StructProperty','LinearColor','/Script/CoreUObject'],'4f',[0.,0.,0.,1.])
         if kind=='MaterialFunctionCall':
             node['function']=imported(p,'MaterialFunction',('MaterialFunction','MaterialFunctionInstance'))
@@ -215,6 +223,15 @@ def build_material(content,package,allow_partial=False):
             if isinstance(v,(int,float)):n.inputs[j].default_value=v
             else:links.new(v,n.inputs[j])
         return n.outputs[0]
+    def uv_coordinates(index,scale=(1.,1.),label='Unreal UV'):
+        require(0<=index<64 and all(math.isfinite(v) for v in scale),'Invalid UV coordinate profile')
+        n=node('ShaderNodeUVMap',label);n.uv_map='UV'+str(index);u,v,_=components(n.outputs['UV']);return combine([mathop('MULTIPLY',u,scale[0]),mathop('MULTIPLY',mathop('SUBTRACT',1.,v),scale[1]),0.],label)
+    preview_time=None
+    def time_input():
+        nonlocal preview_time
+        if preview_time is None:
+            preview_time=constant(0.,'Unreal preview time (seconds; edit manually)');preview_time.node['UE_preview_time_seconds']=True;issues.append('Material time is an editable preview input; Unreal runtime clock not evaluated')
+        return preview_time
     def swap_xy(sock,scale=1.):
         x,y,z=components(sock);return combine([mathop('MULTIPLY',q,scale) if scale!=1. else q for q in (y,x,z)],'Blender ↔ Unreal basis')
     def vectorop(op,a,b=None,label='Source vector arithmetic'):
@@ -251,7 +268,7 @@ def build_material(content,package,allow_partial=False):
         # A serialized texture output slot already selects its channel. UE often
         # repeats the same one-hot mask on the edge, including Alpha. Do not
         # apply that mask again to the resulting scalar.
-        if data['nodes'][a['index']]['kind'] in ('TextureSample','TextureSampleParameter2D') and 1<=a['output']<=4:
+        if data['nodes'][a['index']]['kind'] in ('TextureSample','TextureSampleParameter2D','ParticleColor') and 1<=a['output']<=4:
             require(not a['mask'][0] or a['mask']==[1]+[int(k==a['output']) for k in range(1,5)],'Conflicting texture output channel mask');return sock
         return select(sock,a['mask'])
     def emit(i,output=0):
@@ -261,6 +278,25 @@ def build_material(content,package,allow_partial=False):
         try:
             d=data['nodes'][i];kind=d['kind'];label=d['parameter'] or d['name'];ins=d['inputs']
             if kind in ('ScalarParameter','VectorParameter','Constant','Constant3Vector') and output==0:s=constant(d['value'],label)
+            elif kind=='Constant2Vector' and output==0:s=combine([*d['value'],0.],label)
+            elif kind=='ParticleColor' and 0<=output<=4:
+                # A neutral editable preview, never a recovered Niagara/Cascade value.
+                if (i,0) not in built:
+                    rgb=constant([1.,1.,1.,1.],label+' (preview RGB)');alpha=constant(1.,label+' (preview alpha)');built[i,0]=rgb;texture_alpha[rgb.as_pointer()]=alpha;issues.append('ParticleColor uses editable neutral preview; no particle simulation')
+                rgb=built[i,0];s=texture_alpha[rgb.as_pointer()] if output==4 else select(rgb,[1]+[int(k==output) for k in range(1,5)]) if output else rgb
+            elif kind=='Power' and output==0:
+                a=edge(ins['Base']);e=edge(ins['Exponent']) if ins.get('Exponent',{}).get('index') else constant(d['exponent'],'Power exponent');require(a.type==e.type=='VALUE','Non-scalar Power unsupported');s=mathop('POWER',mathop('MAXIMUM',a,0.),e,label)
+            elif kind=='SphereMask' and output==0:
+                a,b=edge(ins['A']),edge(ins['B']);require(a.type==b.type=='VECTOR','Only vector SphereMask preview supported');radius=edge(ins['Radius']) if ins.get('Radius',{}).get('index') else constant(d['radius'],'Sphere radius')
+                require(radius.type=='VALUE' and not ins.get('Hardness',{}).get('index') and 0<=d['hardness_percent']<100,'Unsupported SphereMask hardness or radius')
+                dist=node('ShaderNodeVectorMath',label+' distance');dist.operation='DISTANCE';links.new(a,dist.inputs[0]);links.new(b,dist.inputs[1]);safe_radius=mathop('MAXIMUM',radius,1e-6);s=mathop('DIVIDE',mathop('SUBTRACT',1.,mathop('DIVIDE',dist.outputs['Value'],safe_radius)),1.-d['hardness_percent']/100.,label);s.node.use_clamp=True;issues.append('SphereMask source-formula preview; Unreal shader not evaluated')
+            elif kind=='Time' and output==0:
+                s=time_input();period=d['period'];require(period is None or period>0,'Invalid material time period')
+                if period is not None:s=mathop('FLOORED_MODULO',s,period,label)
+            elif kind=='Panner' and output==0:
+                require(not ins.get('Speed',{}).get('index'),'Connected Panner speed unsupported');coord=edge(ins['Coordinate']) if ins.get('Coordinate',{}).get('index') else uv_coordinates(d['uv_index']);t=edge(ins['Time']) if ins.get('Time',{}).get('index') else time_input();require(coord.type=='VECTOR' and t.type=='VALUE','Unsupported Panner coordinate or time');u,v,_=components(coord);values=[mathop('ADD',q,mathop('MULTIPLY',t,speed)) for q,speed in zip((u,v),d['speed'])]
+                require(not d['fractional'],'Fractional Panner mode unsupported')
+                s=combine([*values,0.],label);issues.append('Panner uses source UV speeds; runtime material clock not evaluated')
             elif kind=='FunctionInput' and output==0:s=edge(d['bound_input'])
             elif kind=='FunctionOutput' and output==0:s=edge(ins['A'])
             elif kind=='StaticSwitch' and output==0:s=edge(ins['A' if static_value(ins['Value']['index']) else 'B'])
@@ -271,6 +307,7 @@ def build_material(content,package,allow_partial=False):
                     eq=mathop('LESS_THAN',mathop('ABSOLUTE',mathop('SUBTRACT',a,b)),d['threshold']);s=mix(s,edge(ins['AEqualsB']),eq,label+' equality')
                 else:issues.append('If equality boundary is a preview; no Unreal-evaluated reference')
             elif kind in ('WorldPosition','ActorPositionWS','VertexNormalWS') and output==0:
+                if kind=='WorldPosition':require(d.get('world_offset','default_not_serialized')=='default_not_serialized','Explicit WorldPosition offset mode unsupported: '+d['world_offset'])
                 if kind=='ActorPositionWS':n=node('ShaderNodeObjectInfo',label);sock=n.outputs['Location'];issues.append('Actor origin approximated by Blender object origin')
                 else:n=node('ShaderNodeNewGeometry',label);sock=n.outputs['Position' if kind=='WorldPosition' else 'Normal']
                 s=swap_xy(sock,100. if kind!='VertexNormalWS' else 1.)
@@ -283,7 +320,7 @@ def build_material(content,package,allow_partial=False):
             elif kind=='AppendVector' and output==0:
                 a,b=edge(ins['A']),edge(ins['B']);require(a.type==b.type=='VALUE','Unsupported AppendVector widths');s=combine([a,b,0.],label)
             elif kind=='TextureCoordinate' and output==0:
-                n=node('ShaderNodeUVMap',label);n.uv_map='UV'+str(d['uv_index']);u,v,_=components(n.outputs['UV']);s=combine([mathop('MULTIPLY',u,d['uv_scale'][0]),mathop('MULTIPLY',mathop('SUBTRACT',1.,v),d['uv_scale'][1]),0.],label)
+                s=uv_coordinates(d['uv_index'],d['uv_scale'],label)
             elif kind=='Normalize' and output==0:s=vectorop('NORMALIZE',edge(ins['VectorInput']),label=label)
             elif kind=='DotProduct' and output==0:s=vectorop('DOT_PRODUCT',edge(ins['A']),edge(ins['B']),label)
 
@@ -367,6 +404,14 @@ def build_material(content,package,allow_partial=False):
         try:
             s=edge(ao);n=node('ShaderNodeMath','Unreal Ambient Occlusion (unconnected data)');n.operation='ADD';n.inputs[1].default_value=0.;links.new(s,n.inputs[0]);preserved.append('AmbientOcclusion');issues.append('Ambient Occlusion preserved; no equivalent Principled input')
         except Exception as exc:issues.append('AmbientOcclusion: '+str(exc))
+    # Preserve opacity as editable data only. Do not silently turn Unreal blend
+    # modes or first-person clipping into Blender transparency semantics.
+    for k in ('Opacity','OpacityMask'):
+        a=data['outputs'].get(k)
+        if a and a['index']:
+            try:
+                s=edge(a);require(s.type=='VALUE','Non-scalar opacity');n=node('ShaderNodeMath','Unreal '+k+' (unconnected data)');n.operation='ADD';n.inputs[1].default_value=0.;links.new(s,n.inputs[0]);n['UE_preserved_output']=k;preserved.append(k);issues.append(k+' preserved; Unreal blend or clipping not evaluated')
+            except Exception as exc:issues.append(k+': '+str(exc))
     for k,a in data['outputs'].items():
         if a['index'] and k not in connected and k not in preserved:issues.append('Untranslated output '+k)
     if data['blend']!='BLEND_Opaque':issues.append('Untranslated blend mode '+data['blend'])
