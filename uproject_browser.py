@@ -205,6 +205,29 @@ class UEIMPORT_OT_lighting_preview(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class UEIMPORT_OT_camera_preview(bpy.types.Operator):
+    bl_idname = 'ueimport.camera_preview'
+    bl_label = 'Import UE5 Camera Rig Previews'
+    bl_description = 'Reconstruct unoccluded saved spring-arm camera rigs; not runtime viewpoints'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return UEIMPORT_OT_import_map.poll(context)
+
+    def execute(self, context):
+        state=context.scene.ueimport_project
+        try:
+            project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
+            if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+            from ue5_editor_camera import reconstruct
+            collection,report=reconstruct(selected)
+        except Exception as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        self.report({'INFO'},f"Imported {len(report['records'])} camera rig previews; {len(report['skipped'])} skipped.")
+        return {'FINISHED'}
+
+
 class UEIMPORT_OT_geometry_gallery(bpy.types.Operator):
     bl_idname = 'ueimport.geometry_gallery'
     bl_label = 'Import Native Geometry Folder'
@@ -432,13 +455,14 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.operator('ueimport.reconstruct_static', icon='MESH_DATA')
             layout.prop(state,'light_preview_scale')
             layout.operator('ueimport.lighting_preview', icon='LIGHT')
+            layout.operator('ueimport.camera_preview', icon='CAMERA_DATA')
             layout.operator('ueimport.repair_missing_meshes', icon='FILE_REFRESH')
             layout.label(text='Lighting is a preview, not Unreal rendering.')
             layout.label(text='Missing meshes remain empties; unresolved materials marked.')
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():

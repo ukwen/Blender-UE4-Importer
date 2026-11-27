@@ -105,3 +105,7 @@ See [targeted missing mesh recovery](docs/0.10.66-missing-mesh-repair.md).
 ## 0.10.67-dev
 
 See [legacy PNG material channel previews and grid validation](docs/0.10.67-grid-channel-preview.md).
+
+## 0.10.68-dev
+
+See [saved UE5.6 spring-arm camera rig previews](docs/0.10.68-camera-preview.md).
