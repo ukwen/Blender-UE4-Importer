@@ -1,18 +1,7 @@
-# Acceptance report — 0.10.77-dev
+# Acceptance report — 0.10.78-dev
 
-## Verified in this development turn
+Verified: previous archive Git tree c3a90aca04e699ecff26e57ab13837867989cbbb matches the 0.10.77 checkpoint and development head. Four immutable input archive hashes checked; fresh Blender 4.2.4 extracted, original ShooterSam restored and decoder rebuilt. Initial baseline test run timed out; do not treat old 71 passes as newly run. Current full suite completed: 97 discovered, 74 passed, 23 skipped, 0 failures (22.198 s). Controlled suite without fixture variables: 46 passed, 51 skipped; targeted original decal tests 2 passed. Actual Blender `tests/blender_ue56_decals.py`: 561 anchors and 549 guides, max position error 8.529935415e-6 m, max matrix component error 4.768374492e-5 before/after reopening. 103 distinct missing packages, zero rendered decals. `tests/blender_ue56_decals_integrated.py`: MainLevel unified scene 3275 objects (1110 decal guide/anchor objects, 7 meshes, 6 armatures, 141 lights, 6 cameras); 561 decal actor coverage records, no claimed rendered decals. `tests/blender_ue56_full_scene.py`: original ThirdPerson 53 meshes and TestLevel one mesh/rig/camera; duplicate refusal, injected late failure rollback, active camera preservation and reopen passed. No new asset acquisitions.
 
-- GitHub development baseline `af1d82cb8d07ec251744f2a63d5b40b0b9b0900f`, 276 files; locally recovered archive tree `609634dac5498ac3579758ea728a2d12acb7d7ed` exactly matches previous verified tree. GitHub file/blob identity for `ue5_full_scene.py` and `UE_nodes.blend` matches archive. Master baseline `95f19676ca8c76b14bfc445c1ef2fe28348a1ad0`. No fork releases returned by GitHub release API.
-- Fresh Library materialization: five original archives; SHA-256 equals manifest and 0.10.76 checkpoint. Fresh setup extracted Blender and ShooterSam, built native decoder from pinned source, reported Blender 4.2.4 LTS. Python 3.13.5, GCC 14.2.0 (Linux x86-64). No native Unreal Editor runtime.
-- Baseline `python -m unittest discover -s tests -p 'test_*.py'`: 91 discovered, 68 passed, 23 fixture-dependent skips, 0 failed. New code: 94 discovered, 71 passed, 23 skipped, 0 failed; repeated on freshly restored environment. Three controlled tests cover inline and external ownership, nested components, wrong level, cycles/templates and unknown inventory. No native instance payload decoded.
-- Blender 4.2.4 `tests/blender_ue56_full_scene.py`: ThirdPerson 53 meshes, TestLevel one mesh, one rig, one camera; duplicate refusal, injected fatal-stage rollback, camera preservation and save/reopen passed. Both original level reports found zero supported-class instance-component exports; no positive original UE5 instancing evidence. Readable ShooterSam packages scanned for ISM/HISM/foliage yielded no such exports; unreadable packages do not prove absence. Goblin War Camp Overview.umap retrieved, current UE5 table reader rejected it; no instance decoding claimed.
+Previously reported: older landscape, animation and materials tests; do not treat as rerun. Blocked/unverified: native ISM/HISM/foliage payload evidence, missing StarterBundle/terrain/decal material dependencies, decal receiver projection, Unreal runtime comparison, Windows acceptance.
 
-- Isolated Blender add-on installation: version 0.10.77 enabled, three original SM_Door jobs reconstructed, save/reopen and all three reused, then disabled. Test used fresh Blender user directories.
-
-## Previously reported (not independently rerun here)
-
-0.10.76 original landscape geometry: 64 components, 112 exact borders, 1,018,081 vertices, 0.172 mm world-position error, save/reopen. Earlier original level and animation/material acceptance: see milestone-specific docs and Library checkpoints. Those numbers are historical, not new measurements.
-
-## Blocked / unverified
-
-UE5 native instance/foliage decoding and rendering parity require format evidence and original fixtures. Missing source assets constrain full scene completeness. Unreal runtime comparison and Windows native acceptance remain unverified. Do not claim production readiness or commercial pack compatibility.
+Isolated Blender install: version 0.10.78 enabled, three original SM_Door jobs reconstructed, reopened and all three reused. No failed or blocked jobs. The isolated archive test preceded this documentation-only report update.

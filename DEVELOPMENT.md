@@ -145,3 +145,7 @@ See [native saved landscape heightfield reconstruction](docs/0.10.76-landscape.m
 ## 0.10.77-dev
 
 See [handoff](docs/HANDOFF.md), [roadmap](docs/ROADMAP.md), and [test report](docs/TEST_REPORT.md). Saved UE5 instance-component inventory reports unsupported payloads rather than treating component counts as decoded instances.
+
+## 0.10.78-dev
+
+See [saved decal projector placement](docs/0.10.78-decal-projectors.md).

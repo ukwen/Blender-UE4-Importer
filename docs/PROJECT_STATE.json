@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.77-dev",
-  "previous_verified_commit": "af1d82cb8d07ec251744f2a63d5b40b0b9b0900f",
-  "previous_verified_tree": "609634dac5498ac3579758ea728a2d12acb7d7ed",
-  "current_commit_resolution": "Use the exact published commit and tree from the immutable 0.10.77 Library checkpoint, compare to development branch and to the recovered Git tree. A commit cannot contain its own SHA.",
-  "milestone": "Reproducible continuity and conservative saved instance component inventory (not instance decoding)",
+  "application_version": "0.10.78-dev",
+  "previous_verified_commit": "0e0532904364815fa3e05bcb3b062c67335e20ec",
+  "previous_verified_tree": "c3a90aca04e699ecff26e57ab13837867989cbbb",
+  "current_commit_resolution": "Use immutable 0.10.78 Library checkpoint and independently compare published commit/tree and recovered archive.",
+  "milestone": "Saved decal projector guides in unified scene transfer, not rendered decals",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.77_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.77-local.zip",
-    "install_archive": "install-077.zip",
+    "checkpoint": "Unreal_Importer_0.10.78_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.78-local.zip",
+    "install_archive": "install-078.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256"
   },
   "environment": {
@@ -27,19 +27,17 @@
     "setup": "bash tools/restore_development.sh ASSET_DIRECTORY NEW_WORK_DIRECTORY"
   },
   "tests": {
-    "baseline": {
-      "passed": 68,
-      "skipped": 23,
-      "failed": 0
-    },
+    "baseline": "0.10.77 exact tree recovered; original baseline run timed out, historical 71 passes not re-certified separately",
     "current": {
-      "passed": 71,
+      "passed": 74,
       "skipped": 23,
       "failed": 0
     },
     "fresh_environment": true,
     "two_level_blender_regression": true,
-    "scope": "bounded actual Blender acceptance, not Unreal runtime parity",
+    "mainlevel_decal_integration": true,
+    "decal_save_reopen": true,
+    "scope": "actual Blender Linux, no runtime parity",
     "isolated_install": {
       "imported": 3,
       "reopen_reuse": true
@@ -49,7 +47,7 @@
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Original native instancing/foliage format evidence from existing assets, then supported remaining visual actor types; no invented payload or new downloads without approval",
+  "next_priority": "Recover evidence for native instancing/foliage from existing legacy fixtures; otherwise support remaining saved visual actors and improve scene fidelity without new downloads",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -62,6 +60,7 @@
     "missing MainLevel environment and terrain materials",
     "missing Wraith skeleton/unresolved material group mappings",
     "no positive original UE5 instancing evidence yet",
-    "Unreal runtime and Windows acceptance unverified"
+    "Unreal runtime and Windows acceptance unverified",
+    "103 missing decal material packages; native receiver projection and rendering unsupported"
   ]
 }

@@ -39,6 +39,7 @@ def coverage(inventory,objects):
         if obj.type in ('MESH','ARMATURE'):kind='geometry'
         elif obj.type=='LIGHT':kind='light_preview'
         elif obj.type=='CAMERA':kind='camera_preview'
+        elif obj.get('UE_decal_projector'):kind='decal_projector_guide'
         elif obj.get('UE_geometry_status') in ('missing','unsupported','failed'):kind='unresolved_geometry'
         else:kind='anchor_or_marker'
         statuses.setdefault(key,set()).add(kind)
@@ -75,6 +76,8 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
             root.children.link(c);scene.collection.children.unlink(c);c.name=name
         geo,gr=geometry(str(path),materials=True,components=True,partial=partial);nest(geo,path.stem+' — Geometry and characters')
         stages={'geometry':gr};counts={'geometry_objects':len(geo.all_objects)}
+        from ue5_editor_decals import extend_decals
+        stages['decals']=extend_decals(content,path,root);counts['decal_objects']=stages['decals']['projector_anchors']+stages['decals']['size_guides']
         for name,data,build in [('lighting',light_data,lambda:lighting(str(path),preview_scale)),('cameras',camera_data,lambda:camera(str(path)))]:
             if not data['records']:
                 stages[name]=dict(data,status='no_supported_records');counts[name+'_objects']=0;continue
@@ -93,7 +96,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
         require(scene.camera==old_camera,'Unexpected active camera change')
         objects=list(root.all_objects);require(objects,'No supported scene objects reconstructed')
         material_counts=Counter(v['status'] for v in gr.get('material_report',{}).values())
-        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset; no runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
+        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset and non-rendering decal guides; no runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
         text=bpy.data.texts.new(root.name+' - scene transfer.json');text.write(json.dumps(report,indent=2));root['UE_report']=text.name;root['UE_full_scene_source']=str(path);root['UE_preview_only']=True
         return root,report
     except Exception:
