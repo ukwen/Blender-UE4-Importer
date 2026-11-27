@@ -157,3 +157,7 @@ See [unified legacy commercial scene transfer](docs/0.10.79-legacy-full-scene.md
 ## 0.10.80-dev
 
 See [legacy 522 mixed-version Goblin full-scene acceptance](docs/0.10.80-goblin-full-scene.md). The single scene operation recognizes the bounded UE4 editor 522 profile and validates both legacy map table extents before import. Existing native decoders are reused.
+
+## 0.10.81-dev
+
+See [opt-in sky preview](docs/0.10.81-environment-preview.md). Separate saved-world previews never silently change the scene world.

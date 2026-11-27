@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.80-dev",
-  "previous_verified_commit": "96cd79a6cd0b32384d6a93895b1c994fd0802f18",
-  "previous_verified_tree": "9ad44335ab30c51f7b338f0786fd45df0ad9f73d",
-  "current_commit_resolution": "Use immutable 0.10.80 Library checkpoint and compare exact commit/tree/archive.",
-  "milestone": "Unified legacy 522 map transfer with existing mixed-version Goblin assets and hash-verified fixture restoration",
+  "application_version": "0.10.81-dev",
+  "previous_verified_commit": "690cc0ce938c1bd373e1d25e768e0dd77710bae6",
+  "previous_verified_tree": "9fa5e453c829dc5abe47c9bf6110abd60c65a64e",
+  "current_commit_resolution": "Use immutable 0.10.81 Library checkpoint and independently verify exact commit/tree/archive.",
+  "milestone": "Opt-in per-level analytical UE5.6 sky preview; saved fog metadata only",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.80_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.80-local.zip",
-    "install_archive": "install-080.zip",
+    "checkpoint": "Unreal_Importer_0.10.81_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.81-local.zip",
+    "install_archive": "install-081.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,80 +30,38 @@
   },
   "tests": {
     "baseline": {
-      "passed": 75,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 76,
       "skipped": 23,
       "failed": 0
     },
-    "fresh_environment": false,
-    "environment_reverified": "Recovered source tree exact; all four recovery archive hashes rechecked; reused restored Blender and decoder with actual tests",
-    "two_level_blender_ue5_regression": true,
-    "goblin_full_scene": {
-      "scope": "Partial mixed-version fixture; original UE4.26 map, test-only descriptor",
-      "counts": {
-        "geometry_objects": 1009,
-        "lighting_objects": 2,
-        "objects": 1011,
-        "meshes": 36,
-        "armatures": 30,
-        "lights": 1,
-        "cameras": 0
-      },
-      "static_status": {
-        "missing": 559,
-        "reconstructed": 3
-      },
-      "component_status": {
-        "anchor_only": 16,
-        "reconstructed": 33,
-        "inherited_mesh_unresolved": 1,
-        "missing": 34
-      },
-      "coverage": {
-        "anchor_or_marker": 32,
-        "geometry": 33,
-        "not_reconstructed": 7,
-        "light_preview": 1,
-        "unresolved_geometry": 559
-      },
-      "source_relative_locations_validated": 592,
-      "max_relative_position_error_m": 3.412052258814641e-05,
-      "character_bodies": 15,
-      "sockets": 300,
-      "accessories": {
-        "reconstructed": 3,
-        "missing": 34
-      },
-      "packed_images": 3,
-      "material_status": {
-        "partial_graph_unresolved": 1,
-        "missing_dependencies": 2
-      },
-      "dependency_gaps": 622,
-      "strict_gate": true,
-      "late_rollback": true,
-      "duplicates_refused": true,
-      "reopen": true,
-      "active_camera_preserved": true
+    "current": {
+      "passed": 80,
+      "skipped": 23,
+      "failed": 0
     },
-    "legacy_two_level_blender_acceptance": true,
-    "legacy_mesh_objects": 2814,
-    "legacy_foliage_instances": 462,
+    "environment_reverified": "Fresh source archive extraction, exact baseline tree, four original archive hashes verified; reused Blender and decoder",
+    "sky_preview": {
+      "original_maps": 5,
+      "integrated_maps": 1,
+      "max_sun_direction_error": 6.143906154658885e-08,
+      "reopen": true,
+      "rollback": true,
+      "explicit_activation": true,
+      "cpu_cycles_render": true
+    },
+    "two_level_blender_ue5_regression": true,
+    "legacy_and_goblin": "Previously verified in 0.10.80, not rerun this milestone",
     "isolated_install": {
       "imported": 3,
       "reopen_reuse": true,
-      "scope": "Application code identical to final archive; final reports updated afterward"
+      "scope": "Identical runtime code before final documentation updates"
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Implement remaining saved visual actor support (sky/fog and scene material fidelity) or verified native UE5 instancing if original evidence exists; improve professional usability and scene coverage. No new downloads.",
+  "next_priority": "Material appearance and texture fidelity, bounded fog conversion if source evidence supports it, modern UE5 instancing when positive evidence exists; no new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -118,6 +76,7 @@
     "no positive original UE5 instancing evidence yet",
     "Unreal runtime and Windows acceptance unverified",
     "103 missing decal material packages; native receiver projection and rendering unsupported",
-    "Goblin incomplete mixed-version fixture: 559 static placements and 34 accessory mesh references missing; original descriptor absent; incomplete material graphs and no same-version project parity."
+    "Goblin incomplete mixed-version fixture: 559 static placements and 34 accessory mesh references missing; original descriptor absent; incomplete material graphs and no same-version project parity.",
+    "Legacy sky, UE fog rendering, sky capture/radiance equivalence, EEVEE not validated."
   ]
 }
