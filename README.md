@@ -102,3 +102,7 @@ Refresh the job list, optionally check individual jobs, preflight, then **Run / 
 ### 0.10.49-dev
 
 Selected map geometry imports only known reachable geometry into a resumable gallery. UE5 1012 tagged soft package/object paths and export dependency indices are inspected; Blueprint class ancestry is resolved conservatively. See [development notes](docs/0.10.49-ue5-dependencies.md).
+
+### 0.10.50-dev
+
+Native UE5.0 cooked static meshes, skinned meshes and reference skeletons for the bounded Matya split-package profile. Explicit UE5.0 selection in import menus and project gallery, with native hard dependency inspection. Cooked material graphs and arbitrary UE5 editor/Nanite/IoStore geometry remain unsupported. See [development notes](docs/0.10.50-ue5-cooked-geometry.md).

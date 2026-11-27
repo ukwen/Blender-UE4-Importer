@@ -6,6 +6,9 @@ from skeletal_mesh_native import require
 
 
 def read_static(path,version):
+    if version=="5.0":
+        from ue5_cooked_geometry import read_static50
+        return read_static50(path)
     require(version in ('4.18','4.27'),'Unsupported cooked static profile')
     p=Path(path); side=p.with_suffix('.uexp')
     require(p.stat().st_size<=16*1024*1024 and side.stat().st_size<=128*1024*1024,'Package size limit')

@@ -34,3 +34,7 @@ See [Saved-scene import sessions and asset selection](docs/0.10.48-project-sessi
 ## 0.10.49-dev
 
 See [UE5 dependency inventory and Blueprint ancestry](docs/0.10.49-ue5-dependencies.md).
+
+## 0.10.50-dev
+
+See [UE5.0 cooked geometry acceptance](docs/0.10.50-ue5-cooked-geometry.md).

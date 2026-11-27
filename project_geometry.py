@@ -11,6 +11,9 @@ def split_root_class(path):
     path=Path(path)
     if path.stat().st_size>16*1024*1024: raise ValueError('Split header exceeds size limit')
     raw=path.read_bytes(); r=Reader(raw)
+    if raw[:8]==MAGIC+b'\xf8\xff\xff\xff':
+        from ue5_cooked_geometry import package
+        return package(path)[0]
     if r.take(4)!=MAGIC or r.unpack('5i')!=(-7,0,0,0,0):
         raise NotImplementedError('Unsupported split package header')
     if r.i()!=len(raw) or r.string()!='None': raise ValueError('Invalid split header')
@@ -77,7 +80,7 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
     import bpy,uasset
     from skeletal_mesh_native import read_native_mesh,build_mesh
     from uproject_browser import discover_maps
-    if profile not in ('4.18','4.27'): raise ValueError('Select an explicit cooked profile')
+    if profile not in ('4.18','4.27','5.0'): raise ValueError('Select an explicit cooked profile')
     descriptor,_,_=discover_maps(descriptor)
     content=(Path(descriptor).parent/'Content').resolve()
     folder=(content/subfolder).resolve()

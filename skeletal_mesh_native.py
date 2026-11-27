@@ -17,6 +17,9 @@ def array(r, fmt, limit):
 
 
 def read_mesh(path, version='4.18'):
+    if version=="5.0":
+        from ue5_cooked_geometry import read_skeletal50
+        return read_skeletal50(path)
     if version not in ('4.18','4.27'): raise NotImplementedError('Unsupported cooked skeletal render mesh profile')
     p=Path(path); side=p.with_suffix('.uexp')
     require(p.stat().st_size<=16*1024*1024 and side.stat().st_size<=128*1024*1024,'Package exceeds size limit')

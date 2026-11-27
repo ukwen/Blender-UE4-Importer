@@ -10,7 +10,7 @@ class ImportUESkeleton(bpy.types.Operator, ImportHelper):
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
-    profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Tagged split package'),('4.27','UE4.27','Tagged split package')],default='4.27')
+    profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Tagged split package'),('4.27','UE4.27','Tagged split package'),('5.0','UE5.0','Bounded unversioned split profile')],default='4.27')
     def execute(self,context):
         try:
             from pathlib import Path
@@ -31,11 +31,11 @@ class ImportUESkeleton(bpy.types.Operator, ImportHelper):
 
 class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
     bl_idname='import.ue_native_skeletal_mesh'
-    bl_label='Import native UE4 skeletal mesh'
+    bl_label='Import native UE skeletal mesh'
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
-    profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Legacy interleaved buffers'),('4.27','UE4.27','Inline separate render buffers')],default='4.18')
+    profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy interleaved buffers'),('4.27','UE4.27','Inline separate render buffers'),('5.0','UE5.0','Bounded unversioned split profile')],default='4.18')
     def execute(self,context):
         from skeletal_mesh_native import read_native_mesh, build_mesh
         try:
@@ -71,11 +71,11 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
 
 class ImportUECookedStatic(bpy.types.Operator, ImportHelper):
     bl_idname='import.ue_cooked_static'
-    bl_label='Import native cooked UE4 static mesh'
+    bl_label='Import native cooked UE static mesh'
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
-    profile: EnumProperty(name='Cooked UE4 profile',items=[('4.18','UE4.18','Interleaved buffers'),('4.27','UE4.27','Separate inline buffers')],default='4.27')
+    profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Interleaved buffers'),('4.27','UE4.27','Separate inline buffers'),('5.0','UE5.0','Bounded unversioned split profile')],default='4.27')
     def execute(self,context):
         from cooked_static import read_static,build_static
         try:

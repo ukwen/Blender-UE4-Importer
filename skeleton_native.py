@@ -32,7 +32,7 @@ class Reader:
         return names[idx]+('_'+str(num-1) if num else '')
 
 
-def reference_skeleton(r,names):
+def reference_skeleton(r,names,precision="f"):
     n=r.count(8192)
     if not n: raise ValueError('Empty skeleton')
     bones=[]; seen=set()
@@ -43,7 +43,7 @@ def reference_skeleton(r,names):
         seen.add(name.casefold()); bones.append({'name':name,'parent':parent})
     if r.i()!=n: raise ValueError('Reference pose count mismatch')
     for bone in bones:
-        q,t,s=r.unpack('4f'),r.unpack('3f'),r.unpack('3f')
+        q,t,s=r.unpack('4'+precision),r.unpack('3'+precision),r.unpack('3'+precision)
         if not all(math.isfinite(x) for x in q+t+s) or abs(sum(x*x for x in q)-1)>0.001 or min(s)<=0:
             raise ValueError('Unsupported reference transform')
         bone.update(rotation=q,translation=t,scale=s)
@@ -57,6 +57,9 @@ def reference_skeleton(r,names):
 
 
 def read_cooked_skeleton(path,version):
+    if version=="5.0":
+        from ue5_cooked_geometry import read_skeleton50
+        return read_skeleton50(path)
     if version not in ('4.18','4.27'): raise NotImplementedError('Unsupported skeleton profile')
     path=Path(path); side=path.with_suffix('.uexp')
     if path.stat().st_size>16*1024*1024 or side.stat().st_size>64*1024*1024: raise ValueError('Skeleton size limit')
