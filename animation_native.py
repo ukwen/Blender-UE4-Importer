@@ -111,7 +111,7 @@ def read_animation(path):
     finally: asset.Close()
 
 
-def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=False):
+def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=False,allow_source_preview=False):
     """Convert sampled UE local transforms to Blender rest-relative pose channels."""
     import bpy
     from mathutils import Matrix, Quaternion, Vector
@@ -123,10 +123,14 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
     require(bones and [b.get('UE_bone_index') for b in bones]==list(range(len(bones))),'Native reference bone metadata required')
     source_package=data.get('skeleton_package'); target_package=arm.get('UE_skeleton_package')
     require(not target_package or target_package==source_package,'Animation skeleton package does not match selected armature')
+    tracks=data['tracks']
     if data.get('semantics','').startswith('editor_fk'):
-        require(source_package==target_package and (set(data['tracks'])==set(names) or (allow_subset and len(set(data['tracks'])&set(names))*10>=len(names)*9)),'Editor FK animation requires the source skeleton and exact control names or explicit same-package subset')
-    dropped=sorted(set(data['tracks'])-set(names))
-    require(not dropped or (allow_subset and source_package and source_package==target_package and set(data['tracks']).intersection(names)), 'Animation tracks do not match selected skeleton; enable same-package subset explicitly')
+        require(not data.get('source_preview_required') or allow_source_preview,'Additive/retarget-source clips require explicit authored source preview; runtime evaluation is not implemented')
+        canonical={name.casefold():name for name in names};require(len(canonical)==len(names),'Ambiguous target FNames')
+        mapped={canonical.get(name.casefold(),name):track for name,track in tracks.items()};require(len(mapped)==len(tracks),'Ambiguous source FNames');tracks=mapped
+        require(source_package==target_package and (set(tracks)==set(names) or (allow_subset and len(set(tracks)&set(names))*10>=len(names)*9)),'Editor FK animation requires the source skeleton and exact control names or explicit same-package subset')
+    dropped=sorted(set(tracks)-set(names))
+    require(not dropped or (allow_subset and source_package and source_package==target_package and set(tracks).intersection(names)), 'Animation tracks do not match selected skeleton; enable same-package subset explicitly')
     n=data['frames']; require(n*len(bones)<=250000,'Animation sample limit exceeded')
     axis=Matrix(((0,1,0,0),(1,0,0,0),(0,0,1,0),(0,0,0,1)))
     rest=[]; defaults=[]; parents=[]
@@ -154,7 +158,7 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
     for i in range(n):
         worlds=[]; desired=[]
         for j,b in enumerate(bones):
-            t,q,s=defaults[j]; track=data['tracks'].get(b.name)
+            t,q,s=defaults[j]; track=tracks.get(b.name)
             if track:
                 t,q,s=[channel[0 if len(channel)==1 else i] if channel else fallback for channel,fallback in zip(track,(t,q,s))]
             transform=local(t,q,s); p=parents[j]
@@ -198,9 +202,9 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
         action['UE_duration_seconds']=data['duration'];action['UE_playback_duration_seconds']=duration; action['UE_source_frames']=n; action['UE_source_skeleton']=data.get('skeleton_package',''); action['UE_compressed_tail_bytes']=data['compressed_tail']
         action['UE_omitted_tracks']=','.join(dropped); action['UE_animation_semantics']=data.get('semantics','raw_local_transforms_no_engine_retargeting')
         if 'source_fps' in data:
-            action['UE_unanimated_bones']=','.join(sorted(set(names)-set(data['tracks']))); action['UE_source_fps']=data['source_fps']; action['UE_source_root_motion']=data['source_root_motion']; action['UE_source_root_lock']=data['source_root_lock']; action['UE_source_retarget_name']=data['source_retarget_name']
+            action['UE_unanimated_bones']=','.join(sorted(set(names)-set(tracks))); action['UE_source_fps']=data['source_fps']; action['UE_source_root_motion']=data['source_root_motion']; action['UE_source_root_lock']=data['source_root_lock']; action['UE_source_retarget_name']=data['source_retarget_name']
         if 'source_rate_scale' in data:
-            action['UE_source_rate_scale']=data['source_rate_scale'];action['UE_rate_scale_applied']=apply_rate_scale;action['UE_ignored_metadata']=','.join(data.get('ignored_metadata',[]))
+            action['UE_source_preview_only']=bool(data.get('source_preview_required'));action['UE_additive_source_json']=json.dumps(data.get('source_additive',{}));action['UE_retarget_source_json']=json.dumps(data.get('source_retarget',{}));action['UE_source_rate_scale']=data['source_rate_scale'];action['UE_rate_scale_applied']=apply_rate_scale;action['UE_ignored_metadata']=','.join(data.get('ignored_metadata',[]))
         if props:arm['UE_editor_curve_names']=json.dumps(sorted(set(prior_curves)|set(props.values())))
         for b in arm.pose.bones: b.rotation_mode='QUATERNION'
         arm.animation_data_create().action=action

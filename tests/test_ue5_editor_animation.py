@@ -32,10 +32,19 @@ class GenuineAnimationTests(unittest.TestCase):
         land=read_animation(next(root.rglob('MM_Rifle_Jump_Fall_Land.uasset')));self.assertEqual(len(land['scalar_curves']['GroundDistance']['keys']),13)
         loop=read_animation(next(root.rglob('MM_Rifle_Jump_Fall_Loop.uasset')));self.assertEqual(loop['source_rate_scale'],2.)
         for name,count in [('MM_Jump',159),('MM_Attack_01',161)]:self.assertEqual(len(read_animation(next(root.rglob(name+'.uasset')))['tracks']),count)
-        with self.assertRaises(ValueError):read_animation(next(root.rglob('MM_Rifle_Fire.uasset')))
+        self.assertTrue(read_animation(next(root.rglob('MM_Rifle_Fire.uasset')))['source_preview_required'])
     def test_audit(self):
         root=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content/Characters/Mannequins/Anims';accepted=[]
         for p in root.rglob('*.uasset'):
             try:accepted.append(read_animation(p))
             except ValueError:pass
-        self.assertEqual((len(accepted),sum(a['frames'] for a in accepted)),(45,2003))
+        self.assertEqual((len(accepted),sum(a['frames'] for a in accepted),sum(a['source_preview_required'] for a in accepted)),(97,4589,52))
+
+    def test_full_skeleton_and_preview_metadata(self):
+        from ue5_editor_skeleton import read_skeleton
+        root=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content/Characters/Mannequins';d=read_skeleton(root/'Meshes/SK_Mannequin.uasset')
+        self.assertEqual((len(d['bones']),len(d['sockets']),len(d['retarget_sources'])),(161,5,2));self.assertEqual(set(d['retarget_sources']),{'SKM_Manny','SKM_Quinn'})
+        a=read_animation(next(root.rglob('MF_Unarmed_Walk_Fwd.uasset')));self.assertEqual(len(a['source_retarget']['pose']),161);self.assertEqual(a['source_retarget']['asset'],d['retarget_sources']['SKM_Quinn']['asset'])
+        self.assertEqual(len({x.casefold() for x in a['tracks']} & {b['name'].casefold() for b in d['bones']}),159)
+        b=read_animation(next(root.rglob('MM_Rifle_Fire.uasset')));self.assertEqual(b['source_additive']['mode'],'AAT_RotationOffsetMeshSpace');self.assertTrue(b['source_additive']['sequence']['self_reference'])
+        c=read_animation(next(root.rglob('MF_Pistol_Idle_ADS_AO_CD.uasset')));self.assertFalse(c['source_retarget']['reference_pose_present']);self.assertTrue(c['source_preview_required'])

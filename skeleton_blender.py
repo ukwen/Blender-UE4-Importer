@@ -14,15 +14,24 @@ class ImportUESkeleton(bpy.types.Operator, ImportHelper):
     def execute(self,context):
         try:
             from pathlib import Path
+            from package_inspector import inspect_package
+            data={}
             if Path(self.filepath).with_suffix(".uexp").is_file():
                 name,bones=read_cooked_skeleton(self.filepath,self.profile); sockets=[]
             else:
-                from editor_skeleton import read_editor_skeleton
+                if inspect_package(self.filepath).get('ue5')==1017:
+                    from ue5_editor_skeleton import read_skeleton as read_editor_skeleton
+                else:
+                    from editor_skeleton import read_editor_skeleton
                 data=read_editor_skeleton(self.filepath); name,bones,sockets=data["name"],data["bones"],data["sockets"]
             obj=build_armature(name,bones)
             if sockets:
                 import json
                 obj["UE_socket_definitions"]=json.dumps(sockets)
+            if data.get('skeleton_package'):obj['UE_skeleton_package']=data['skeleton_package']
+            if data.get('retarget_sources'):
+                import json
+                obj['UE_retarget_sources_json']=json.dumps(data['retarget_sources']);obj['UE_skeleton_unparsed_tail_bytes']=data['tail_bytes']
             obj['UE_skeleton_source']=self.filepath; obj['UE_skeleton_profile']=self.profile
             self.report({'INFO'},f'Imported {len(bones)} reference bones (no mesh or skin weights)')
             return {'FINISHED'}
@@ -128,6 +137,7 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
     allow_subset: BoolProperty(name='Allow same-skeleton track subset',description='Omit absent tracks only when original skeleton package identity matches; no engine retargeting',default=False)
+    allow_source_preview: BoolProperty(name='Allow additive / retarget source preview',description='Import original authored pose samples only, without Unreal runtime additive or retarget evaluation',default=False)
     apply_rate_scale: BoolProperty(name='Apply source playback rate',description='Use serialized RateScale to retime the Action; otherwise preserve authored source time',default=False)
     start_frame: FloatProperty(name='Start frame',default=1.,min=0.,max=100000.)
     @classmethod
@@ -137,7 +147,7 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
         from animation_native import read_animation, make_action
         try:
             data=read_animation(self.filepath)
-            action=make_action(context.object,data,context.scene,self.start_frame,self.allow_subset,self.apply_rate_scale)
+            action=make_action(context.object,data,context.scene,self.start_frame,self.allow_subset,self.apply_rate_scale,self.allow_source_preview)
             self.report({'INFO'},f"Imported {data['frames']} raw samples, {len(data['tracks'])} tracks, {len(data.get('scalar_curves',{}))} scalar curves; runtime effects not evaluated")
             return {'FINISHED'}
         except (OSError,ValueError,RuntimeError,NotImplementedError,KeyError) as exc:

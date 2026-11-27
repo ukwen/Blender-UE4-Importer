@@ -69,3 +69,7 @@ See [UE5.6 editor FK animation](docs/0.10.57-editor-animation.md).
 ## 0.10.58-dev
 
 See [editor animation curves and expanded compatibility](docs/0.10.58-editor-animation-curves.md).
+
+## 0.10.59-dev
+
+See [full UE5.6 reference skeleton and authored animation previews](docs/0.10.59-editor-skeleton-preview.md).

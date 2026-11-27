@@ -62,7 +62,33 @@ def read_animation(path):
     def rate(t,k):
         v=t[k];require(v['type']==['StructProperty','FrameRate','/Script/CoreUObject'],'Invalid frame rate');p=read_tags(v['data'],names);require(val(p,'Numerator',['IntProperty'],'i')==30 and val(p,'Denominator',['IntProperty'],'i',1)==1 and not set(p)-{'Numerator','Denominator'},'Unsupported frame rate')
     roots=[i for i,e in enumerate(ex,1) if not e['outer'] and e['kind']=='AnimSequence'];require(len(roots)==1,'Expected one root animation');root=roots[0];t=export_tags(b,ref(root),names)
-    require('AdditiveAnimType' not in t and 'RetargetSourceAsset' not in t,'Additive or retarget-source animation unsupported')
+    preview=bool({'AdditiveAnimType','RetargetSourceAsset','RetargetSourceAssetReferencePose'} & set(t))
+    additive={}; retarget={}
+    if 'AdditiveAnimType' in t:
+        require(t['AdditiveAnimType']['type']==['ByteProperty','EAdditiveAnimationType','/Script/Engine'] and t['RefPoseType']['type']==['ByteProperty','EAdditiveBasePoseType','/Script/Engine'],'Invalid additive metadata types')
+        mode,base=nm(t,'AdditiveAnimType'),nm(t,'RefPoseType');require(mode in ('AAT_LocalSpaceBase','AAT_RotationOffsetMeshSpace') and base in ('ABPT_AnimFrame','ABPT_LocalAnimFrame'),'Unsupported additive metadata')
+        frame=val(t,'RefFrameIndex',['IntProperty'],'i',0);require(0<=frame<10000,'Invalid additive reference frame')
+        idx=obj(t,'RefPoseSeq');source=None
+        if idx:
+            item=ref(idx);require(item['kind']=='AnimSequence','Invalid additive reference class');source=dict(name=item['name'],package=pkg(idx),self_reference=idx==root)
+            require(source['package'] or source['self_reference'],'Unresolved additive reference')
+        require((base=='ABPT_AnimFrame' and source is not None) or (base=='ABPT_LocalAnimFrame' and source is None),'Unexpected additive base sequence')
+        additive=dict(mode=mode,base_type=base,frame=frame,sequence=source)
+    if 'RetargetSourceAsset' in t:
+        from ue5_dependencies import read_dependencies
+        from ue5_editor_skeleton import checked_transform
+        idx=obj(t,'RetargetSourceAsset','SoftObjectProperty');paths=read_dependencies(path)['soft_object_paths'];require(0<=idx<len(paths) and paths[idx]['package'] and not paths[idx]['subpath'],'Invalid retarget source asset')
+        pose=[]
+        if 'RetargetSourceAssetReferencePose' in t:
+            v=t['RetargetSourceAssetReferencePose'];require(v['type']==['ArrayProperty','StructProperty','Transform','/Script/CoreUObject'],'Invalid retarget reference pose type');rr=Reader(v['data'])
+            for _ in range(rr.count(8192)):
+                tags=read_tag_stream(rr,names);require(set(tags)=={'Rotation','Translation','Scale3D'},'Invalid retarget transform fields');vals=[]
+                for k,typ,fmt in [('Rotation','Quat','4d'),('Translation','Vector','3d'),('Scale3D','Vector','3d')]:
+                    v=tags[k];require(v['type']==['StructProperty',typ,'/Script/CoreUObject'],'Invalid retarget transform type');vreader=Reader(v['data']);vals.extend(vreader.unpack(fmt));require(vreader.pos==len(vreader.data),'Invalid retarget transform extent')
+                pose.append(checked_transform(vals))
+            require(pose and rr.pos==len(rr.data),'Invalid retarget reference pose extent')
+        retarget=dict(asset=paths[idx],pose=pose,reference_pose_present=bool(pose))
+    else:require('RetargetSourceAssetReferencePose' not in t,'Retarget pose has no asset identity')
     rate_scale=val(t,'RateScale',['FloatProperty'],'f',1.);require(math.isfinite(rate_scale) and 0<rate_scale<=100,'Invalid rate scale')
     duration=val(t,'SequenceLength',['FloatProperty'],'f');require(duration is not None and math.isfinite(duration) and 0<duration<=3600,'Invalid sequence length');n=round(duration*30)+1;require(2<=n<=10000 and abs(duration*30-(n-1))<.002,'Nonintegral source duration')
     sk=obj(t,'Skeleton');require(sk<0 and ref(sk)['kind']=='Skeleton' and pkg(sk),'Missing source skeleton')
@@ -85,9 +111,9 @@ def read_animation(path):
     v=section['TransformParameterNamesAndCurves'];require(v['type']==['ArrayProperty','StructProperty','TransformParameterNameAndCurves','/Script/MovieSceneTracks'],'Invalid transform curve array');r=Reader(v['data']);count=r.count(8192);require(0<count<=512 and count*n<=250000,'Unsupported dense control count');tracks={}
     keys=[(k if j==0 else (k,j)) for k in ('Translation','Rotation','Scale') for j in range(3)]
     for _ in range(count):
-        p=read_tag_stream(r,names,indexed=True);require(set(p)==set(keys)|{'ParameterName'},'Invalid transform channel set');name=nm(p,'ParameterName');require(name.endswith('_CONTROL') and name[:-8] not in tracks,'Invalid or duplicate control name');channels=[]
+        p=read_tag_stream(r,names,indexed=True);require(set(p)==set(keys)|{'ParameterName'},'Invalid transform channel set');name=nm(p,'ParameterName');require(name.endswith('_CONTROL') and name[:-8].casefold() not in {k.casefold() for k in tracks},'Invalid or duplicate control name');channels=[]
         for k in keys:
             v=p[k];require(v['type']==['StructProperty','MovieSceneFloatChannel','/Script/MovieScene'],'Invalid transform channel type');channels.append(read_channel(v['data'],n))
         trans=list(zip(*channels[:3]));rot=[quaternion_xyz(*xyz) for xyz in zip(*channels[3:6])];scale=list(zip(*channels[6:]));require(all(min(s)>0 for s in scale),'Nonpositive source scale');tracks[name[:-8]]=[trans,rot,scale]
     require(r.pos==len(r.data),'Unexpected transform array trailer')
-    return dict(name=ref(root)['name'],frames=n,duration=(n-1)/30,tracks=tracks,skeleton_package=pkg(sk),compressed_tail=0,semantics='editor_fk_direct_local_transforms_no_engine_root_motion_or_retargeting',source_root_motion=boolean(t,'bEnableRootMotion'),source_root_lock=boolean(t,'bForceRootLock'),source_fps=30,source_controls=count,source_rate_scale=rate_scale,scalar_curves=curves,ignored_metadata=[key for key in t if key in ('AttributeCurves','RawCurveData','AnimNotifyTracks','AuthoredSyncMarkers')]+(['ControlChannelMap'] if 'ControlChannelMap' in section else []),source_retarget_name=nm(t,'RetargetSource') if 'RetargetSource' in t else '')
+    return dict(name=ref(root)['name'],frames=n,duration=(n-1)/30,tracks=tracks,skeleton_package=pkg(sk),compressed_tail=0,semantics='editor_fk_direct_local_transforms_no_engine_root_motion_or_retargeting',source_root_motion=boolean(t,'bEnableRootMotion'),source_root_lock=boolean(t,'bForceRootLock'),source_fps=30,source_controls=count,source_preview_required=preview,source_additive=additive,source_retarget=retarget,source_rate_scale=rate_scale,scalar_curves=curves,ignored_metadata=[key for key in t if key in ('AttributeCurves','RawCurveData','AnimNotifyTracks','AuthoredSyncMarkers')]+(['ControlChannelMap'] if 'ControlChannelMap' in section else []),source_retarget_name=nm(t,'RetargetSource') if 'RetargetSource' in t else '')

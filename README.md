@@ -136,3 +136,6 @@ Use **File > Import > Import native UE4.27 / UE5.6 editor animation** with an un
 
 ### Extended editor animation curves (0.10.58-dev)
 Dense direct FK tracks now support bounded variable control counts and sparse scalar channels. The native animation operator can optionally apply the source playback-rate multiplier. Source scalar curves become editable object-property F-curves with constant, linear and unweighted cubic segments; no Unreal runtime IK is executed. See [validation and limitations](docs/0.10.58-editor-animation-curves.md).
+
+### Full editor skeleton and authored animation previews (0.10.59-dev)
+The native reference skeleton operator accepts tested UE5.6 editor USkeleton assets with full double-precision reference bones, socket definitions and named retarget reference poses. The editor animation operator can explicitly preview additive/retarget-source authored transforms, preserving metadata but not applying Unreal runtime retarget or additive rules. See [acceptance and limits](docs/0.10.59-editor-skeleton-preview.md).
