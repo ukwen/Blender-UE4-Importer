@@ -9,6 +9,10 @@ from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
 
 def read_material(path):
+    from package_inspector import inspect_package
+    if inspect_package(path).get('ue5')==1004:
+        from ue5_legacy_editor import read_material as legacy_material
+        return legacy_material(path)
     m,b,im,ex,ref,pkg=read_tables(path); names=m['names']
     roots=[(i,e) for i,e in enumerate(ex,1) if not e['outer'] and e['kind'] in ('Material','MaterialInstanceConstant')];require(len(roots)==1,'Expected one material root');i,e=roots[0]
     t=export_tags(b,e,names)

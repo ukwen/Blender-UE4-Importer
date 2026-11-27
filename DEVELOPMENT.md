@@ -81,3 +81,7 @@ See [editor Blueprint components and sockets](docs/0.10.60-editor-components.md)
 ## 0.10.61-dev
 
 See [editor texture regions and decoder portability](docs/0.10.61-editor-texture-regions.md).
+
+## 0.10.62-dev
+
+See [legacy UE5 editor source profiles](docs/0.10.62-legacy-editor.md).

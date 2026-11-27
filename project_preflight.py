@@ -67,6 +67,13 @@ def read_record(path,project):
                 refs={i.object_name for i in a.imports if i.class_name=='Package' and i.object_name.startswith('/') and not i.object_name.startswith('/Script/')}
                 try: record.update(soft_references=soft_refs_ue4(a),soft_coverage='summary_table')
                 except Exception as exc: record['soft_detail']=str(exc)
+        elif meta['ue5']==1004:
+            from ue5_legacy_editor import read_tables
+            _,_,imports,exports,_,_=read_tables(path)
+            classes={e['kind'] for e in exports if not e['outer']}
+            refs={i['name'] for i in imports if i['kind']=='Package' and i['name'].startswith('/') and not i['name'].startswith('/Script/')}
+            refs.update(i['package_name'] for i in imports if i['package_name'].startswith('/') and not i['package_name'].startswith('/Script/'))
+            record['soft_detail']='Legacy 1004 summary soft tables not validated'
         elif meta['ue5'] is not None and 1012 <= meta['ue5'] <= 1018:
             from ue5_blueprint import read_tables
             _,_,imports,exports,_,_=read_tables(path)

@@ -146,3 +146,6 @@ Use **File > Import > UE5.6 Blueprint Character Preview** to reconstruct an expl
 
 ### Corrected UE5 editor textures and decoder portability (0.10.61-dev)
 All 51 inspectable ShooterSam Texture2D source payloads decode with extent-aware restart intervals, including the irregular opaque skull-mask regions. Material previews retain source sampler settings and AO data branches; unsupported engine functions remain explicitly named. A Windows x64 MinGW-w64 CMD helper build and cross-platform payload acceptance script are provided. See [setup, tests and limitations](docs/0.10.61-editor-texture-regions.md).
+
+### Legacy UE5 editor source compatibility (0.10.62-dev)
+The three previously excluded ShooterSam object-version 1004 packages now support bounded import-table inspection, original PNG source recovery and material-instance parameter preservation. Legacy summary soft references and procedural grid shader equivalence remain unverified. See [acceptance and limitations](docs/0.10.62-legacy-editor.md).
