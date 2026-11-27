@@ -153,3 +153,7 @@ See [saved decal projector placement](docs/0.10.78-decal-projectors.md).
 ## 0.10.79-dev
 
 See [unified legacy commercial scene transfer](docs/0.10.79-legacy-full-scene.md). The one-click operation now also dispatches the bounded UE4 editor 508 profile, with original foliage and materials, light preview and explicit coverage.
+
+## 0.10.80-dev
+
+See [legacy 522 mixed-version Goblin full-scene acceptance](docs/0.10.80-goblin-full-scene.md). The single scene operation recognizes the bounded UE4 editor 522 profile and validates both legacy map table extents before import. Existing native decoders are reused.

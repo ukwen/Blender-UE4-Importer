@@ -1,4 +1,4 @@
-"""Atomic unified level transfer for the original UE4.14 editor map profile.
+"""Atomic unified level transfer for the original UE4 editor 508/522 map profiles.
 The native foliage decoder is reused, not generalized to UE5.
 """
 import json
@@ -9,8 +9,18 @@ from collections import Counter
 
 def supported(meta):
     return (meta.get('status') == 'tables_inspected' and meta.get('legacy') == -7
-            and meta.get('ue4') == 508 and meta.get('ue5') is None
-            and meta.get('licensee') == 0 and not meta.get('sidecars'))
+            and meta.get('ue4') in (508, 522) and meta.get('ue5') is None
+            and meta.get('licensee') == 0 and not meta.get('sidecars')
+            and not meta.get('flags',0) & 0x80002000)
+
+
+def validate_tables(meta):
+    if not supported(meta): raise ValueError('Unsupported legacy full scene profile')
+    ic,ec,io,eo,end=(meta[k] for k in ('import_count','export_count','import_offset','export_offset','header_end'))
+    import_stride,export_stride=(28,96) if meta['ue4']==508 else (36,104)
+    if not (0<ic<=100000 and 0<ec<=100000 and 0<io<eo<end<=meta['size']
+            and io+import_stride*ic==eo and eo+export_stride*ec<=end):
+        raise ValueError('Unsupported legacy map table extents')
 
 
 def inventory(path, content):
@@ -78,7 +88,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
     from ue5_full_scene import coverage
     from static_scene import reconstruct_static_map
     path=Path(filepath).resolve(); project=UProject(str(path));content=Path(project.dir)/'Content';scene=bpy.context.scene
-    if not supported(inspect_package(path)): raise ValueError('Unsupported legacy full scene profile')
+    meta=inspect_package(path);validate_tables(meta)
     if not math.isfinite(preview_scale) or not 0<preview_scale<=1000: raise ValueError('Invalid preview intensity multiplier')
     if any(str(path)==c.get(k) for c in scene.collection.children_recursive for k in ('UE_full_scene_source','UE_source_map_path')): raise ValueError('Level already imported (full or separate stages)')
     dependencies=audit(project,path)
@@ -98,7 +108,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
         if scene.camera!=old_camera: raise ValueError('Unexpected active camera change')
         objects=list(coll.all_objects)
         if not objects: raise ValueError('No supported legacy scene objects')
-        report=dict(source=str(path),status='bounded_legacy_scene_preview',source_dependencies=dependencies,strict_dependencies=strict_dependencies,
+        report=dict(source=str(path),package_profile=meta['ue4'],status='bounded_legacy_scene_preview',source_dependencies=dependencies,strict_dependencies=strict_dependencies,
             stages={'geometry':geo,'lighting':dict(records=lights,skipped=skipped,scope='Directional light preview and sky marker; no sky environment evaluation')},
             counts=dict(geometry_objects=geometry_objects,lighting_objects=len(lights),objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),
             coverage=coverage(rows,objects),foliage_instances=geo['foliage_report']['instances'],material_status=dict(Counter(v['status'] for v in geo.get('material_report',{}).get('packages',{}).values())),

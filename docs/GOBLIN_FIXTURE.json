@@ -1,0 +1,242 @@
+{
+  "assets": {
+    "BP_Chr_Archer_Female_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Archer_Female_01",
+      "sha256": "c42c588b972135653c8238922eedbee2ab4e4b1377ec6b10171b0d0888c41f24"
+    },
+    "BP_Chr_Archer_Male_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Archer_Male_01",
+      "sha256": "e6b218f867cb85a0bdf50ff15c530343d7ba8e9005360e116d452844094d5ddd"
+    },
+    "BP_Chr_BeastTamer_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_BeastTamer_01",
+      "sha256": "ab642b9b71c516bb05070d6d6ee09f6a160d145e941ed49401dae23c36a04320"
+    },
+    "BP_Chr_Cook_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Cook_01",
+      "sha256": "5383a8183279a77ff501f6c052965a2c272d7d87ae4b96fc7b9943eea9c665b8"
+    },
+    "BP_Chr_King_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_King_01",
+      "sha256": "45bc715d37c64730aa5070a51130c00f507591964f78871929b530e0e958a157"
+    },
+    "BP_Chr_King_02.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_King_02",
+      "sha256": "bb3dcc9a4b9751c71c3e8bd65cca60847bcad8f8d5bd6c497ef62a71c1301c92"
+    },
+    "BP_Chr_Knight_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Knight_01",
+      "sha256": "34117e6120b257d2f63e17e5b1b1f1ad1b288c4156e1bb3f3a4505fe961208de"
+    },
+    "BP_Chr_Prisoner_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Prisoner_01",
+      "sha256": "da7e6715b8f39daf78754af142f3310d99acb55db4477170acf59828b40cdf5c"
+    },
+    "BP_Chr_Prisoner_02.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Prisoner_02",
+      "sha256": "8b8e7d3de6260a374abf1e3eb4d8cf69fc090f17d7fad72b98d008189a371a73"
+    },
+    "BP_Chr_Prisoner_03.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Prisoner_03",
+      "sha256": "11a6f2501a1e4d6ea8aad779b5b735dfcdef66b25b6af950abd62016a4bef541"
+    },
+    "BP_Chr_Ranger_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Ranger_01",
+      "sha256": "5c21ac73454d0f53ee2a00871113966c243290ea45a7ee21dee63b5e877091a8"
+    },
+    "BP_Chr_Shaman_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Shaman_01",
+      "sha256": "d63075d59c4938e0c57ca2d675c8b161e7f5a13760484c5a5432b190752c2367"
+    },
+    "BP_Chr_Troll_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Troll_01",
+      "sha256": "8644db2e695c54b975cefc7a5aaa66e692074fa2855e564bcf07ae2311822247"
+    },
+    "BP_Chr_Warrior_Male_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Warrior_Male_01",
+      "sha256": "fe842f8cf1899066d00a9cc045ac3c6953007325d446c9f71436cdc58fa39a87"
+    },
+    "BP_Chr_Wizard_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Blueprints/CharactersUE4Mannequin/BP_Chr_Wizard_01",
+      "sha256": "9949d58b5a148d0f74573ed6e96663cc457aadcc9f14b0fa832e128e934e0a78"
+    },
+    "MF_VertexColorWind.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Materials/Functions/MF_VertexColorWind",
+      "sha256": "3e2e999b0e7f3ddd3f634db8c9863f5ec05b156d978bd2f9c610eeef73b54261"
+    },
+    "MI_PolygonGoblinWarCamp_Texture_01_A.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Materials/Alts/MI_PolygonGoblinWarCamp_Texture_01_A",
+      "sha256": "830d801ee020ad1001204e7fcde24270606bd8170b1c3808a727187cf5b15076"
+    },
+    "M_PolygonGoblinWarCamp_Base.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Materials/Base/M_PolygonGoblinWarCamp_Base",
+      "sha256": "86b4210f8e77b221b260616704b513ccb8046b50f7d46a608d3d4fe08e47c8b2"
+    },
+    "Overview.umap": {
+      "package": "/Game/FixtureMaps/Overview",
+      "sha256": "edc1ad2a0c39bc2fdc9fd82c9e147e411cadba2dc411c10469396319f503d7d7"
+    },
+    "SK_Capes.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/Capes/SK_Capes",
+      "sha256": "b108690aec1e45393183192f924730c4a2ba668286defe34e10c387b59d6ad74"
+    },
+    "SK_Capes_BR.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/Capes/SK_Capes_BR",
+      "sha256": "8f517b16c1269805434022cc53b0f1eb9d39eb2771196e8e18244cf3861f4b66"
+    },
+    "SK_Chr_Archer_Female_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Archer_Female_01",
+      "sha256": "854f0c0b4636f83c06612d83d64e8cd79831d0901d68e932073b0206171767e8"
+    },
+    "SK_Chr_Archer_Male_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Archer_Male_01",
+      "sha256": "1df76bf9feab089248ef0465fb62cf9753e4198b3c214eabb4c50a8082afa680"
+    },
+    "SK_Chr_Attach_Hood_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Attach_Hood_01",
+      "sha256": "4b0bd5ef3037e35d3e66501d59c40216d3110e90ab0ea86a23d25732b9319e5d"
+    },
+    "SK_Chr_Attach_Hood_03.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Attach_Hood_03",
+      "sha256": "076c010f3c5a70ff25cc3a85baf8d5b701604682255f0a6483e3c7cad578d93d"
+    },
+    "SK_Chr_BeastTamer_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_BeastTamer_01",
+      "sha256": "7da1fd00a6d999cb02864e89fecc1a4ac02dcd1360a3fdd9fb37415b7ec423ad"
+    },
+    "SK_Chr_Cook_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Cook_01",
+      "sha256": "5d0017498b2d98d120aa62082f618d0a0035677619f0a2eefd023509cc47585f"
+    },
+    "SK_Chr_King_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_King_01",
+      "sha256": "747f5e4d0f87dc00d4e8d10466397eb8cda3b9e64e389ba8baee2228072237b1"
+    },
+    "SK_Chr_King_02.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_King_02",
+      "sha256": "0f3a79783caebd33e654ce11593b676cc4b78f4f805833a498918b4a90497d97"
+    },
+    "SK_Chr_Knight_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Knight_01",
+      "sha256": "b806e840a0ccec5a93a5d55c57b05e50297f103a41e1c66bac8c2cf88a5c8da3"
+    },
+    "SK_Chr_Prisoner_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Prisoner_01",
+      "sha256": "2edf57e6b94b6f35807a8d72b71ca6055a9a51b9a610a12f433f50f37610ab33"
+    },
+    "SK_Chr_Prisoner_02.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Prisoner_02",
+      "sha256": "a9b5806b71a3687d4a40c866cd5fb7b132860dada164fd232b9fefa93d17bba8"
+    },
+    "SK_Chr_Prisoner_03.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Prisoner_03",
+      "sha256": "4acbbbd3890be86f77471dafc08b32f3719b7fc241b3ee212ee085956838c396"
+    },
+    "SK_Chr_Ranger_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Ranger_01",
+      "sha256": "b608c3e01223fb7fbd8d81cc8565318dc5a9bc2b5bbaf06f592354222d0c4e54"
+    },
+    "SK_Chr_Shaman_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Shaman_01",
+      "sha256": "f1cbe0f517f1c9c321a5ee1d1e6810f8dc6d1e84e57e38f26610b77c234dedce"
+    },
+    "SK_Chr_Troll_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Troll_01",
+      "sha256": "b802585ff1a9795ff65f060998327877cc433a1d173b825056929a681140183e"
+    },
+    "SK_Chr_Warrior_Male_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Warrior_Male_01",
+      "sha256": "2b1eb75ee76f44e544ae01aa7422714c945058eabaa26d5f7b3f0ec804a18372"
+    },
+    "SK_Chr_Wizard_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/SK_Chr_Wizard_01",
+      "sha256": "4034395b6d94e1ebd80fb088ac1a5942e7bac9f9dced3004fe608b80c8c430e0"
+    },
+    "SK_Veh_Ballista_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Ballista_01",
+      "sha256": "9f3c73232807fbe9cda240f247ac0cdb4117c9bb7bc243b3bd83e692b3ba7aee"
+    },
+    "SK_Veh_BatteringRam_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_BatteringRam_01",
+      "sha256": "fc683465ad4d6fa8e7ad680f155490ebe72f42ade32aa46cc3a85a98fa2fd97a"
+    },
+    "SK_Veh_Cannon_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Cannon_01",
+      "sha256": "dd3fccd75b91eef145e4c70edfc75f00e791fc2d295460f58f9a898d7ae818b0"
+    },
+    "SK_Veh_Cart_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Cart_01",
+      "sha256": "935f2027fa6ee3e9c7df55adf7b1b23df0251d273d4f3b6dfceccb8850f0ab67"
+    },
+    "SK_Veh_Cart_02.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Cart_02",
+      "sha256": "244b48747d26768907504bc6b941e88f4778ce4ff260a13b25f956051870b35f"
+    },
+    "SK_Veh_Cart_03.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Cart_03",
+      "sha256": "e5bbc74e9c751f84d695f0d5457f42dce8d409f31ae82675d57c944886fa37f6"
+    },
+    "SK_Veh_Cart_04.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Cart_04",
+      "sha256": "c7eb2af5ada59bbaac31c81865c89d7ee991f192bd134ac5febfbc0bdc466f3d"
+    },
+    "SK_Veh_Minecart_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Minecart_01",
+      "sha256": "186e35be0f71db0e44090ede751fcec36bc8f80310184f02491f20f5e26c238b"
+    },
+    "SK_Veh_Scoop_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Scoop_01",
+      "sha256": "2edcfa5b0a9fa9c6ad29fa3a9d4f71d716e3b865510ba215537b2ca8fce3b0f4"
+    },
+    "SK_Veh_Trebuchet_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Trebuchet_01",
+      "sha256": "a84d710b77e5aa678889f9f50f96438b8b9fbf9d9e74fea391a82560b09ee33e"
+    },
+    "SK_Veh_Wagon_Cage_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Wagon_Cage_01",
+      "sha256": "04a3174888e6844a86808fc08a69841d22ffb75ec0be4a0ba1a9330d9bdbac1b"
+    },
+    "SK_Veh_Wagon_Cage_02.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_Wagon_Cage_02",
+      "sha256": "21c6c745f67a4e1b124edf8de7670b388ca78cd0fbee23c410f50a665277d819"
+    },
+    "SK_Veh_War_Balloon_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/Rigged/SK_Veh_War_Balloon_01",
+      "sha256": "e7aa410c5bae022c000b6aedf49ff2d539de8aaff36440bad9c2f6226892182d"
+    },
+    "SM_Chr_Attach_Straw_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/CharactersUE4Mannequin/Attachments/SM_Chr_Attach_Straw_01",
+      "sha256": "27fadaa4eb9e87d4cc90018593aea9a88bf56ea0d8fcb2cd6384dde4a1cc1501"
+    },
+    "SM_Env_Skydome_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Environment/SM_Env_Skydome_01",
+      "sha256": "3c16457df6f7f0ca857d3f70abfbe6c60fbcaa2238239edb94fa42d422227290"
+    },
+    "SM_Veh_War_Balloon_01_OarLock_R.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Meshes/Vehicles/SM_Veh_War_Balloon_01_OarLock_R",
+      "sha256": "08d06ffb832b098348854d6a092c733c55ac7c1dfab900ea32ef4d69e22f0a0d"
+    },
+    "T_PolygonGoblinWarCamp_Emissive_01_A.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Textures/Emissive/T_PolygonGoblinWarCamp_Emissive_01_A",
+      "sha256": "447bb04fb076d136b07563bc0d7c1bc854534aec9d88ff51eb33a9122ba4813d"
+    },
+    "T_PolygonGoblinWarCamp_Normals_01.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Textures/Misc/T_PolygonGoblinWarCamp_Normals_01",
+      "sha256": "08e808cda4d0750ab7069d6b6874d97513b1087064059fcf7e247336035fc04c"
+    },
+    "T_PolygonGoblinWarCamp_Texture_01_A.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/Textures/Alts/T_PolygonGoblinWarCamp_Texture_01_A",
+      "sha256": "4eb56ab403d1c92d232e61ed60c1ec3865d30d579d0c70f1bdde706395fbd5c6"
+    },
+    "ThirdPersonCharacter.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/EpicContent/Blueprints/ThirdPersonCharacter",
+      "sha256": "7ced1933d453478d6d34788c852cdf2ce507ef7a9ba5d11c7d139b0456b917b2"
+    },
+    "UE4_Mannequin_Skeleton.uasset": {
+      "package": "/Game/PolygonGoblinWarCamp/EpicContent/Mannequin/Character/Mesh/UE4_Mannequin_Skeleton",
+      "sha256": "6244f21a093d4d05d4a208ffe165dc079b30255825a08af4175ad0f29df4163f"
+    }
+  },
+  "library_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
+  "scope": "Partial mixed-version test fixture. Map is original UE4.26; some Blueprint packages are newer. Paths derived from unique referenced basenames in original import tables. Synthetic descriptor and map location solely for test harness; not an original complete project."
+}

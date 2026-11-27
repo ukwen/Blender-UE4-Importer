@@ -5,20 +5,21 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.79-dev",
-  "previous_verified_commit": "868612a97fbfde9b994ac7ea0ac0e5f76a2c9e21",
-  "previous_verified_tree": "fff4273a338d25f575edea392bd39fa6fe270ab2",
-  "current_commit_resolution": "Use immutable 0.10.79 Library checkpoint and compare exact commit/tree/archive.",
-  "milestone": "Unified legacy UE4 editor 508 commercial scene transfer including original foliage, rigs, materials and sun preview",
+  "application_version": "0.10.80-dev",
+  "previous_verified_commit": "96cd79a6cd0b32384d6a93895b1c994fd0802f18",
+  "previous_verified_tree": "9ad44335ab30c51f7b338f0786fd45df0ad9f73d",
+  "current_commit_resolution": "Use immutable 0.10.80 Library checkpoint and compare exact commit/tree/archive.",
+  "milestone": "Unified legacy 522 map transfer with existing mixed-version Goblin assets and hash-verified fixture restoration",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.79_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.79-local.zip",
-    "install_archive": "install-079.zip",
+    "checkpoint": "Unreal_Importer_0.10.80_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.80-local.zip",
+    "install_archive": "install-080.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
-    "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/"
+    "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
+    "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
   },
   "environment": {
     "blender": "4.2.4 LTS",
@@ -29,35 +30,80 @@
   },
   "tests": {
     "baseline": {
-      "passed": 74,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 75,
       "skipped": 23,
       "failed": 0
     },
-    "fresh_environment": true,
+    "current": {
+      "passed": 76,
+      "skipped": 23,
+      "failed": 0
+    },
+    "fresh_environment": false,
+    "environment_reverified": "Recovered source tree exact; all four recovery archive hashes rechecked; reused restored Blender and decoder with actual tests",
     "two_level_blender_ue5_regression": true,
-    "legacy_initial_two_level_blender_acceptance": true,
-    "scope": "actual Blender Linux, no Unreal runtime equivalence",
-    "isolated_install": {
-      "imported": 3,
-      "reopen_reuse": true
+    "goblin_full_scene": {
+      "scope": "Partial mixed-version fixture; original UE4.26 map, test-only descriptor",
+      "counts": {
+        "geometry_objects": 1009,
+        "lighting_objects": 2,
+        "objects": 1011,
+        "meshes": 36,
+        "armatures": 30,
+        "lights": 1,
+        "cameras": 0
+      },
+      "static_status": {
+        "missing": 559,
+        "reconstructed": 3
+      },
+      "component_status": {
+        "anchor_only": 16,
+        "reconstructed": 33,
+        "inherited_mesh_unresolved": 1,
+        "missing": 34
+      },
+      "coverage": {
+        "anchor_or_marker": 32,
+        "geometry": 33,
+        "not_reconstructed": 7,
+        "light_preview": 1,
+        "unresolved_geometry": 559
+      },
+      "source_relative_locations_validated": 592,
+      "max_relative_position_error_m": 3.412052258814641e-05,
+      "character_bodies": 15,
+      "sockets": 300,
+      "accessories": {
+        "reconstructed": 3,
+        "missing": 34
+      },
+      "packed_images": 3,
+      "material_status": {
+        "partial_graph_unresolved": 1,
+        "missing_dependencies": 2
+      },
+      "dependency_gaps": 622,
+      "strict_gate": true,
+      "late_rollback": true,
+      "duplicates_refused": true,
+      "reopen": true,
+      "active_camera_preserved": true
     },
     "legacy_two_level_blender_acceptance": true,
-    "legacy_late_failure_rollback": true,
     "legacy_mesh_objects": 2814,
     "legacy_foliage_instances": 462,
-    "legacy_armatures": 36,
-    "legacy_packed_images": 5
+    "isolated_install": {
+      "imported": 3,
+      "reopen_reuse": true,
+      "scope": "Application code identical to final archive; final reports updated afterward"
+    }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Native UE5 instance payloads still need positive original format evidence; continue with remaining saved visual actors and scene fidelity on existing assets, then professional usability and performance.",
+  "next_priority": "Implement remaining saved visual actor support (sky/fog and scene material fidelity) or verified native UE5 instancing if original evidence exists; improve professional usability and scene coverage. No new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -71,6 +117,7 @@
     "missing Wraith skeleton/unresolved material group mappings",
     "no positive original UE5 instancing evidence yet",
     "Unreal runtime and Windows acceptance unverified",
-    "103 missing decal material packages; native receiver projection and rendering unsupported"
+    "103 missing decal material packages; native receiver projection and rendering unsupported",
+    "Goblin incomplete mixed-version fixture: 559 static placements and 34 accessory mesh references missing; original descriptor absent; incomplete material graphs and no same-version project parity."
   ]
 }
