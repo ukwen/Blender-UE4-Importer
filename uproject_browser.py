@@ -56,7 +56,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     engine: StringProperty(options={'HIDDEN'})
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
-    cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static only')],default='4.27')
+    cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static and skeletal LOD0')],default='4.27')
     geometry_physics: BoolProperty(name='Attach native physics previews',default=False,description='Resolve exact source PhysicsAsset references; missing or unsupported assets are reported without dropping geometry')
     batch_scope: EnumProperty(name='Batch scope',items=[('ALL_MAPS','All maps','Reconstruct all project maps'),('SELECTED_MAP','Selected map','Reconstruct selected map'),('GEOMETRY','Geometry folder','Native geometry inspection gallery'),('MAP_GEOMETRY','Selected map geometry','Import only known geometry dependencies of selected map into a gallery')],default='ALL_MAPS')
     job_items: CollectionProperty(type=UEIMPORT_Job)

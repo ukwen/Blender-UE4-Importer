@@ -16,7 +16,11 @@ def array(r, fmt, limit):
     return [r.unpack(fmt)[0] for _ in range(n)]
 
 
-def read_mesh(path, version='4.18'):
+def read_mesh(path, version='4.18', lod=0):
+    if version=='5.6':
+        from ue5_modern_skeletal import read_skeletal56
+        return read_skeletal56(path,lod)
+    require(lod==0,'LOD selection requires the UE5.6 skeletal profile')
     if version=="5.0":
         from ue5_cooked_geometry import read_skeletal50
         return read_skeletal50(path)
@@ -156,8 +160,9 @@ def assemble(r,name,bones,materials,sections,idx,positions,normals,tangents,sign
     return dict(version=version,name=name,bones=bones,materials=materials,positions=positions,normals=normals,tangents=tangents,signs=signs,uvs=uvs,faces=faces,slots=slots,weights=skin,vertex_map=vertex_map,buffer_end=r.pos,tail_bytes=len(r.data)-r.pos)
 
 
-def read_native_mesh(path, version):
-    if Path(path).with_suffix('.uexp').is_file(): data=read_mesh(path, version)
+def read_native_mesh(path, version, lod=0):
+    if Path(path).with_suffix('.uexp').is_file(): data=read_mesh(path, version,lod)
+    elif lod!=0: raise ValueError('LOD selection requires the UE5.6 skeletal profile')
     else:
         from package_inspector import inspect_package
         if inspect_package(path).get('ue4') == 508:
@@ -206,6 +211,10 @@ def build_mesh(data, collection=None):
             if data['duplicate_faces']: mesh['UE_removed_source_triangle_indices']=data['duplicate_faces']
             mesh['UE_source_lod_count']=data['lod_count']
             if 'split_source_faces' in data: mesh['UE_split_source_triangles']=len(data['split_source_faces'])
+        if 'lod_index' in data:
+            mesh['UE_source_lod_index']=data['lod_index']; mesh['UE_source_lod_count']=data['lod_count']
+            mesh['UE_source_lod_summary']=json.dumps(data['lod_summary'])
+            mesh['UE_geometry_scope']=data['geometry_scope']; mesh['UE_external_bulk_bytes']=data['external_bulk_bytes']
         if 'colors' in data:
             attr=mesh.color_attributes.new(name='UE_source_color',type='BYTE_COLOR',domain='POINT')
             attr.data.foreach_set('color_srgb',[v/255. for rgba in data['colors'] for v in rgba])
@@ -214,7 +223,7 @@ def build_mesh(data, collection=None):
         for i,weights in enumerate(data['weights']):
             for j,w in weights.items(): groups[j].add([i],w/255.,'REPLACE')
         obj.parent=arm; mod=obj.modifiers.new('UE native skin','ARMATURE'); mod.object=arm; mod.use_deform_preserve_volume=False
-        obj['UE_skeletal_mesh_status']='native_'+('cooked_' if not data['version'].startswith('editor_') else '')+data['version']+'_lod0'; obj['UE_unparsed_tail_bytes']=data['tail_bytes']
+        obj['UE_skeletal_mesh_status']='native_'+('cooked_' if not data['version'].startswith('editor_') else '')+data['version']+'_lod'+str(data.get('lod_index',0)); obj['UE_unparsed_tail_bytes']=data['tail_bytes']
         arm['UE_skeleton_status']='native_skin_bound'
         if data.get('source_path'): arm['UE_source_mesh_path']=data['source_path']; obj['UE_source_mesh_path']=data['source_path']
         if data.get('skeleton_package'):

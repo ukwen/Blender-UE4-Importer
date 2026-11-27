@@ -1,6 +1,6 @@
 """Import verified cooked reference-skeleton profiles without Unreal Engine."""
 import bpy
-from bpy.props import EnumProperty, StringProperty, FloatProperty, BoolProperty
+from bpy.props import EnumProperty, StringProperty, FloatProperty, BoolProperty, IntProperty
 from bpy_extras.io_utils import ImportHelper
 from skeleton_native import read_cooked_skeleton, build_armature
 
@@ -35,11 +35,12 @@ class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
-    profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy interleaved buffers'),('4.27','UE4.27','Inline separate render buffers'),('5.0','UE5.0','Bounded unversioned split profile')],default='4.18')
+    profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy interleaved buffers'),('4.27','UE4.27','Inline separate render buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.6','UE5.6','Bounded fixed-weight inline skeletal LODs')],default='4.18')
+    lod: IntProperty(name='Source LOD',description='UE5.6 cooked skeletal LOD index; other profiles require 0',default=0,min=0,max=2)
     def execute(self,context):
         from skeletal_mesh_native import read_native_mesh, build_mesh
         try:
-            data=read_native_mesh(self.filepath,self.profile); obj,arm=build_mesh(data)
+            data=read_native_mesh(self.filepath,self.profile,self.lod); obj,arm=build_mesh(data)
             obj['UE_source_package']=self.filepath
             self.report({'INFO'},f"Imported {len(data['positions'])} skinned vertices, {len(data['bones'])} bones (material placeholders)")
             return {'FINISHED'}

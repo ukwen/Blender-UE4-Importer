@@ -110,3 +110,7 @@ Native UE5.0 cooked static meshes, skinned meshes and reference skeletons for th
 ### Development 0.10.51: modern UE5 cooked assets
 
 Explicit UE5.4, 5.5 and 5.6 static render-geometry profiles, UE5.4/5.6 cooked material-instance parameter recovery, and UE5.5 BC1 texture mip-chain import are now available. These are bounded sample-validated profiles, not general UE5 support. See [acceptance and limitations](docs/0.10.51-modern-ue5.md).
+
+### Development 0.10.52: UE5.6 skeletal mesh
+
+The tested Quinn-style cooked fixed-weight skeletal profile supports all three native inline render LODs. Select UE5.6 and the source LOD (0–2) in the individual skeletal import command; the project browser imports LOD0. See [acceptance](docs/0.10.52-ue5-skeletal-lods.md).
