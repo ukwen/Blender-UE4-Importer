@@ -58,7 +58,8 @@ def inspect_package(path):
             result["fortnite_main_version"]=fortnite_versions[0] if fortnite_versions else None
             if ue5 is None or ue5 < 1016: header_end = i32()
             if not f.tell() <= header_end <= size: raise ValueError('invalid header end')
-            string(); flags = u32()
+            package_name=string(); flags = u32()
+            if ue5 is not None and ue5>=1016:result["package_name"]=package_name
             names_count, names_offset = i32(), i32()
             soft_object_count, soft_object_offset = (i32(), i32()) if ue5 is not None and ue5 >= 1008 else (0, 0)
             if ue4 >= 516 and not flags & 0x80000000: string()

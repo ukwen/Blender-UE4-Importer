@@ -97,3 +97,7 @@ See [native UE5.6 lighting and scene markers](docs/0.10.64-editor-lighting.md).
 ## 0.10.65-dev
 
 See [UE5.7 saved Blueprint composition](docs/0.10.65-ue57-blueprint.md).
+
+## 0.10.66-dev
+
+See [targeted missing mesh recovery](docs/0.10.66-missing-mesh-repair.md).
