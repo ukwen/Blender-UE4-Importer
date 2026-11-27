@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 import time
 import bpy
-from bpy.props import StringProperty, BoolProperty, IntProperty, CollectionProperty, PointerProperty, EnumProperty
+from bpy.props import StringProperty, BoolProperty, IntProperty, FloatProperty, CollectionProperty, PointerProperty, EnumProperty
 
 
 def discover_maps(descriptor):
@@ -57,6 +57,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
     cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static and skeletal LOD0')],default='4.27')
+    light_preview_scale: FloatProperty(name="Light preview multiplier",default=1.,min=.001,max=1000.,description="Approximate Blender preview brightness, not Unreal photometric equivalence")
     geometry_all_lods: BoolProperty(name='All skeletal LODs on one rig',default=False,description='UE5.6: import all supported native render LODs with shared materials')
     geometry_physics: BoolProperty(name='Attach native physics previews',default=False,description='Resolve exact source PhysicsAsset references; missing or unsupported assets are reported without dropping geometry')
     batch_scope: EnumProperty(name='Batch scope',items=[('ALL_MAPS','All maps','Reconstruct all project maps'),('SELECTED_MAP','Selected map','Reconstruct selected map'),('GEOMETRY','Geometry folder','Native geometry inspection gallery'),('MAP_GEOMETRY','Selected map geometry','Import only known geometry dependencies of selected map into a gallery')],default='ALL_MAPS')
@@ -154,6 +155,30 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
         foliage = report.get('foliage_report', {}).get('instances', 0)
         components = report.get('component_report', {}).get('status', {}).get('reconstructed', 0)
         self.report({'INFO'}, f'{count}/{report["static_actors"]} static actors; {foliage} foliage instances; {components} mesh components; report: {collection["UE_report"]}')
+        return {'FINISHED'}
+
+
+class UEIMPORT_OT_lighting_preview(bpy.types.Operator):
+    bl_idname = 'ueimport.lighting_preview'
+    bl_label = 'Import UE5 Lighting & Markers'
+    bl_description = 'Import saved UE5.6 root lights and environment/spawn markers as a separate approximate preview'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return UEIMPORT_OT_import_map.poll(context)
+
+    def execute(self, context):
+        state=context.scene.ueimport_project
+        try:
+            project,_,maps=discover_maps(bpy.path.abspath(state.project_path))
+            selected=state.maps[state.active].filepath
+            if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+            from ue5_editor_lighting import reconstruct
+            collection,report=reconstruct(selected,state.light_preview_scale)
+        except Exception as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        self.report({'INFO'},f"Imported {sum(report['counts'].values())} lights/markers; {len(report['skipped'])} skipped. Approximate preview.")
         return {'FINISHED'}
 
 
@@ -382,11 +407,14 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             if state.static_materials:
                 layout.prop(state, 'partial_materials')
             layout.operator('ueimport.reconstruct_static', icon='MESH_DATA')
+            layout.prop(state,'light_preview_scale')
+            layout.operator('ueimport.lighting_preview', icon='LIGHT')
+            layout.label(text='Lighting is a preview, not Unreal rendering.')
             layout.label(text='Missing meshes remain empties; unresolved materials marked.')
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():

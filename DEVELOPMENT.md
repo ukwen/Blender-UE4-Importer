@@ -89,3 +89,7 @@ See [legacy UE5 editor source profiles](docs/0.10.62-legacy-editor.md).
 ## 0.10.63-dev
 
 See [local material functions and saved construction components](docs/0.10.63-editor-functions-components.md).
+
+## 0.10.64-dev
+
+See [native UE5.6 lighting and scene markers](docs/0.10.64-editor-lighting.md).

@@ -4,6 +4,10 @@ Blender addon to import Unreal Engine 4 asset files. [Download the latest releas
 ![image](https://github.com/Waffle1434/Blender-UE4-Importer/assets/8021358/cc2a6f1a-957f-47ad-8f1b-ccce553deb89)
 ![import_umesh](https://github.com/Waffle1434/Blender-UE4-Importer/assets/8021358/a46d7258-902c-45dc-8d0e-00f106bc34b0)
 
+## Development branch
+
+For verified native UE4/UE5 reconstruction profiles, limitations and setup, see [DEVELOPMENT.md](DEVELOPMENT.md). The original upstream feature table below is historical. UE5.6 saved lighting/marker import is an approximate preview, not Unreal rendering parity.
+
 ## Features
 - Directly reads Unreal Engine project files, no exporting in Unreal Editor required
 - Import full `.umap` scenes
