@@ -65,3 +65,7 @@ See [UE5.6 source textures and material graphs](docs/0.10.56-editor-materials.md
 ## 0.10.57-dev
 
 See [UE5.6 editor FK animation](docs/0.10.57-editor-animation.md).
+
+## 0.10.58-dev
+
+See [editor animation curves and expanded compatibility](docs/0.10.58-editor-animation-curves.md).

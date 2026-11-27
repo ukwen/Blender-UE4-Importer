@@ -133,3 +133,6 @@ Native single-layer BGRA8 UEDELTA source textures and bounded editable PBR graph
 ### UE5.6 editor FK animation (0.10.57-dev)
 
 Use **File > Import > Import native UE4.27 / UE5.6 editor animation** with an unanimated native armature selected. The tested UE5.6 editor profile decodes 30 Hz dense single-section FK transform channels into editable Blender Actions. Enable **Allow same-skeleton track subset** only when omitted controls are acceptable. Root motion is preserved as authored local transforms, not evaluated using Unreal extraction or retargeting. See [acceptance and limitations](docs/0.10.57-editor-animation.md).
+
+### Extended editor animation curves (0.10.58-dev)
+Dense direct FK tracks now support bounded variable control counts and sparse scalar channels. The native animation operator can optionally apply the source playback-rate multiplier. Source scalar curves become editable object-property F-curves with constant, linear and unweighted cubic segments; no Unreal runtime IK is executed. See [validation and limitations](docs/0.10.58-editor-animation-curves.md).

@@ -128,6 +128,7 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
     allow_subset: BoolProperty(name='Allow same-skeleton track subset',description='Omit absent tracks only when original skeleton package identity matches; no engine retargeting',default=False)
+    apply_rate_scale: BoolProperty(name='Apply source playback rate',description='Use serialized RateScale to retime the Action; otherwise preserve authored source time',default=False)
     start_frame: FloatProperty(name='Start frame',default=1.,min=0.,max=100000.)
     @classmethod
     def poll(cls,context):
@@ -136,8 +137,8 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
         from animation_native import read_animation, make_action
         try:
             data=read_animation(self.filepath)
-            action=make_action(context.object,data,context.scene,self.start_frame,self.allow_subset)
-            self.report({'INFO'},f"Imported {data['frames']} raw samples, {len(data['tracks'])} tracks; curves/notifies and compressed data not imported")
+            action=make_action(context.object,data,context.scene,self.start_frame,self.allow_subset,self.apply_rate_scale)
+            self.report({'INFO'},f"Imported {data['frames']} raw samples, {len(data['tracks'])} tracks, {len(data.get('scalar_curves',{}))} scalar curves; runtime effects not evaluated")
             return {'FINISHED'}
         except (OSError,ValueError,RuntimeError,NotImplementedError,KeyError) as exc:
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}

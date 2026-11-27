@@ -1,5 +1,6 @@
 """Bounded UE4 editor raw animation tracks. No compressed-codec guessing."""
 import math
+import json
 from pathlib import Path
 from skeleton_native import Reader
 
@@ -110,7 +111,7 @@ def read_animation(path):
     finally: asset.Close()
 
 
-def make_action(arm,data,scene,start=1.,allow_subset=False):
+def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=False):
     """Convert sampled UE local transforms to Blender rest-relative pose channels."""
     import bpy
     from mathutils import Matrix, Quaternion, Vector
@@ -123,7 +124,7 @@ def make_action(arm,data,scene,start=1.,allow_subset=False):
     source_package=data.get('skeleton_package'); target_package=arm.get('UE_skeleton_package')
     require(not target_package or target_package==source_package,'Animation skeleton package does not match selected armature')
     if data.get('semantics','').startswith('editor_fk'):
-        require(source_package==target_package and (set(data['tracks'])==set(names) or (allow_subset and len(set(data['tracks'])&set(names))>=1)),'Editor FK animation requires the source skeleton and exact control names or explicit same-package subset')
+        require(source_package==target_package and (set(data['tracks'])==set(names) or (allow_subset and len(set(data['tracks'])&set(names))*10>=len(names)*9)),'Editor FK animation requires the source skeleton and exact control names or explicit same-package subset')
     dropped=sorted(set(data['tracks'])-set(names))
     require(not dropped or (allow_subset and source_package and source_package==target_package and set(data['tracks']).intersection(names)), 'Animation tracks do not match selected skeleton; enable same-package subset explicitly')
     n=data['frames']; require(n*len(bones)<=250000,'Animation sample limit exceeded')
@@ -139,7 +140,16 @@ def make_action(arm,data,scene,start=1.,allow_subset=False):
         x,y,z,w=q
         return axis@Matrix.LocRotScale(Vector(t)*.01,Quaternion((w,x,y,z)).normalized(),Vector(s))@axis
     fps=scene.render.fps/scene.render.fps_base
-    times=[start+(data['duration']*fps*i/(n-1) if n>1 else 0) for i in range(n)]
+    rate=data.get('source_rate_scale',1.) if apply_rate_scale else 1.
+    require(math.isfinite(rate) and rate>0,'Invalid playback rate')
+    duration=data['duration']/rate
+    times=[start+(duration*fps*i/(n-1) if n>1 else 0) for i in range(n)]
+    curve_names=data.get('scalar_curves',{})
+    # Never overwrite an unrelated animator property. Generated controls are reusable across Actions.
+    prior_curves=json.loads(arm.get('UE_editor_curve_names','[]'));require(isinstance(prior_curves,list) and all(isinstance(x,str) for x in prior_curves),'Invalid curve ownership metadata')
+    props={name:'UE_curve_'+name for name in curve_names}
+    require(all(len(p.encode('utf8'))<=63 and (p not in arm or p in prior_curves) for p in props.values()),'Scalar control property collision or excessive name length')
+    added=[]
     values={name:[] for name in names}; prev={}
     for i in range(n):
         worlds=[]; desired=[]
@@ -167,10 +177,31 @@ def make_action(arm,data,scene,start=1.,allow_subset=False):
                     fc.keyframe_points.add(n); fc.keyframe_points.foreach_set('co',[v for i,row in enumerate(rows) for v in (times[i],row[offset+j])])
                     for key in fc.keyframe_points: key.interpolation='LINEAR'
                     fc.update()
-        action['UE_duration_seconds']=data['duration']; action['UE_source_frames']=n; action['UE_source_skeleton']=data.get('skeleton_package',''); action['UE_compressed_tail_bytes']=data['compressed_tail']
+        for name,curve in curve_names.items():
+            prop=props[name];keys=curve['keys']
+            if prop not in arm:
+                arm[prop]=float(curve['default'] if curve['has_default'] else keys[0]['value']);added.append(prop)
+            fc=action.fcurves.new('['+json.dumps(prop)+']',action_group='Unreal source scalar curves')
+            rows=keys or [dict(frame=0,value=curve['default'],interpolation=1,arrive=0.,leave=0.)]
+            fc.keyframe_points.add(len(rows));frame_step=duration*fps/(n-1)
+            for j,row in enumerate(rows):
+                k=fc.keyframe_points[j];x=times[row['frame']];y=row['value'];k.co=(x,y);k.interpolation=('LINEAR','CONSTANT','BEZIER')[row['interpolation']]
+                # Unreal unweighted tangents use value per source frame. Preserve the
+                # same cubic Hermite polynomial after scene-rate conversion.
+                k.handle_left_type='FREE';k.handle_right_type='FREE'
+                left=(row['frame']-rows[j-1]['frame'])/3 if j else 1/3
+                right=(rows[j+1]['frame']-row['frame'])/3 if j+1<len(rows) else 1/3
+                k.handle_left=(x-left*frame_step,y-left*row['arrive']);k.handle_right=(x+right*frame_step,y+right*row['leave'])
+            fc.extrapolation='CONSTANT';fc.update()
+        if curve_names:
+            action['UE_scalar_curves_json']=json.dumps(curve_names,sort_keys=True);action['UE_scalar_curve_semantics']='source keys and unweighted cubic segments; constant outside authored key span; no runtime IK evaluation'
+        action['UE_duration_seconds']=data['duration'];action['UE_playback_duration_seconds']=duration; action['UE_source_frames']=n; action['UE_source_skeleton']=data.get('skeleton_package',''); action['UE_compressed_tail_bytes']=data['compressed_tail']
         action['UE_omitted_tracks']=','.join(dropped); action['UE_animation_semantics']=data.get('semantics','raw_local_transforms_no_engine_retargeting')
         if 'source_fps' in data:
             action['UE_unanimated_bones']=','.join(sorted(set(names)-set(data['tracks']))); action['UE_source_fps']=data['source_fps']; action['UE_source_root_motion']=data['source_root_motion']; action['UE_source_root_lock']=data['source_root_lock']; action['UE_source_retarget_name']=data['source_retarget_name']
+        if 'source_rate_scale' in data:
+            action['UE_source_rate_scale']=data['source_rate_scale'];action['UE_rate_scale_applied']=apply_rate_scale;action['UE_ignored_metadata']=','.join(data.get('ignored_metadata',[]))
+        if props:arm['UE_editor_curve_names']=json.dumps(sorted(set(prior_curves)|set(props.values())))
         for b in arm.pose.bones: b.rotation_mode='QUATERNION'
         arm.animation_data_create().action=action
         return action
@@ -178,4 +209,9 @@ def make_action(arm,data,scene,start=1.,allow_subset=False):
         if arm.animation_data and arm.animation_data.action==action: arm.animation_data.action=None
         if not had_animation: arm.animation_data_clear()
         for name,mode in modes.items(): arm.pose.bones[name].rotation_mode=mode
+        for prop in added:
+            if prop in arm:del arm[prop]
+        if props:
+            if prior_curves:arm['UE_editor_curve_names']=json.dumps(prior_curves)
+            elif 'UE_editor_curve_names' in arm:del arm['UE_editor_curve_names']
         bpy.data.actions.remove(action); raise

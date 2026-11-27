@@ -1,6 +1,6 @@
 import os,struct,unittest,math
 from pathlib import Path
-from ue5_editor_animation import read_channel,quaternion_xyz
+from ue5_editor_animation import read_channel,quaternion_xyz,read_scalar_channel
 from animation_native import read_animation
 
 class ChannelTests(unittest.TestCase):
@@ -11,6 +11,13 @@ class ChannelTests(unittest.TestCase):
     def test_invalid_channels(self):
         for data in (self.channel([0,2],[1.,2.]),self.channel([0],[1.]),self.channel([0,1],[1.,math.nan]),self.channel([0,1],[1.,2.])[:-1]):
             with self.assertRaises(ValueError):read_channel(data,2)
+    def test_scalar_sparse_and_invalid(self):
+        raw=self.channel([0,3],[0.,1.]);d=read_scalar_channel(raw,4)
+        self.assertEqual([(k['frame'],k['value']) for k in d['keys']],[(0,0.),(3,1.)])
+        for bad in (self.channel([3,0],[0.,1.]),self.channel([0,4],[0.,1.]),self.channel([0,0],[0.,1.]),self.channel([0,3],[0.,math.nan]),raw[:-1]):
+            with self.assertRaises(ValueError):read_scalar_channel(bad,4)
+        weighted=bytearray(raw);weighted[18+8+20]=1
+        with self.assertRaises(ValueError):read_scalar_channel(weighted,4)
     def test_rotator_convention(self):
         for angles,expected in [((90,0,0),(-1,0,0,1)),((0,90,0),(0,-1,0,1)),((0,0,90),(0,0,1,1))]:
             self.assertTrue(all(abs(x-y/math.sqrt(2))<1e-12 for x,y in zip(quaternion_xyz(*angles),expected)))
@@ -21,4 +28,14 @@ class GenuineAnimationTests(unittest.TestCase):
         root=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content'
         for name,n,root_motion in [('MM_Idle',228,False),('MM_Rifle_Equip',51,False),('MF_Rifle_Walk_Fwd_Left',47,True)]:
             d=read_animation(next(root.rglob(name+'.uasset')));self.assertEqual(d['frames'],n);self.assertEqual(len(d['tracks']),89);self.assertEqual(d['source_root_motion'],root_motion);self.assertTrue(d['skeleton_package'].endswith('/SK_Mannequin'));self.assertEqual(d['duration'],(n-1)/30)
-        with self.assertRaises(ValueError):read_animation(next(root.rglob('MM_Rifle_Jump_Start.uasset')))
+        reload=read_animation(next(root.rglob('MM_Rifle_Reload.uasset')));self.assertEqual([k['frame'] for k in reload['scalar_curves']['DisableLHandIK']['keys']],[10,14,20,23])
+        land=read_animation(next(root.rglob('MM_Rifle_Jump_Fall_Land.uasset')));self.assertEqual(len(land['scalar_curves']['GroundDistance']['keys']),13)
+        loop=read_animation(next(root.rglob('MM_Rifle_Jump_Fall_Loop.uasset')));self.assertEqual(loop['source_rate_scale'],2.)
+        for name,count in [('MM_Jump',159),('MM_Attack_01',161)]:self.assertEqual(len(read_animation(next(root.rglob(name+'.uasset')))['tracks']),count)
+        with self.assertRaises(ValueError):read_animation(next(root.rglob('MM_Rifle_Fire.uasset')))
+    def test_audit(self):
+        root=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content/Characters/Mannequins/Anims';accepted=[]
+        for p in root.rglob('*.uasset'):
+            try:accepted.append(read_animation(p))
+            except ValueError:pass
+        self.assertEqual((len(accepted),sum(a['frames'] for a in accepted)),(45,2003))
