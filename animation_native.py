@@ -88,9 +88,12 @@ def read_export(data,names,name):
 def read_animation(path):
     """Versioned, monolithic UE4.27 editor assets with raw tracks only."""
     from package_inspector import inspect_package
+    path=Path(path); meta=inspect_package(path)
+    if meta.get('ue5')==1017:
+        from ue5_editor_animation import read_animation as read_editor_animation
+        return read_editor_animation(path)
     from uasset import UAsset
     from material_stage import package_reference
-    path=Path(path); meta=inspect_package(path)
     require(meta.get('status')=='tables_inspected' and meta.get('legacy')==-7 and meta.get('ue4')==522 and meta.get('ue5') is None and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected versioned monolithic UE4.27 editor animation')
     asset=UAsset(str(path),False)
     try:
@@ -119,6 +122,8 @@ def make_action(arm,data,scene,start=1.,allow_subset=False):
     require(bones and [b.get('UE_bone_index') for b in bones]==list(range(len(bones))),'Native reference bone metadata required')
     source_package=data.get('skeleton_package'); target_package=arm.get('UE_skeleton_package')
     require(not target_package or target_package==source_package,'Animation skeleton package does not match selected armature')
+    if data.get('semantics','').startswith('editor_fk'):
+        require(source_package==target_package and (set(data['tracks'])==set(names) or (allow_subset and len(set(data['tracks'])&set(names))>=1)),'Editor FK animation requires the source skeleton and exact control names or explicit same-package subset')
     dropped=sorted(set(data['tracks'])-set(names))
     require(not dropped or (allow_subset and source_package and source_package==target_package and set(data['tracks']).intersection(names)), 'Animation tracks do not match selected skeleton; enable same-package subset explicitly')
     n=data['frames']; require(n*len(bones)<=250000,'Animation sample limit exceeded')
@@ -163,7 +168,9 @@ def make_action(arm,data,scene,start=1.,allow_subset=False):
                     for key in fc.keyframe_points: key.interpolation='LINEAR'
                     fc.update()
         action['UE_duration_seconds']=data['duration']; action['UE_source_frames']=n; action['UE_source_skeleton']=data.get('skeleton_package',''); action['UE_compressed_tail_bytes']=data['compressed_tail']
-        action['UE_omitted_tracks']=','.join(dropped); action['UE_animation_semantics']='raw_local_transforms_no_engine_retargeting'
+        action['UE_omitted_tracks']=','.join(dropped); action['UE_animation_semantics']=data.get('semantics','raw_local_transforms_no_engine_retargeting')
+        if 'source_fps' in data:
+            action['UE_unanimated_bones']=','.join(sorted(set(names)-set(data['tracks']))); action['UE_source_fps']=data['source_fps']; action['UE_source_root_motion']=data['source_root_motion']; action['UE_source_root_lock']=data['source_root_lock']; action['UE_source_retarget_name']=data['source_retarget_name']
         for b in arm.pose.bones: b.rotation_mode='QUATERNION'
         arm.animation_data_create().action=action
         return action

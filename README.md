@@ -129,3 +129,7 @@ Original monolithic 1016/1017 static and skeletal source LOD0 MeshDescriptions a
 ### UE5.6 editor textures and material previews (0.10.56-dev)
 
 Native single-layer BGRA8 UEDELTA source textures and bounded editable PBR graphs are now available through the native texture and project browser workflows. Enable **UE5 editor materials** and optionally **Keep incomplete surface previews** for partially translated shaders. Original source pixel/hash checks and material limitations are described in [the acceptance notes](docs/0.10.56-editor-materials.md). The separately built editor payload decoder remains required.
+
+### UE5.6 editor FK animation (0.10.57-dev)
+
+Use **File > Import > Import native UE4.27 / UE5.6 editor animation** with an unanimated native armature selected. The tested UE5.6 editor profile decodes 30 Hz dense single-section FK transform channels into editable Blender Actions. Enable **Allow same-skeleton track subset** only when omitted controls are acceptable. Root motion is preserved as authored local transforms, not evaluated using Unreal extraction or retargeting. See [acceptance and limitations](docs/0.10.57-editor-animation.md).

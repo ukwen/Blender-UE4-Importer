@@ -123,7 +123,7 @@ class UELodPanel(bpy.types.Panel):
 
 class ImportUEAnimation(bpy.types.Operator, ImportHelper):
     bl_idname='import.ue_raw_animation'
-    bl_label='Import UE4.27 editor raw animation'
+    bl_label='Import native UE4.27 / UE5.6 editor animation'
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})

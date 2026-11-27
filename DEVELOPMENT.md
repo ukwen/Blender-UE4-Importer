@@ -61,3 +61,7 @@ See [UE5.6 editor source reconstruction](docs/0.10.55-ue56-editor.md).
 ## 0.10.56-dev
 
 See [UE5.6 source textures and material graphs](docs/0.10.56-editor-materials.md).
+
+## 0.10.57-dev
+
+See [UE5.6 editor FK animation](docs/0.10.57-editor-animation.md).
