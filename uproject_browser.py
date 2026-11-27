@@ -118,6 +118,8 @@ class UEIMPORT_OT_import_map(bpy.types.Operator):
             selected = state.maps[state.active].filepath
             if selected not in {filepath for _, filepath in maps}:
                 raise ValueError('Map changed or is missing; scan again')
+            if any(c.get('UE_full_scene_source')==selected for c in context.scene.collection.children_recursive):
+                raise ValueError('Level already imported as a full scene')
             import umap
             umap.LoadUMap(selected, umap.UMapImportSettings(materials=state.materials))
         except Exception as exc:
@@ -156,6 +158,30 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
         components = report.get('component_report', {}).get('status', {}).get('reconstructed', 0)
         characters=report.get('character_report',{}).get('status',{}); bodies=characters.get('reconstructed',0)+characters.get('geometry_only_unresolved_slots',0)
         self.report({'INFO'}, f'{count}/{report["static_actors"]} static actors; {foliage} foliage instances; {components} mesh components; {bodies} skeletal bodies; report: {collection["UE_report"]}')
+        return {'FINISHED'}
+
+
+class UEIMPORT_OT_full_scene(bpy.types.Operator):
+    bl_idname = 'ueimport.full_scene'
+    bl_label = 'Import Complete Saved Level (Preview)'
+    bl_description = 'One operation for supported geometry, materials, characters, light and camera previews; unresolved source data is reported'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return UEIMPORT_OT_import_map.poll(context)
+
+    def execute(self, context):
+        state=context.scene.ueimport_project
+        try:
+            project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
+            if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+            from ue5_full_scene import reconstruct
+            collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale)
+        except Exception as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        state.batch_report=collection['UE_report'];counts=report['counts']
+        self.report({'INFO'},f"Saved level preview: {counts['meshes']} meshes, {counts['armatures']} rigs, {counts['lights']} lights, {counts['cameras']} cameras. Inspect scene transfer report for gaps.")
         return {'FINISHED'}
 
 
@@ -438,6 +464,8 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text=f'Engine: {state.engine}')
             layout.label(text=f'Maps: {len(state.maps)}')
             layout.template_list('UI_UL_list', 'unreal_maps', state, 'maps', state, 'active', rows=5)
+            layout.prop(state,'partial_materials',text='Allow partial material previews')
+            layout.operator('ueimport.full_scene',icon='SCENE_DATA')
             layout.prop(state, 'materials')
             layout.operator('ueimport.import_selected_map', icon='IMPORT')
             layout.separator()
@@ -463,7 +491,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_full_scene, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():

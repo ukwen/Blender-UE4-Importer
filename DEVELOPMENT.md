@@ -129,3 +129,7 @@ See [saved masked character materials and source character integration](docs/0.1
 ## 0.10.73-dev
 
 See [saved skeletal characters in native level reconstruction](docs/0.10.73-level-characters.md).
+
+## 0.10.74-dev
+
+See [one-operation saved level transfer](docs/0.10.74-full-scene.md).
