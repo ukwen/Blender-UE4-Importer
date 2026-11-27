@@ -16,7 +16,11 @@ def load_editor_texture(filepath, project=None):
     for image in bpy.data.images:
         if image.get('UE_editor_texture_key')==key and image.packed_file and 'UE_address_x' in image and 'UE_address_y' in image:
             return image
-    png,meta=read_editor_texture(source,project)
+    from package_inspector import inspect_package
+    if inspect_package(source).get('ue5') in (1013,1017):
+        from ue5_editor_texture import read_texture as read_ue5_texture
+        png,meta=read_ue5_texture(source)
+    else: png,meta=read_editor_texture(source,project)
     with tempfile.TemporaryDirectory() as temp:
         p=Path(temp)/'source.png'; p.write_bytes(png)
         image=bpy.data.images.load(str(p),check_existing=False)
@@ -29,7 +33,8 @@ def load_editor_texture(filepath, project=None):
             image.name=source.stem
             image['UE_editor_texture_key']=key
             image['UE_texture_format']=meta['format']
-            image['UE_texture_profile']='UE4 editor source'
+            image['UE_texture_profile']=meta.get('profile','UE4 editor source')
+            if meta.get('rgba_sha256'): image['UE_source_rgba_sha256']=meta['rgba_sha256']
             image['UE_mips_validated']=meta['mips']
             image['flip_y']=meta['flip_y']
             image['clamp']=meta['clamp']

@@ -12,7 +12,7 @@ def run_jobs(plan,profile='4.27',materials=True,components=True,partial=False,ph
     import bpy
     if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY'):
         from project_geometry import iter_geometry_folder,finish_gallery
-        it=iter_geometry_folder(plan['project'],plan['folder'],profile,physics,plan['jobs'],all_lods=all_lods)
+        it=iter_geometry_folder(plan['project'],plan['folder'],profile,physics,plan['jobs'],all_lods=all_lods,editor_materials=materials,partial_materials=partial)
         last=None
         try:
             while True:

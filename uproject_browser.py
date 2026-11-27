@@ -167,7 +167,7 @@ class UEIMPORT_OT_geometry_gallery(bpy.types.Operator):
         state=context.scene.ueimport_project
         try:
             from project_geometry import import_geometry_folder
-            collection,report=import_geometry_folder(bpy.path.abspath(state.project_path),state.geometry_folder,state.cooked_profile,state.geometry_physics,state.geometry_all_lods)
+            collection,report=import_geometry_folder(bpy.path.abspath(state.project_path),state.geometry_folder,state.cooked_profile,state.geometry_physics,state.geometry_all_lods,state.static_materials,state.partial_materials)
         except Exception as exc:
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
         count=report['counts'].get('reconstructed',0)
@@ -340,6 +340,8 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             if state.batch_scope=='GEOMETRY': box.prop(state,'geometry_folder')
             else: box.label(text='Gallery of selected map dependencies')
             box.prop(state,'geometry_physics')
+            box.prop(state,'static_materials',text='UE5 editor materials')
+            if state.static_materials: box.prop(state,'partial_materials')
             if state.cooked_profile=='5.6': box.prop(state,'geometry_all_lods')
         else:
             box.prop(state,'components');box.prop(state,'static_materials')
@@ -371,6 +373,8 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.prop(state, 'geometry_folder')
             layout.prop(state, 'geometry_physics')
             if state.cooked_profile=='5.6': layout.prop(state,'geometry_all_lods')
+            layout.prop(state,'static_materials',text='UE5 editor materials')
+            if state.static_materials: layout.prop(state,'partial_materials')
             layout.operator('ueimport.geometry_gallery', icon='OUTLINER_OB_ARMATURE')
             layout.separator()
             layout.prop(state, 'components')

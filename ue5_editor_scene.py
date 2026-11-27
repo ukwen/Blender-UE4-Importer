@@ -72,7 +72,7 @@ def placement_records(content,map_path):
     return dict(level=level,external_count=len(paths),records=records,skipped=skipped,nonroot_component_classes=dict(unsupported))
 
 
-def reconstruct(filepath,materials=False,components=False):
+def reconstruct(filepath,materials=False,components=False,partial=False):
     import bpy,uasset
     from static_scene import MeshResolver
     from blueprint_placement import apply_fields
@@ -93,6 +93,11 @@ def reconstruct(filepath,materials=False,components=False):
                     mat=bpy.data.materials.new(pkg.rsplit('/',1)[-1]);mat['UE_material_package']=pkg;mat['UE_unresolved_material']=True;override_cache[pkg]=mat
                 obj.material_slots[i].link='OBJECT';obj.material_slots[i].material=override_cache[pkg]
     report=dict(level=data['level'],external_actor_packages=data['external_count'],static_actors=len(data['records']),actor_status=dict(counts),skipped=data['skipped'],nonroot_component_classes=data['nonroot_component_classes'],unique_reconstructed_meshes=len({o.data.as_pointer() for o in collection.objects if o.type=='MESH'}),decode_attempts=resolver.decode_attempts,dependencies={p:{'status':r['status'],'detail':r['detail']} for p,r in resolver.records.items()},materials_imported=False,material_graph_status='unresolved editor materials',components_status='root StaticMeshActor only; other components not reconstructed')
-    collection['UE_geometry_only']=True;collection['UE_reconstructed_actors']=counts['reconstructed'];collection['UE_unresolved_actors']=sum(counts.values())-counts['reconstructed']+len(data['skipped'])
+    if materials:
+        from ue5_editor_material import bind_slots
+        report['material_report']=bind_slots(collection.objects,content,partial)
+        report['materials_imported']=any(x['status'] in ('partial','supported_pbr_subset') for x in report['material_report'].values())
+        report['material_graph_status']='explicit supported PBR subset; partial graphs opt-in'
+    collection['UE_geometry_only']=not report['materials_imported'];collection['UE_reconstructed_actors']=counts['reconstructed'];collection['UE_unresolved_actors']=sum(counts.values())-counts['reconstructed']+len(data['skipped'])
     text=bpy.data.texts.new(collection.name+' - import report.json');text.write(json.dumps(report,indent=2));collection['UE_report']=text.name
     return collection,report

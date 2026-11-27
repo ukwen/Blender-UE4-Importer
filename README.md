@@ -125,3 +125,7 @@ Preflight reads the tested tagged 1018 dependency tables, including custom-versi
 
 ### UE5.6 editor source reconstruction (0.10.55)
 Original monolithic 1016/1017 static and skeletal source LOD0 MeshDescriptions and root StaticMeshActor placements (including World Partition external actors) are supported for the tested ShooterSam layout. Configure the separately built payload decoder; see [editor source development notes](docs/0.10.55-ue56-editor.md). Editor materials remain unresolved placeholders with original package identities.
+
+### UE5.6 editor textures and material previews (0.10.56-dev)
+
+Native single-layer BGRA8 UEDELTA source textures and bounded editable PBR graphs are now available through the native texture and project browser workflows. Enable **UE5 editor materials** and optionally **Keep incomplete surface previews** for partially translated shaders. Original source pixel/hash checks and material limitations are described in [the acceptance notes](docs/0.10.56-editor-materials.md). The separately built editor payload decoder remains required.

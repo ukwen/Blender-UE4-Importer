@@ -89,7 +89,7 @@ def root_class(path,project):
 
 class _NonGeometry(Exception): pass
 
-def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,planned_paths=None,all_lods=False):
+def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,planned_paths=None,all_lods=False,editor_materials=False,partial_materials=False):
     """Import supported geometry assets as a gallery, not as a level layout."""
     import bpy,uasset
     from skeletal_mesh_native import read_native_mesh,build_mesh
@@ -108,6 +108,7 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
     bpy.context.scene.collection.children.link(collection)
     records=[]; cursor=0.; totals=Counter()
     stores=(bpy.data.objects,bpy.data.meshes,bpy.data.armatures,bpy.data.materials,bpy.data.images)
+    material_cache={}
     for path in paths:
         package='/Game/'+path.relative_to(content).with_suffix('').as_posix()
         record={'package':package}; before=None
@@ -145,6 +146,9 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
             if profile in ('5.0','5.4','5.5','5.6') and path.with_suffix('.uexp').is_file():
                 from ue5_cooked_material import inspect_material_slots
                 record['material_instances']=inspect_material_slots(mesh,project,profile)
+            if editor_materials and mesh.get('UE_source_format') in ('UE5 editor FMeshDescription','UE5 editor skinned FMeshDescription'):
+                from ue5_editor_material import bind_slots
+                record['editor_materials']=bind_slots([obj],content,partial_materials,material_cache)
             totals.update({k:record[k] for k in ('vertices','triangles','bones')})
             if include_physics and kind=='SkeletalMesh':
                 from physics_native import associate_physics
@@ -170,8 +174,8 @@ def finish_gallery(collection,report):
     text=bpy.data.texts.new(collection.name+' - report.json'); text.write(json.dumps(report,indent=2)); collection['UE_report']=text.name
     return collection,report
 
-def import_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,all_lods=False):
-    iterator=iter_geometry_folder(descriptor,subfolder,profile,include_physics,all_lods=all_lods)
+def import_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,all_lods=False,editor_materials=False,partial_materials=False):
+    iterator=iter_geometry_folder(descriptor,subfolder,profile,include_physics,all_lods=all_lods,editor_materials=editor_materials,partial_materials=partial_materials)
     while True:
         try: next(iterator)
         except StopIteration as stop: return finish_gallery(*stop.value)

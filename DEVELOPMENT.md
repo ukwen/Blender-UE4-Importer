@@ -57,3 +57,7 @@ See [UE5.7 editor dependency tables](docs/0.10.54-ue57-dependencies.md).
 
 ## 0.10.55-dev
 See [UE5.6 editor source reconstruction](docs/0.10.55-ue56-editor.md).
+
+## 0.10.56-dev
+
+See [UE5.6 source textures and material graphs](docs/0.10.56-editor-materials.md).

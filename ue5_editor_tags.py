@@ -6,12 +6,18 @@ from ue5_blueprint import require
 
 
 def read_tags(data,names,control=False):
-    r=Reader(data); out={}
+    r=Reader(data)
+    out=read_tag_stream(r,names,control=control)
+    require(r.pos==len(data),'Unexpected tagged property trailer');return out
+
+
+def read_tag_stream(r,names,control=False,indexed=False):
+    out={}
     if control: require(r.take(1)==b'\0','Unsupported class serialization control')
     while True:
         key=r.name(names)
         if key=='None':
-            require(r.pos==len(data),'Unexpected tagged property trailer');return out
+            return out
         require(len(out)<10000,'Too many property tags')
         nodes=[];remaining=1
         while remaining:
@@ -23,7 +29,9 @@ def read_tags(data,names,control=False):
         if flags&4:
             ext=r.take(1)[0];require(not ext&~2,'Unsupported tag extension')
             if ext&2:r.take(5)
-        require(idx==0 and key not in out,'Repeated property unsupported')
+        require(0<=idx<4096 and (indexed or idx==0),'Unsupported property array index')
+        if indexed and idx: key=(key,idx)
+        require(key not in out,'Repeated property unsupported')
         out[key]={'type':nodes,'flags':flags,'data':r.take(size)}
 
 
