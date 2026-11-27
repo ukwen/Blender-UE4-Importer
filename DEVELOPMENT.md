@@ -133,3 +133,7 @@ See [saved skeletal characters in native level reconstruction](docs/0.10.73-leve
 ## 0.10.74-dev
 
 See [one-operation saved level transfer](docs/0.10.74-full-scene.md).
+
+## 0.10.75-dev
+
+See [selected-level source dependency qualification](docs/0.10.75-scene-dependencies.md).

@@ -44,7 +44,7 @@ def coverage(inventory,objects):
     return dict(serialized_level_exports=len(rows),representation_counts=dict(counts),records=rows,unrepresented_classes=dict(Counter(r['kind'] for r in rows if r['representation']==['not_reconstructed'])),scope='Counts overlap; markers and unresolved anchors are not reconstructed geometry. Direct saved level exports only, not runtime actors.')
 
 
-def reconstruct(filepath,partial=False,preview_scale=1.):
+def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=False):
     import bpy
     from mathutils import Matrix
     from uasset import UProject
@@ -52,10 +52,14 @@ def reconstruct(filepath,partial=False,preview_scale=1.):
     from ue5_editor_scene import reconstruct as geometry
     from ue5_editor_lighting import records as lights, reconstruct as lighting
     from ue5_editor_camera import records as cameras, reconstruct as camera
-    path=Path(filepath).resolve();content=Path(UProject(str(path)).dir)/'Content';scene=bpy.context.scene
+    path=Path(filepath).resolve();project=UProject(str(path));content=Path(project.dir)/'Content';scene=bpy.context.scene
     # Refuse overlapping independent imports too, rather than quietly duplicate or delete them.
     keys=('UE_full_scene_source','UE_source_map_path','UE_lighting_source','UE_camera_source')
     require(not any(str(path)==c.get(k) for c in scene.collection.children_recursive for k in keys),'Level already imported (full or separate stages); remove the prior import explicitly before retrying')
+    from ue5_scene_dependencies import audit
+    dependencies=audit(project,path)
+    require(not strict_dependencies or dependencies['ready_for_strict_import'],
+            f"Source dependency check failed: {dependencies['unresolved_hard']} hard, {dependencies['unresolved_soft_only']} soft-only unresolved, {len(dependencies['unknown_tables'])} unknown tables. Run Analyze Level Dependencies or disable strict mode.")
     inventory,errors=actor_inventory(content,path)
     light_data=lights(content,path);camera_data=cameras(content,path)
     before=set(new_ids());old_camera=scene.camera
@@ -83,7 +87,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.):
         require(scene.camera==old_camera,'Unexpected active camera change')
         objects=list(root.all_objects);require(objects,'No supported scene objects reconstructed')
         material_counts=Counter(v['status'] for v in gr.get('material_report',{}).values())
-        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),inventory_errors=errors,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. No runtime spawning, terrain/foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
+        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. No runtime spawning, terrain/foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
         text=bpy.data.texts.new(root.name+' - scene transfer.json');text.write(json.dumps(report,indent=2));root['UE_report']=text.name;root['UE_full_scene_source']=str(path);root['UE_preview_only']=True
         return root,report
     except Exception:

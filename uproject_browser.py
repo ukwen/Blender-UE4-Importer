@@ -57,6 +57,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
     cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static and skeletal LOD0')],default='4.27')
+    strict_scene_dependencies: BoolProperty(name='Require resolved source dependencies',default=False,description='Refuse scene import if known hard/soft package references are missing or dependency tables are unknown; not a visual completeness guarantee')
     light_preview_scale: FloatProperty(name="Light preview multiplier",default=1.,min=.001,max=1000.,description="Approximate Blender preview brightness, not Unreal photometric equivalence")
     geometry_all_lods: BoolProperty(name='All skeletal LODs on one rig',default=False,description='UE5.6: import all supported native render LODs with shared materials')
     geometry_physics: BoolProperty(name='Attach native physics previews',default=False,description='Resolve exact source PhysicsAsset references; missing or unsupported assets are reported without dropping geometry')
@@ -161,6 +162,30 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class UEIMPORT_OT_scene_dependencies(bpy.types.Operator):
+    bl_idname = 'ueimport.scene_dependencies'
+    bl_label = 'Analyze Level Dependencies'
+    bl_description = 'Read the selected level dependency closure without importing geometry; list missing files and unknown tables'
+
+    @classmethod
+    def poll(cls, context):
+        return UEIMPORT_OT_import_map.poll(context)
+
+    def execute(self, context):
+        state=context.scene.ueimport_project
+        try:
+            project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
+            if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+            from uasset import UProject
+            from ue5_scene_dependencies import audit
+            report=audit(UProject(project),selected)
+            text=bpy.data.texts.new(Path(selected).stem+' — source dependencies.json');text.write(json.dumps(report,indent=2));state.batch_report=text.name
+            self.report({'INFO'},f"{report['scanned_packages']} inspected; {report['unresolved_hard']} hard and {report['unresolved_soft_only']} soft-only unresolved; {len(report['unknown_tables'])} unknown tables. See report.")
+        except Exception as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        return {'FINISHED'}
+
+
 class UEIMPORT_OT_full_scene(bpy.types.Operator):
     bl_idname = 'ueimport.full_scene'
     bl_label = 'Import Complete Saved Level (Preview)'
@@ -177,7 +202,7 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
             project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
             if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
             from ue5_full_scene import reconstruct
-            collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale)
+            collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies)
         except Exception as exc:
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
         state.batch_report=collection['UE_report'];counts=report['counts']
@@ -465,6 +490,8 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text=f'Maps: {len(state.maps)}')
             layout.template_list('UI_UL_list', 'unreal_maps', state, 'maps', state, 'active', rows=5)
             layout.prop(state,'partial_materials',text='Allow partial material previews')
+            layout.operator('ueimport.scene_dependencies',icon='VIEWZOOM')
+            layout.prop(state,'strict_scene_dependencies')
             layout.operator('ueimport.full_scene',icon='SCENE_DATA')
             layout.prop(state, 'materials')
             layout.operator('ueimport.import_selected_map', icon='IMPORT')
@@ -491,7 +518,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_full_scene, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_full_scene, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():
