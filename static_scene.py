@@ -67,6 +67,9 @@ class MeshResolver:
 def reconstruct_static_map(filepath, materials=False, allow_partial_materials=False, cooked_profile='4.27', components=False):
     """Return a new collection plus measured per-actor and per-package results."""
     from package_inspector import inspect_package
+    source=str(Path(filepath).resolve())
+    if any(c.get("UE_full_scene_source")==source for c in bpy.context.scene.collection.children_recursive):
+        raise ValueError("Level already imported as a full scene")
     if inspect_package(filepath).get('ue5') in (1016,1017):
         from ue5_editor_scene import reconstruct
         return reconstruct(filepath,materials,components,allow_partial_materials)
@@ -88,6 +91,7 @@ def reconstruct_static_map(filepath, materials=False, allow_partial_materials=Fa
         from material_stage import bind_scene_materials
         report['material_report'] = bind_scene_materials(collection, resolver.project, allow_partial=allow_partial_materials)
         report['materials_imported'] = bool(report['material_report']['bound_meshes'])
+    collection['UE_source_map_path'] = source
     collection['UE_geometry_only'] = not materials
     collection['UE_reconstructed_actors'] = counts['reconstructed']
     collection['UE_unresolved_actors'] = sum(counts.values()) - counts['reconstructed']

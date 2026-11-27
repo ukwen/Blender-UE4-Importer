@@ -201,8 +201,14 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
         try:
             project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
             if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
-            from ue5_full_scene import reconstruct
-            collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies)
+            from package_inspector import inspect_package
+            from legacy_full_scene import supported
+            if supported(inspect_package(selected)):
+                from legacy_full_scene import reconstruct
+                collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies,state.cooked_profile)
+            else:
+                from ue5_full_scene import reconstruct
+                collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies)
         except Exception as exc:
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
         state.batch_report=collection['UE_report'];counts=report['counts']

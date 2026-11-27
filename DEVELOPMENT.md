@@ -149,3 +149,7 @@ See [handoff](docs/HANDOFF.md), [roadmap](docs/ROADMAP.md), and [test report](do
 ## 0.10.78-dev
 
 See [saved decal projector placement](docs/0.10.78-decal-projectors.md).
+
+## 0.10.79-dev
+
+See [unified legacy commercial scene transfer](docs/0.10.79-legacy-full-scene.md). The one-click operation now also dispatches the bounded UE4 editor 508 profile, with original foliage and materials, light preview and explicit coverage.

@@ -9,3 +9,5 @@ Goal: direct one-operation import of original Unreal project level into a faithf
 - Blocked: source MainLevel assets missing; terrain material absent; Wraith skeleton and five material mappings unresolved; no UE runtime references for rendering/animation equivalence; broader independent commercial fixture acceptance not verified. Do not request further downloads until feasible existing-asset work substantially complete and user approves.
 
 - 0.10.78: 561 saved decal anchors and 549 explicit size guides integrated and tested; material projection/rendering remains outstanding (103 missing packages). Native instancing still needs positive format evidence.
+
+- 0.10.79: existing original Western Frontier legacy foliage decoder integrated into the one-click scene operation, with legacy material/rig reconstruction, saved sun preview, strict source gate and coverage. This is a distinct supported legacy profile, not a new UE5 instance decoder. Next: use original available UE5 format evidence where possible; otherwise improve remaining saved visual actor support and scene fidelity, with missing source assets reported.

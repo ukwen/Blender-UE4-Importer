@@ -5,19 +5,20 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.78-dev",
-  "previous_verified_commit": "0e0532904364815fa3e05bcb3b062c67335e20ec",
-  "previous_verified_tree": "c3a90aca04e699ecff26e57ab13837867989cbbb",
-  "current_commit_resolution": "Use immutable 0.10.78 Library checkpoint and independently compare published commit/tree and recovered archive.",
-  "milestone": "Saved decal projector guides in unified scene transfer, not rendered decals",
+  "application_version": "0.10.79-dev",
+  "previous_verified_commit": "868612a97fbfde9b994ac7ea0ac0e5f76a2c9e21",
+  "previous_verified_tree": "fff4273a338d25f575edea392bd39fa6fe270ab2",
+  "current_commit_resolution": "Use immutable 0.10.79 Library checkpoint and compare exact commit/tree/archive.",
+  "milestone": "Unified legacy UE4 editor 508 commercial scene transfer including original foliage, rigs, materials and sun preview",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.78_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.78-local.zip",
-    "install_archive": "install-078.zip",
-    "hash_manifest": "docs/RECOVERY_ASSETS.sha256"
+    "checkpoint": "Unreal_Importer_0.10.79_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.79-local.zip",
+    "install_archive": "install-079.zip",
+    "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
+    "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/"
   },
   "environment": {
     "blender": "4.2.4 LTS",
@@ -27,27 +28,36 @@
     "setup": "bash tools/restore_development.sh ASSET_DIRECTORY NEW_WORK_DIRECTORY"
   },
   "tests": {
-    "baseline": "0.10.77 exact tree recovered; original baseline run timed out, historical 71 passes not re-certified separately",
-    "current": {
+    "baseline": {
       "passed": 74,
       "skipped": 23,
       "failed": 0
     },
+    "current": {
+      "passed": 75,
+      "skipped": 23,
+      "failed": 0
+    },
     "fresh_environment": true,
-    "two_level_blender_regression": true,
-    "mainlevel_decal_integration": true,
-    "decal_save_reopen": true,
-    "scope": "actual Blender Linux, no runtime parity",
+    "two_level_blender_ue5_regression": true,
+    "legacy_initial_two_level_blender_acceptance": true,
+    "scope": "actual Blender Linux, no Unreal runtime equivalence",
     "isolated_install": {
       "imported": 3,
       "reopen_reuse": true
-    }
+    },
+    "legacy_two_level_blender_acceptance": true,
+    "legacy_late_failure_rollback": true,
+    "legacy_mesh_objects": 2814,
+    "legacy_foliage_instances": 462,
+    "legacy_armatures": 36,
+    "legacy_packed_images": 5
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Recover evidence for native instancing/foliage from existing legacy fixtures; otherwise support remaining saved visual actors and improve scene fidelity without new downloads",
+  "next_priority": "Native UE5 instance payloads still need positive original format evidence; continue with remaining saved visual actors and scene fidelity on existing assets, then professional usability and performance.",
   "restrictions": [
     "CPU only",
     "preserve master",
