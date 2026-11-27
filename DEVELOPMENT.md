@@ -73,3 +73,7 @@ See [editor animation curves and expanded compatibility](docs/0.10.58-editor-ani
 ## 0.10.59-dev
 
 See [full UE5.6 reference skeleton and authored animation previews](docs/0.10.59-editor-skeleton-preview.md).
+
+## 0.10.60-dev
+
+See [editor Blueprint components and sockets](docs/0.10.60-editor-components.md).

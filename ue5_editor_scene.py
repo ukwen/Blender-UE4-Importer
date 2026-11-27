@@ -93,6 +93,31 @@ def reconstruct(filepath,materials=False,components=False,partial=False):
                     mat=bpy.data.materials.new(pkg.rsplit('/',1)[-1]);mat['UE_material_package']=pkg;mat['UE_unresolved_material']=True;override_cache[pkg]=mat
                 obj.material_slots[i].link='OBJECT';obj.material_slots[i].material=override_cache[pkg]
     report=dict(level=data['level'],external_actor_packages=data['external_count'],static_actors=len(data['records']),actor_status=dict(counts),skipped=data['skipped'],nonroot_component_classes=data['nonroot_component_classes'],unique_reconstructed_meshes=len({o.data.as_pointer() for o in collection.objects if o.type=='MESH'}),decode_attempts=resolver.decode_attempts,dependencies={p:{'status':r['status'],'detail':r['detail']} for p,r in resolver.records.items()},materials_imported=False,material_graph_status='unresolved editor materials',components_status='root StaticMeshActor only; other components not reconstructed')
+    if components:
+        from ue5_editor_components import placements
+        actors,skips=placements(content,filepath); component_counts=Counter(); component_objects=0
+        for actor in actors:
+            nodes={}
+            for c in actor['components']:
+                mesh,status=resolver(c['package']) if c['package'] else (None,'anchor')
+                obj=bpy.data.objects.new(actor['label']+' / '+c['name'],mesh);collection.objects.link(obj);nodes[c['index']]=obj
+                if c['parent']:obj.parent=nodes[c['parent']]
+                apply_fields(obj,c['fields']);obj['UE_blueprint_package']=actor['blueprint'];obj['UE_actor']=actor['actor'];obj['UE_source_actor_package']=actor['source'];obj['UE_component_name']=c['name'];obj['UE_component_default_origin']=c['default_origin'];obj['UE_geometry_status']=status;obj['UE_preview_only']=mesh is None
+                obj['UE_native_defaults_unverified']=True
+                if not mesh:obj.empty_display_type='PLAIN_AXES';obj.empty_display_size=.15
+                if c['package']:
+                    obj['UE_mesh_package']=c['package'];obj['UE_material_override_packages']=json.dumps(c['overrides']);component_counts[status]+=1
+                    if mesh:
+                        for i,pkg in enumerate(c['overrides']):
+                            if i>=len(obj.material_slots):obj['UE_unresolved_override_slots']=True;break
+                            if not pkg:continue
+                            if pkg not in override_cache:
+                                mat=bpy.data.materials.new(pkg.rsplit('/',1)[-1]);mat['UE_material_package']=pkg;mat['UE_unresolved_material']=True;override_cache[pkg]=mat
+                            obj.material_slots[i].link='OBJECT';obj.material_slots[i].material=override_cache[pkg]
+                component_objects+=1
+        report['component_report']=dict(actors=len(actors),objects=component_objects,status=dict(component_counts),skipped=skips,scope='saved static components with exact CDO/SCS defaults; native C++ defaults not independently verified')
+        report['components_status']='bounded saved Blueprint static components; no runtime execution'
+        report['decode_attempts']=resolver.decode_attempts;report['dependencies']={p:{'status':r['status'],'detail':r['detail']} for p,r in resolver.records.items()}
     if materials:
         from ue5_editor_material import bind_slots
         report['material_report']=bind_slots(collection.objects,content,partial)

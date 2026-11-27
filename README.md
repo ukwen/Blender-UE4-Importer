@@ -139,3 +139,7 @@ Dense direct FK tracks now support bounded variable control counts and sparse sc
 
 ### Full editor skeleton and authored animation previews (0.10.59-dev)
 The native reference skeleton operator accepts tested UE5.6 editor USkeleton assets with full double-precision reference bones, socket definitions and named retarget reference poses. The editor animation operator can explicitly preview additive/retarget-source authored transforms, preserving metadata but not applying Unreal runtime retarget or additive rules. See [acceptance and limits](docs/0.10.59-editor-skeleton-preview.md).
+
+### Saved UE5.6 Blueprint components and live sockets (0.10.60-dev)
+Enable **Include Blueprint and skeletal components** in the project browser to reconstruct supported saved Blueprint static components, exact CDO/SCS defaults and attachment hierarchies. Native C++ defaults and construction execution remain unverified; unsupported component instances are reported. Use **UE Create Live Socket Anchors** on a native armature with socket metadata, or select its matching reference armature and make the target active. The available-bones-only option explicitly reports omitted sockets on simplified rigs. See [acceptance and limits](docs/0.10.60-editor-components.md).
+Use **File > Import > UE5.6 Blueprint Character Preview** to reconstruct an explicitly referenced character CDO body on a native rig, optionally recovering editor materials and available live socket anchors. This is an authored preview, not native constructor or Blueprint execution.

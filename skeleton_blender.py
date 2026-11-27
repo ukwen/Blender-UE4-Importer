@@ -234,7 +234,27 @@ class ImportUEPhysics(bpy.types.Operator, ImportHelper):
         except (OSError,ValueError,RuntimeError,KeyError,TypeError) as exc:
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
+class ImportUEEditorCharacter(bpy.types.Operator, ImportHelper):
+    bl_idname='import.ue_editor_character'
+    bl_label='Import UE5.6 Blueprint Character Preview'
+    bl_description='Reconstruct explicit saved character CDO body and root; no Blueprint runtime or native constructor execution'
+    bl_options={'REGISTER','UNDO'}
+    filename_ext='.uasset'
+    filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    materials: BoolProperty(name='Import editor materials',default=True)
+    partial: BoolProperty(name='Allow partial material previews',default=False)
+    sockets: BoolProperty(name='Create available native sockets',default=True)
+    def execute(self,context):
+        from ue5_editor_components import build_character_preview
+        try:
+            anchor,obj,arm=build_character_preview(self.filepath,context.collection,self.materials,self.partial,self.sockets)
+            self.report({'INFO'},'Imported authored CDO character preview; runtime defaults unresolved');return {'FINISHED'}
+        except (OSError,ValueError,RuntimeError,NotImplementedError,KeyError) as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+
+
 def menu(self,context):
+    self.layout.operator(ImportUEEditorCharacter.bl_idname,text="UE5.6 Blueprint Character Preview (.uasset)")
     self.layout.operator(ImportUECookedMaterialInstance.bl_idname,text='UE Cooked Material Instance Parameters (.uasset)')
     self.layout.operator(ImportUEPhysics.bl_idname,text='UE Physics Asset — Collision Preview (.uasset)')
     self.layout.operator(ImportUECookedStatic.bl_idname,text='UE Native Cooked Static Mesh (.uasset)')
@@ -244,10 +264,12 @@ def menu(self,context):
 def register():
     import native_sockets
     native_sockets.register()
+    bpy.utils.register_class(ImportUEEditorCharacter)
     bpy.utils.register_class(SetUELod); bpy.utils.register_class(EnableUELodDistance); bpy.utils.register_class(UELodPanel)
     bpy.utils.register_class(ImportUECookedMaterialInstance); bpy.utils.register_class(ImportUEPhysics); bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
     import native_sockets
     bpy.utils.unregister_class(UELodPanel); bpy.utils.unregister_class(EnableUELodDistance); bpy.utils.unregister_class(SetUELod)
     native_sockets.unregister()
+    bpy.utils.unregister_class(ImportUEEditorCharacter)
     bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory); bpy.utils.unregister_class(ImportUEPhysics); bpy.utils.unregister_class(ImportUECookedMaterialInstance)

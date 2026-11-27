@@ -3,6 +3,7 @@ import json
 import math
 import bpy
 from mathutils import Matrix, Euler, Vector
+from bpy.props import BoolProperty
 
 
 def socket_local(record):
@@ -52,9 +53,12 @@ class CreateUESockets(bpy.types.Operator):
     bl_label='UE Create Live Socket Anchors'
     bl_description='Create bone-parented anchors on the active native armature; optionally select a reference skeleton containing socket definitions'
     bl_options={'REGISTER','UNDO'}
+    available_only: BoolProperty(name='Available bones only',description='Explicitly omit sockets whose source bones are absent on a simplified rig',default=False)
     @classmethod
     def poll(cls,context):
         return context.mode=='OBJECT' and context.object is not None and context.object.type=='ARMATURE'
+    def invoke(self,context,event):
+        return context.window_manager.invoke_props_dialog(self)
     def execute(self,context):
         arm=context.object
         try:
@@ -68,8 +72,11 @@ class CreateUESockets(bpy.types.Operator):
                 source_name=str(source.get('UE_skeleton_source','')).replace('\\','/').rsplit('/',1)[-1].removesuffix('.uasset')
                 if not target_package or (source_package!=target_package if source_package else source_name!=target_package.rsplit('/',1)[-1]):
                     raise ValueError('Reference skeleton does not match target skeleton identity')
-            records=json.loads(source['UE_socket_definitions']); anchors=create_socket_anchors(arm,records)
-            self.report({'INFO'},f'Created {len(anchors)} live bone socket anchors')
+            records=json.loads(source['UE_socket_definitions']); missing=[r['name'] for r in records if arm.data.bones.get(r['bone']) is None]
+            if missing and self.available_only: records=[r for r in records if arm.data.bones.get(r['bone']) is not None]
+            anchors=create_socket_anchors(arm,records)
+            arm['UE_omitted_socket_names']=json.dumps(missing if self.available_only else [])
+            self.report({'INFO'},f'Created {len(anchors)} live bone socket anchors; omitted {len(missing) if self.available_only else 0}')
             return {'FINISHED'}
         except (ValueError,KeyError,TypeError,RuntimeError) as exc:
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
