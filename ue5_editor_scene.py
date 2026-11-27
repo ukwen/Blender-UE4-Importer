@@ -102,7 +102,7 @@ def reconstruct(filepath,materials=False,components=False,partial=False):
                 mesh,status=resolver(c['package']) if c['package'] else (None,'anchor')
                 obj=bpy.data.objects.new(actor['label']+' / '+c['name'],mesh);collection.objects.link(obj);nodes[c['index']]=obj
                 if c['parent']:obj.parent=nodes[c['parent']]
-                apply_fields(obj,c['fields']);obj['UE_blueprint_package']=actor['blueprint'];obj['UE_actor']=actor['actor'];obj['UE_source_actor_package']=actor['source'];obj['UE_component_name']=c['name'];obj['UE_component_default_origin']=c['default_origin'];obj['UE_geometry_status']=status;obj['UE_preview_only']=mesh is None
+                apply_fields(obj,c['fields']);obj['UE_blueprint_package']=actor['blueprint'];obj['UE_actor']=actor['actor'];obj['UE_source_actor_package']=actor['source'];obj['UE_component_name']=c['name'];obj['UE_component_default_origin']=c['default_origin'];obj['UE_component_template']=c['template_name'];obj['UE_geometry_status']=status;obj['UE_preview_only']=mesh is None
                 obj['UE_native_defaults_unverified']=True
                 if not mesh:obj.empty_display_type='PLAIN_AXES';obj.empty_display_size=.15
                 if c['package']:

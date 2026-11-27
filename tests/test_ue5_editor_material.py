@@ -40,3 +40,10 @@ class MaterialTests(unittest.TestCase):
     def test_mannequin_channels(self):
         d=self.resolve('MI_Quinn_01');self.assertEqual(len(d['nodes']),54);n={v['parameter']:v for v in d['nodes'].values() if v['parameter']};self.assertTrue(n['MRA']['texture'].endswith('T_Quinn_01_MRA'));self.assertTrue(n['BNormal']['texture'].endswith('T_Quinn_01_N'));self.assertEqual(d['outputs']['Normal']['index'],62)
         d=self.resolve('MI_Manny_02_New');self.assertTrue(next(n for n in d['nodes'].values() if n['parameter']=='Logo?')['value'])
+
+class SharedParameterTests(unittest.TestCase):
+    def test_guid_guard(self):
+        from ue5_editor_material import apply_overrides
+        nodes={1:dict(kind='StaticSwitchParameter',parameter='Shared',guid='01'*16,value=False),2:dict(kind='StaticSwitchParameter',parameter='Shared',guid='02'*16,value=False),3:dict(kind='ScalarParameter',parameter='Shared',guid='03'*16,value=7.)}
+        issues=[];apply_overrides(nodes,{('switch','Shared'):dict(guid='ff'*16,value=True)},issues);self.assertEqual([nodes[i]['value'] for i in (1,2,3)],[False,False,7.]);self.assertTrue(issues)
+        issues=[];apply_overrides(nodes,{('switch','Shared'):dict(guid='01'*16,value=True)},issues);self.assertFalse(issues);self.assertEqual([nodes[i]['value'] for i in (1,2,3)],[True,True,7.]);self.assertEqual(nodes[2]['override_resolution'],'shared_global_parameter')

@@ -7,14 +7,14 @@ from project_session import options_key
 class EditorComponentTests(unittest.TestCase):
     def test_original_saved_components(self):
         root=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content'
-        for rel,n,meshes,skips in [('Variant_Combat/Lvl_Combat.umap',58,60,4),('Variant_SideScrolling/Lvl_SideScrolling.umap',13,14,1)]:
+        for rel,n,meshes,skips in [('Variant_Combat/Lvl_Combat.umap',58,64,0),('Variant_SideScrolling/Lvl_SideScrolling.umap',13,14,1)]:
             actors,errors=placements(root,root/rel);self.assertEqual(len(actors),n);self.assertEqual(sum(bool(c['package']) for a in actors for c in a['components']),meshes);self.assertEqual(len(errors),skips)
             for a in actors:
                 seen=set()
                 for c in a['components']:
                     self.assertNotIn(c['index'],seen);self.assertTrue(not c['parent'] or c['parent'] in seen);seen.add(c['index'])
             if 'Combat' in rel:
-                door=next(a for a in actors if a['actor']=='BP_DoorFrame_C_1');self.assertEqual({c['name'] for c in door['components'] if c['package']},{'NODE_AddStaticMeshComponent-1','NODE_AddStaticMeshComponent-5'});self.assertTrue(all(x['component'].startswith('NODE_AddStaticMeshComponent-1_') for x in errors))
+                door=next(a for a in actors if a['actor']=='BP_DoorFrame_C_1');self.assertEqual({c['name'] for c in door['components'] if c['package']},{'NODE_AddStaticMeshComponent-1','NODE_AddStaticMeshComponent-5',*('NODE_AddStaticMeshComponent-1_'+str(i) for i in range(4))});self.assertEqual(sum(c['default_origin']=='indexed_construction_template' for c in door['components']),4)
     def test_wrong_class_rejected(self):
         root=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content';p=next(root.rglob('BP_JumpPad.uasset'))
         with self.assertRaises(ValueError):class_defaults(p,'BP_NotTheClass_C')

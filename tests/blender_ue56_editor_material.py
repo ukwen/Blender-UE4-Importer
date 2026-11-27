@@ -18,7 +18,9 @@ for o in bpy.data.objects:
     assert len(o.material_slots)==2
     for slot in o.material_slots:
         m=slot.material;assert m['UE_editor_material_status']=='partial';output=json.loads(m['UE_editor_connected_outputs']);assert set(('BaseColor','Metallic','Roughness','Normal'))<=set(output),output
-        imgs=[n.image for n in m.node_tree.nodes if n.type=='TEX_IMAGE' and n.image];assert len(imgs)==3 and all(x.packed_file and x.get('UE_source_rgba_sha256') for x in imgs)
+        imgs=[n.image for n in m.node_tree.nodes if n.type=='TEX_IMAGE' and n.image];assert len(imgs)==(4 if m['UE_material_package'].endswith('/MI_Manny_02_New') else 3) and all(x.packed_file and x.get('UE_source_rgba_sha256') for x in imgs)
+        if m['UE_material_package'].endswith('/MI_Manny_02_New'):
+            assert 'EmissiveColor' in output and any(x.name=='T_UE_Logo_M' for x in imgs)
         materials[m['UE_material_package']]=dict(status=m['UE_editor_material_status'],outputs=output,issues=json.loads(m['UE_editor_material_issues']),images=[x.name for x in imgs])
 assert len(materials)==4
 collection,report=reconstruct_static_map(str(root/'ThirdPerson/Lvl_ThirdPerson.umap'),materials=True,allow_partial_materials=True,cooked_profile='5.6');assert report['actor_status']['reconstructed']==53 and report['materials_imported'];print('MAP_MATERIALS',report['material_report'],flush=True)

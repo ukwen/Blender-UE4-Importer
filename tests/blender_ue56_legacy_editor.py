@@ -11,6 +11,6 @@ assert im.packed_file and bytes(im.packed_file.data)==png and im.colorspace_sett
 records=[]
 for stem,n in [('MI_PrototypeGrid_Gray_02',6),('MI_PrototypeGrid_TopDark',7)]:
     p=next(root.rglob(stem+'.uasset'));pkg='/Game/'+p.relative_to(root).with_suffix('').as_posix();m=build_material(root,pkg,True);m.use_fake_user=True
-    graph=json.loads(m['UE_editor_graph']);issues=json.loads(m['UE_editor_material_issues']);assert len(graph['parameters'])==n and len(graph['chain'])==2;assert m['UE_editor_material_status']=='partial';records.append(dict(name=m.name,parameters=n,issues=issues))
+    graph=json.loads(m['UE_editor_graph']);issues=json.loads(m['UE_editor_material_issues']);assert len(graph['parameters'])==n and len(graph['chain'])==2;assert m['UE_editor_material_status']=='partial';assert set(json.loads(m['UE_editor_connected_outputs']))=={'BaseColor','Roughness'};assert any(n.type=='TEX_IMAGE' and n.image==im and n.inputs['Vector'].is_linked for n in m.node_tree.nodes);records.append(dict(name=m.name,parameters=n,issues=issues))
 name=im.name;bpy.ops.wm.save_as_mainfile(filepath=str(out));bpy.ops.wm.open_mainfile(filepath=str(out));im=bpy.data.images[name];assert hashlib.sha256(im.packed_file.data).hexdigest()==meta['png_sha256'];assert all(len(json.loads(bpy.data.materials[r['name']]['UE_editor_graph'])['parameters'])==r['parameters'] for r in records)
 out.with_suffix('.json').write_text(json.dumps(dict(texture=meta,materials=records,reopen=True),indent=2));print('LEGACY_EDITOR_PASS',flush=True)

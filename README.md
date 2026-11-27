@@ -149,3 +149,6 @@ All 51 inspectable ShooterSam Texture2D source payloads decode with extent-aware
 
 ### Legacy UE5 editor source compatibility (0.10.62-dev)
 The three previously excluded ShooterSam object-version 1004 packages now support bounded import-table inspection, original PNG source recovery and material-instance parameter preservation. Legacy summary soft references and procedural grid shader equivalence remain unverified. See [acceptance and limitations](docs/0.10.62-legacy-editor.md).
+
+### Local editor material functions and saved construction components (0.10.63-dev)
+Bounded function expansion, shared global parameter overrides and guarded numbered component resolution. See [scope and acceptance](docs/0.10.63-editor-functions-components.md).

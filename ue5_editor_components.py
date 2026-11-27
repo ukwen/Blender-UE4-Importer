@@ -2,7 +2,7 @@
 No execution of construction scripts or native C++ constructors.
 """
 from pathlib import Path
-import math
+import math,re
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags
 from ue5_editor_scene import index_value,external_packages
@@ -46,6 +46,34 @@ def class_defaults(path,classname):
     return defaults
 
 
+def numbered_construction_template(e, tags, owned, read_owned, defaults, names, root):
+    """Resolve repeated UCS additions only with a matching numbered FName,
+    serialized UCS index, unique base template and complete sibling sequence.
+    No nearest-name or missing-index fallback. Runtime verification remains open.
+    """
+    match=re.fullmatch(r'(NODE_AddStaticMeshComponent-\d+)_(\d+)',e['name'])
+    if not match:return None
+    base,number=match.group(1),int(match.group(2));d=defaults.get(base)
+    if not d or d[0]!=e['kind'] or d[-1]!='construction_template':return None
+    def ucs(t):
+        v=t.get('CreationMethod');idx=t.get('UCSSerializationIndex')
+        if not v or v['type']!=['EnumProperty','EComponentCreationMethod','/Script/Engine','ByteProperty'] or len(v['data'])!=8:return None
+        if Reader(v['data']).name(names)!='EComponentCreationMethod::UserConstructionScript':return None
+        if not idx or idx['type']!=['IntProperty'] or len(idx['data'])!=4:return None
+        return Reader(idx['data']).i()
+    if ucs(tags)!=number+1:return None
+    siblings={}
+    for j,v in owned.items():
+        if v['kind']!=e['kind']:continue
+        name=v['name'];m=re.fullmatch(re.escape(base)+r'_(\d+)',name)
+        if name!=base and not m:continue
+        expected=0 if name==base else int(m.group(1))+1;t=read_owned(j)
+        if ucs(t)!=expected or expected in siblings or index_value(t,'AttachParent')!=root:return None
+        siblings[expected]=name
+    if not siblings or sorted(siblings)!=list(range(max(siblings)+1)) or 0 not in siblings:return None
+    return base,d
+
+
 def placements(content,map_path):
     content=Path(content).resolve();map_path=Path(map_path).resolve();level='/Game/'+map_path.relative_to(content).with_suffix('').as_posix();out=[];skipped=[];cache={}
     for source in [map_path,*external_packages(content,map_path)]:
@@ -71,11 +99,16 @@ def placements(content,map_path):
                 def plan(i,stack=()):
                     require(i in owned and i not in stack,'Invalid or cyclic saved attachment');
                     if i in plans:return
-                    e=owned[i];t=export_tags(b,e,names);d=defaults.get(e['name']);require(d is not None and d[0]==e['kind'],'No exact serialized component default for '+e['name'])
+                    e=owned[i];t=export_tags(b,e,names);template_name=e['name'];d=defaults.get(template_name);numbered=False
+                    if d is None:
+                        match=numbered_construction_template(e,t,owned,lambda j:export_tags(b,owned[j],names),defaults,names,root)
+                        if match:template_name,d=match;numbered=True
+                    require(d is not None and d[0]==e['kind'],'No exact serialized component default for '+e['name'])
                     dt,dr,dp,dn,origin=d[1:]
                     if origin=='construction_template':
-                        matching=[v for j,v in enumerate(im,1) if v['name']==e['name'] and v['kind']==e['kind'] and v['outer']==a['class_index'] and pkg(-j)==cp]
+                        matching=[v for j,v in enumerate(im,1) if v['name']==template_name and v['kind']==e['kind'] and v['outer']==a['class_index'] and pkg(-j)==cp]
                         require(len(matching)==1,'Missing exact construction-template import')
+                        if numbered:origin='indexed_construction_template'
                     require(not any(k in t or k in dt for k in ('bAbsoluteLocation','bAbsoluteRotation','bAbsoluteScale','AttachSocketName')),'Absolute/socket transform unsupported')
                     pi=index_value(t,'AttachParent');require((i==root and not pi) or (i!=root and pi in owned),'Missing explicit saved parent')
                     if pi:plan(pi,(*stack,i))
@@ -92,7 +125,7 @@ def placements(content,map_path):
                         for mi in array(t if local else dt,'OverrideMaterials'):
                             require(mi==0 or mi<0 and rr(mi)['kind'] in ('Material','MaterialInstanceConstant') and pp(mi),'Invalid material override');overrides.append(pp(mi) if mi else '')
                     require(e['kind'] in ('StaticMeshComponent','SceneComponent','CapsuleComponent','SphereComponent','BoxComponent'),'Unsupported ancestor '+e['kind'])
-                    plans[i]=dict(index=i,parent=pi,name=e['name'],kind=e['kind'],package=mesh,fields=fields,overrides=overrides,default_origin=origin)
+                    plans[i]=dict(index=i,parent=pi,name=e['name'],kind=e['kind'],package=mesh,fields=fields,overrides=overrides,default_origin=origin,template_name=template_name)
                 for i in meshes:
                     try:plan(i)
                     except Exception as exc:skipped.append(dict(source=str(source.relative_to(content)),actor=a['name'],component=owned[i]['name'],detail=str(exc)))

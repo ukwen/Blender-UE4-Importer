@@ -85,3 +85,7 @@ See [editor texture regions and decoder portability](docs/0.10.61-editor-texture
 ## 0.10.62-dev
 
 See [legacy UE5 editor source profiles](docs/0.10.62-legacy-editor.md).
+
+## 0.10.63-dev
+
+See [local material functions and saved construction components](docs/0.10.63-editor-functions-components.md).

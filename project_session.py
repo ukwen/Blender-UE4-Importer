@@ -58,10 +58,10 @@ def options_key(plan,profile,materials,components,partial,physics,all_lods=False
     # Keep existing LOD0 checkpoint identities compatible; opt-in grouped imports are distinct.
     if all_lods and profile=='5.6': geometry.append('shared_native_lods')
     is_editor=any(r.get('ue5') in (1016,1017) for r in plan.get('records',{}).values())
-    if is_editor and materials:geometry.extend(['editor_material_062',partial])
+    if is_editor and materials:geometry.extend(['editor_material_063',partial])
     mapping=[SCHEMA,profile,materials,components,partial]
-    if is_editor and materials:mapping.append('editor_material_062')
-    if is_editor and components:mapping.append('editor_components_060')
+    if is_editor and materials:mapping.append('editor_material_063')
+    if is_editor and components:mapping.append('editor_components_063')
     return digest(geometry if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY') else mapping)
 
 def collection_objects(collection):

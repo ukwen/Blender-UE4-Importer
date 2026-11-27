@@ -49,5 +49,5 @@ errors=[];orig=[];scene=bpy.context.scene
 for frame in (1,12,24,36,46):
     scene.frame_set(frame);errors.append(verify());orig.append(next(o for o in full.children if o.get('UE_socket_name')=='HandGrip_R').matrix_world.translation.copy())
 assert max(errors)<1e-5 and max((x-orig[0]).length for x in orig)>.01
-socket_out=out.with_name('shootersam_live_sockets_060.blend');bpy.ops.wm.save_as_mainfile(filepath=str(socket_out));bpy.ops.wm.open_mainfile(filepath=str(socket_out));rigs=[o for o in bpy.data.objects if o.type=='ARMATURE'];bpy.context.scene.frame_set(24);assert verify()<1e-5
+socket_out=out.with_name(out.stem+'_sockets.blend');bpy.ops.wm.save_as_mainfile(filepath=str(socket_out));bpy.ops.wm.open_mainfile(filepath=str(socket_out));rigs=[o for o in bpy.data.objects if o.type=='ARMATURE'];bpy.context.scene.frame_set(24);assert verify()<1e-5
 report['sockets']=dict(counts=counts,max_matrix_error=max(errors),reopen=True);out.with_suffix('.json').write_text(json.dumps(report,indent=2));print('COMPONENT_SOCKET_REOPEN_PASS',report['sockets'],flush=True)
