@@ -122,6 +122,8 @@ def reconstruct(filepath,materials=False,components=False,partial=False):
         from ue5_editor_characters import extend_characters
         report['character_report']=extend_characters(content,filepath,collection)
         report['components_status']='bounded saved Blueprint static and skeletal components; no runtime execution'
+    from ue5_editor_landscape import extend_landscapes
+    report['landscape_report']=extend_landscapes(content,filepath,collection)
     if materials:
         from ue5_editor_material import bind_slots
         report['material_report']=bind_slots(collection.objects,content,partial)

@@ -137,3 +137,7 @@ See [one-operation saved level transfer](docs/0.10.74-full-scene.md).
 ## 0.10.75-dev
 
 See [selected-level source dependency qualification](docs/0.10.75-scene-dependencies.md).
+
+## 0.10.76-dev
+
+See [native saved landscape heightfield reconstruction](docs/0.10.76-landscape.md).
