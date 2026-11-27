@@ -67,7 +67,7 @@ def read_record(path,project):
                 refs={i.object_name for i in a.imports if i.class_name=='Package' and i.object_name.startswith('/') and not i.object_name.startswith('/Script/')}
                 try: record.update(soft_references=soft_refs_ue4(a),soft_coverage='summary_table')
                 except Exception as exc: record['soft_detail']=str(exc)
-        elif meta['ue5']==1012:
+        elif meta['ue5'] in (1012,1018):
             from ue5_blueprint import read_tables
             _,_,imports,exports,_,_=read_tables(path)
             classes={e['kind'] for e in exports if not e['outer']}
@@ -76,9 +76,11 @@ def read_record(path,project):
             try:
                 from ue5_dependencies import read_dependencies
                 deps=read_dependencies(path)
-                record.update(soft_references=deps['soft_references'],soft_coverage='ue5_1012_summary_tables',
+                record.update(soft_references=deps['soft_references'],soft_coverage=f"ue5_{meta['ue5']}_summary_tables",
                               soft_object_paths=deps['soft_object_paths'],export_dependency_rows=len(deps['export_dependency_rows']),
-                              export_dependency_indices=sum(map(len,deps['export_dependency_rows'])))
+                              export_dependency_indices=sum(map(len,deps['export_dependency_rows'])),
+                              soft_subpath_encoding=deps['subpath_encoding'],import_hierarchy_count=deps['import_hierarchy_count'],
+                              import_hierarchy_coverage=deps['import_hierarchy_coverage'])
             except Exception as exc: record['soft_detail']=str(exc)
         else: return record
         record.update(classes=sorted(classes),references=sorted(refs),coverage='import_table')
@@ -141,4 +143,4 @@ def preflight(descriptor,scope='ALL_MAPS',selected=None,subfolder='',job_filter=
             edge['referenced_by'].append(k)
             if ref in records[k]['references']: edge['hard_referenced_by'].append(k)
             if ref in records[k]['soft_references']: edge['soft_referenced_by'].append(k)
-    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),source_map=root_seeds[0] if scope=='MAP_GEOMETRY' else None,jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 and UE5 1012 soft-summary references; does not prove required runtime dependencies. Supported UE5.0 and modern UE5 split import tables are inspected; other split/unsupported tables are unknown. Engine packages are not recursively inspected.')
+    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),source_map=root_seeds[0] if scope=='MAP_GEOMETRY' else None,jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 and UE5 1012/1018 soft-summary references; does not prove required runtime dependencies. Supported UE5.0 and modern UE5 split import tables are inspected; other split/unsupported tables are unknown. Engine packages are not recursively inspected.')

@@ -68,6 +68,7 @@ def template(path,class_name):
     path=Path(path); meta=inspect_package(path)
     check(meta.get('status')=='tables_inspected' and meta['ue4']==522 and not meta['sidecars'] and not meta['flags']&0x80002000,'Unsupported Blueprint package')
     if meta['ue5'] is not None:
+        check(meta['ue5']==1012,'Blueprint placement requires verified UE5 1012 property layout')
         from ue5_blueprint import read_tables
         meta,raw,im,ex,ref,pkg=read_tables(path); names=meta['names']
         ci,cls=unique([(i,e) for i,e in enumerate(ex,1) if e['outer']==0 and e['kind']=='BlueprintGeneratedClass' and e['name']==class_name])

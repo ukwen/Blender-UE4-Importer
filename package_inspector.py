@@ -50,7 +50,12 @@ def inspect_package(path):
                 read(20); header_end = i32()
             count = i32()
             if not 0 <= count <= 10000: raise ValueError('invalid custom version count')
-            read(count*20)
+            custom_versions = read(count*20)
+            # FFortniteMainBranchObjectVersion controls FSoftObjectPath subpath encoding.
+            fortnite_guid=struct.pack("<4I",0x601D1886,0xAC644F84,0xAA16D3DE,0x0DEAC7D6)
+            fortnite_versions=[struct.unpack_from("<i",custom_versions,i+16)[0] for i in range(0,len(custom_versions),20) if custom_versions[i:i+16]==fortnite_guid]
+            if len(fortnite_versions)>1: raise ValueError("duplicate Fortnite custom version")
+            result["fortnite_main_version"]=fortnite_versions[0] if fortnite_versions else None
             if ue5 is None or ue5 < 1016: header_end = i32()
             if not f.tell() <= header_end <= size: raise ValueError('invalid header end')
             string(); flags = u32()
@@ -60,15 +65,20 @@ def inspect_package(path):
             read(8) # gatherable text count and offset
             export_count, export_offset = i32(), i32()
             import_count, import_offset = i32(), i32()
-            # UE5 1012 uses the pre-metadata/Verse summary layout. Record only
-            # the explicitly verified table offsets, not guessed newer layouts.
+            # Explicit tested summary layouts: 1012 and 1018 (UE5.7).
             extra = {}
-            if ue5 == 1012:
+            if ue5 in (1012,1018):
+                if ue5==1018:
+                    cell_export_count,cell_export_offset,cell_import_count,cell_import_offset,metadata_offset=(i32() for _ in range(5))
+                    extra.update(cell_export_count=cell_export_count,cell_export_offset=cell_export_offset,cell_import_count=cell_import_count,cell_import_offset=cell_import_offset,metadata_offset=metadata_offset)
                 depends_offset, soft_package_count, soft_package_offset, searchable_offset, thumbnail_offset = (i32() for _ in range(5))
-                extra = dict(soft_object_count=soft_object_count, soft_object_offset=soft_object_offset,
+                extra.update(soft_object_count=soft_object_count, soft_object_offset=soft_object_offset,
                              depends_offset=depends_offset, soft_package_count=soft_package_count,
                              soft_package_offset=soft_package_offset, searchable_offset=searchable_offset,
                              thumbnail_offset=thumbnail_offset)
+                if ue5==1018:
+                    hierarchy_count,hierarchy_offset=i32(),i32()
+                    extra.update(import_hierarchy_count=hierarchy_count,import_hierarchy_offset=hierarchy_offset)
             for n, o in ((names_count,names_offset),(export_count,export_offset),(import_count,import_offset)):
                 if not 0 <= n <= 2000000 or (n and not f.tell() <= o < header_end):
                     raise ValueError('invalid package table')

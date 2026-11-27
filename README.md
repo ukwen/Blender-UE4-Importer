@@ -118,3 +118,7 @@ The tested Quinn-style cooked fixed-weight skeletal profile supports all three n
 ### Shared native skeletal LODs and cooked material dependencies (0.10.53)
 
 Opt-in UE5.6 shared-rig LOD import, manual or user-defined camera-distance switching, and recoverable project batches. Cooked UE5 material dependencies recover exact available UE5.0/5.5 texture images as raw, unconnected nodes; compiled shaders remain unresolved. See [workflow and limitations](docs/0.10.53-shared-lods-material-dependencies.md).
+
+### UE5.7 editor dependency inventory (0.10.54)
+
+Preflight reads the tested tagged 1018 dependency tables, including custom-version-driven UTF-8 soft subpaths. This is dependency inspection only, not native UE5.7 mesh or Blueprint execution support.

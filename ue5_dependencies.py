@@ -1,7 +1,7 @@
-"""Bounded UE5 1012 dependency tables, not runtime Blueprint analysis.
+"""Bounded UE5 1012/1018 dependency tables, not runtime Blueprint analysis.
 
 Layout verified against the supplied UAssetAPI ReadHeader/FSoftObjectPath
-reference and original tagged Goblin editor packages. Other versions refuse.
+reference and original tagged Goblin editor packages. UE5.7 offsets validated on original UAssetAPI editor fixtures. Other versions refuse.
 """
 from skeleton_native import Reader
 from ue5_blueprint import read_tables, require
@@ -19,7 +19,7 @@ def read_dependencies(path):
     meta, raw, imports, exports, ref, package = read_tables(path)
     names = meta['names']; header = meta['header_end']
     offsets = {header, *(meta[k] for k in ('name_offset','import_offset','export_offset','soft_object_offset',
-              'soft_package_offset','depends_offset','searchable_offset','thumbnail_offset') if meta[k] > 0)}
+              'soft_package_offset','depends_offset','searchable_offset','thumbnail_offset','metadata_offset','cell_export_offset','cell_import_offset','import_hierarchy_offset') if meta.get(k,0) > 0)}
     require(all(0 < o <= header for o in offsets), 'Dependency table offset outside header')
 
     def table(offset, count, minimum):
@@ -30,10 +30,18 @@ def read_dependencies(path):
         require(count * minimum <= end - offset, 'Dependency table extent exceeded')
         return Reader(raw[offset:end])
 
+    # FFortniteMainBranchObjectVersion::SoftObjectPathUtf8SubPaths = 192.
+    # The five original 1018 fixtures serialize version 225. No engine-minor guessing.
+    custom=meta.get('fortnite_main_version')
+    require(meta['ue5']!=1018 or custom is not None,'UE5.7 soft subpath custom version missing')
+    utf8=custom is not None and custom>=192
     def fstring(r):
         n = r.i()
         require(abs(n) <= 65536, 'Soft subpath string limit')
         if not n: return ''
+        if utf8:
+            require(n>0,'Invalid UE5.7 UTF-8 subpath length')
+            return r.take(n).decode('utf-8')
         term = b'\0' if n > 0 else b'\0\0'
         data = r.take(n if n > 0 else -2*n)
         require(data.endswith(term), 'Unterminated soft subpath')
@@ -41,12 +49,14 @@ def read_dependencies(path):
 
     n = meta['soft_package_count']; r = table(meta['soft_package_offset'],n,8)
     soft_packages = sorted({p for _ in range(n) if (p := package_path(r.name(names)))})
+    if n: require(r.pos==len(r.data),'Unexpected soft package table trailer')
     n = meta['soft_object_count']; r = table(meta['soft_object_offset'],n,20)
     objects = []
     for _ in range(n):
         pkg, obj, sub = package_path(r.name(names)), r.name(names), fstring(r)
         require(len(obj)<=4096 and '\0' not in obj and '\0' not in sub, 'Invalid soft object identity')
         objects.append({'package':pkg,'object':obj,'subpath':sub})
+    if n: require(r.pos==len(r.data),'Unexpected soft object table trailer')
     # Export DependsMap rows are arrays of signed FPackageIndex values.
     rows = []
     if meta['depends_offset']:
@@ -58,6 +68,11 @@ def read_dependencies(path):
             row = list(r.unpack(f'{count}i'))
             require(all(-len(imports)<=i<=len(exports) for i in row), 'Invalid dependency package index')
             rows.append(row)
+        require(r.pos==len(r.data),'Unexpected DependsMap trailer')
+    # New import-hierarchy tables are not present in the five UE5.7 fixtures.
+    # Preserve an explicit coverage marker instead of treating them as absent.
+    hierarchy_count=meta.get('import_hierarchy_count',0)
+    require(0<=hierarchy_count<=100000,'Invalid import hierarchy count')
     # Package import records may use an explicit package name or a plugin mount.
     hard = set()
     for i in imports:
@@ -68,4 +83,5 @@ def read_dependencies(path):
     return dict(hard_references=sorted(p for p in hard if not p.startswith('/Script/')),
                 soft_references=sorted({p for p in soft_packages+ [x['package'] for x in objects] if p and not p.startswith('/Script/')}),
                 soft_package_references=soft_packages, soft_object_paths=objects,
-                export_dependency_rows=rows)
+                export_dependency_rows=rows,subpath_encoding='utf8' if utf8 else 'fstring',
+                import_hierarchy_count=hierarchy_count,import_hierarchy_coverage='unsupported_nonempty' if hierarchy_count else 'empty')

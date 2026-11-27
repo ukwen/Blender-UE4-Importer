@@ -50,3 +50,7 @@ See [UE5.6 native skeletal LOD acceptance](docs/0.10.52-ue5-skeletal-lods.md).
 ## 0.10.53-dev
 
 See [Shared LODs and cooked material dependencies](docs/0.10.53-shared-lods-material-dependencies.md).
+
+## 0.10.54-dev
+
+See [UE5.7 editor dependency tables](docs/0.10.54-ue57-dependencies.md).
