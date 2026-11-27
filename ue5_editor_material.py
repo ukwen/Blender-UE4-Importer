@@ -58,11 +58,15 @@ def read_material(path):
         if kind=='ScalarParameter':node['value']=val(p,'DefaultValue',['FloatProperty'],'f',0.)
         if kind=='VectorParameter':node['value']=val(p,'DefaultValue',['StructProperty','LinearColor','/Script/CoreUObject'],'4f',[0.,0.,0.,1.])
         if kind=='Constant':node['value']=val(p,'R',['FloatProperty'],'f',0.)
+        if kind=='Constant3Vector':node['value']=val(p,'Constant',['StructProperty','LinearColor','/Script/CoreUObject'],'4f',[0.,0.,0.,1.])
+        if kind=='MaterialFunctionCall':node['function']=imported(p,'MaterialFunction',('MaterialFunction','MaterialFunctionInstance'))
+        if kind=='TextureCoordinate':node['uv_index']=val(p,'CoordinateIndex',['IntProperty'],'i',0);node['uv_scale']=[val(p,k,['FloatProperty'],'f',1.) for k in ('UTiling','VTiling')]
+        if kind=='ComponentMask':node['mask']=[1]+[int(boolval(p,k)) for k in ('R','G','B','A')]
         if kind in ('TextureSample','TextureSampleParameter2D') and 'Texture' in p:node['texture']=imported(p,'Texture',('Texture2D',))
         if kind=='NamedRerouteUsage':node['declaration']=object_index(p,'Declaration')
         if kind=='StaticSwitchParameter':node['value']=boolval(p,'DefaultValue')
         if kind=='LinearInterpolate':node['defaults']={k:val(p,'Const'+k,['FloatProperty'],'f',d) for k,d in [('A',0.),('B',1.),('Alpha',.5)]}
-        if kind=='Multiply':node['defaults']={k:val(p,'Const'+k,['FloatProperty'],'f',1.) for k in ('A','B')}
+        if kind in ('Multiply','Add','Subtract','Divide'):node['defaults']={k:val(p,'Const'+k,['FloatProperty'],'f',1. if kind in ('Multiply','Divide') else 0.) for k in ('A','B')}
         nodes[j]=node
     ed=object_index(t,'EditorOnlyData');require(ed>0 and ref(ed)['kind']=='MaterialEditorOnlyData' and ref(ed)['outer']==i,'Invalid material editor data');x=ref(ed);r=Reader(b[x['offset']+x['script_start']:x['offset']+x['script_end']]);props=read_tag_stream(r,names,control=True,indexed=True);require(r.pos==len(r.data),'Invalid editor property extent')
     outputs={}
@@ -105,10 +109,17 @@ def build_material(content,package,allow_partial=False):
         n=node('ShaderNodeRGB' if isinstance(value,list) else 'ShaderNodeValue',label);n.outputs[0].default_value=value;return n.outputs[0]
     def select(sock,mask):
         if not mask[0] or mask[1:]==[1,1,1,0]:return sock
+        if mask[1:]==[0,0,0,1] and sock.node.type=='TEX_IMAGE':return sock.node.outputs['Alpha']
         if sum(mask[1:])==1 and not mask[4]:
             if sock.type=='VALUE':return sock
             n=node('ShaderNodeSeparateColor','Serialized channel mask');links.new(sock,n.inputs[0]);return n.outputs[mask[1:].index(1)]
         raise NotImplementedError('Unsupported output channel mask')
+    def configure_sampler(n):
+        image=n.image;x=image.get('UE_address_x','TA_Wrap');y=image.get('UE_address_y','TA_Wrap')
+        n.interpolation='Closest' if image.get('nearest',False) else 'Linear'
+        if x==y and x in ('TA_Wrap','TA_Clamp','TA_Mirror'):
+            n.extension={'TA_Wrap':'REPEAT','TA_Clamp':'EXTEND','TA_Mirror':'MIRROR'}[x]
+        else:issues.append('Unsupported mixed texture address modes: '+image.name)
     def edge(a):
         require(a['index']>0,'Missing expression input');return select(emit(a['index'],a['output']),a['mask'])
     def emit(i,output=0):
@@ -117,12 +128,23 @@ def build_material(content,package,allow_partial=False):
         require(i not in active,'Material expression cycle');active.add(i)
         try:
             d=data['nodes'][i];kind=d['kind'];label=d['parameter'] or d['name'];ins=d['inputs']
-            if kind in ('ScalarParameter','VectorParameter','Constant') and output==0:s=constant(d['value'],label)
+            if kind in ('ScalarParameter','VectorParameter','Constant','Constant3Vector') and output==0:s=constant(d['value'],label)
             elif kind=='NamedRerouteUsage' and output==0:s=emit(d['declaration'])
-            elif kind=='NamedRerouteDeclaration' and output==0:s=edge(ins['Input'])
-            elif kind=='TextureSampleParameter2D' and 0<=output<=4 and not ins:
+            elif kind in ('NamedRerouteDeclaration','Reroute') and output==0:s=edge(ins['Input'])
+            elif kind=='ComponentMask' and output==0:s=select(edge(ins['Input']),d['mask'])
+            elif kind in ('OneMinus','Saturate','Abs','Sign') and output==0:
+                a=edge(ins['Input']);require(a.type=='VALUE','Unsupported non-scalar '+kind)
+                n=node('ShaderNodeMath',label);n.operation={'OneMinus':'SUBTRACT','Saturate':'ADD','Abs':'ABSOLUTE','Sign':'SIGN'}[kind]
+                if kind=='OneMinus':n.inputs[0].default_value=1.;links.new(a,n.inputs[1])
+                else:
+                    links.new(a,n.inputs[0]);n.inputs[1].default_value=0.;n.use_clamp=kind=='Saturate'
+                s=n.outputs[0]
+            elif kind in ('Add','Subtract','Divide') and output==0:
+                a,b=[edge(ins[k]) if k in ins and ins[k]['index'] else constant(d['defaults'][k],k) for k in ('A','B')];require(a.type==b.type=='VALUE','Unsupported non-scalar '+kind)
+                n=node('ShaderNodeMath',label);n.operation={'Add':'ADD','Subtract':'SUBTRACT','Divide':'DIVIDE'}[kind];links.new(a,n.inputs[0]);links.new(b,n.inputs[1]);s=n.outputs[0]
+            elif kind in ('TextureSampleParameter2D','TextureSample') and 0<=output<=4 and not any(v['index'] for v in ins.values()):
                 if (i,0) not in built:
-                    p=d.get('texture');require(p and p.startswith('/Game/'),'Missing local texture reference');root=Path(content).resolve();f=(root/(p[6:]+'.uasset')).resolve();require(f.is_relative_to(root) and f.is_file(),'Missing texture '+p);n=node('ShaderNodeTexImage',label);n.image=load_editor_texture(f);n['UE_texture_package']=p;built[i,0]=n.outputs['Color']
+                    p=d.get('texture');require(p and p.startswith('/Game/'),'Missing local texture reference');root=Path(content).resolve();f=(root/(p[6:]+'.uasset')).resolve();require(f.is_relative_to(root) and f.is_file(),'Missing texture '+p);n=node('ShaderNodeTexImage',label);n.image=load_editor_texture(f);n['UE_texture_package']=p;configure_sampler(n);built[i,0]=n.outputs['Color']
                 s=built[i,0];s=s.node.outputs['Alpha'] if output==4 else s
                 if 1<=output<=3:s=select(s,[1]+[int(k==output) for k in range(1,5)])
             elif kind=='LinearInterpolate' and output==0:
@@ -141,6 +163,7 @@ def build_material(content,package,allow_partial=False):
                 else:n.operation='MULTIPLY';links.new(a,n.inputs[0]);links.new(b,n.inputs[1])
                 s=n.outputs[0]
             elif kind=='StaticSwitchParameter' and output==0 and not any('Unsupported static parameter' in x for x in issues):s=edge(ins['A' if d['value'] else 'B'])
+            elif kind=='MaterialFunctionCall':raise NotImplementedError('Unresolved material function '+d['function'])
             else:raise NotImplementedError('Unsupported expression '+kind)
             built[key]=s;return s
         finally:active.remove(i)
@@ -158,10 +181,17 @@ def build_material(content,package,allow_partial=False):
             elif a['use_constant'] and k!='Normal':
                 v=a['constant'];bs.inputs[socket].default_value=v[0] if len(v)==1 else v;connected.append(k)
         except Exception as exc:issues.append(k+': '+str(exc))
+    # Preserve AO as an editable data branch without multiplying base color or
+    # claiming Principled has an equivalent Unreal ambient-occlusion input.
+    ao=data['outputs'].get('AmbientOcclusion');preserved=[]
+    if ao and ao['index']:
+        try:
+            s=edge(ao);n=node('ShaderNodeMath','Unreal Ambient Occlusion (unconnected data)');n.operation='ADD';n.inputs[1].default_value=0.;links.new(s,n.inputs[0]);preserved.append('AmbientOcclusion');issues.append('Ambient Occlusion preserved; no equivalent Principled input')
+        except Exception as exc:issues.append('AmbientOcclusion: '+str(exc))
     for k,a in data['outputs'].items():
-        if a['index'] and k not in connected:issues.append('Untranslated output '+k)
+        if a['index'] and k not in connected and k not in preserved:issues.append('Untranslated output '+k)
     if data['blend']!='BLEND_Opaque':issues.append('Untranslated blend mode '+data['blend'])
-    status='partial' if issues else 'supported_pbr_subset';mat['UE_editor_material_status']=status;mat['UE_unresolved_material']=bool(issues);mat['UE_editor_material_issues']=json.dumps(sorted(set(issues)));mat['UE_editor_connected_outputs']=json.dumps(connected)
+    status='partial' if issues else 'supported_pbr_subset';mat['UE_editor_material_status']=status;mat['UE_unresolved_material']=bool(issues);mat['UE_editor_material_issues']=json.dumps(sorted(set(issues)));mat['UE_editor_connected_outputs']=json.dumps(connected);mat['UE_editor_preserved_outputs']=json.dumps(preserved)
     if issues and not allow_partial:
         # Do not connect an incomplete shader without explicit opt-in. Preserve graph metadata.
         for link in list(links):

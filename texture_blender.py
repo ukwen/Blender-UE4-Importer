@@ -12,12 +12,13 @@ def load_editor_texture(filepath, project=None):
     from editor_texture import read_editor_texture
     source=Path(filepath).resolve()
     stat=source.stat()
-    key=f'{source}|{stat.st_size}|{stat.st_mtime_ns}'
+    from package_inspector import inspect_package
+    modern=inspect_package(source).get('ue5') in (1013,1017)
+    key=f'{source}|{stat.st_size}|{stat.st_mtime_ns}'+('|delta061' if modern else '')
     for image in bpy.data.images:
         if image.get('UE_editor_texture_key')==key and image.packed_file and 'UE_address_x' in image and 'UE_address_y' in image:
             return image
-    from package_inspector import inspect_package
-    if inspect_package(source).get('ue5') in (1013,1017):
+    if modern:
         from ue5_editor_texture import read_texture as read_ue5_texture
         png,meta=read_ue5_texture(source)
     else: png,meta=read_editor_texture(source,project)
@@ -35,6 +36,9 @@ def load_editor_texture(filepath, project=None):
             image['UE_texture_format']=meta['format']
             image['UE_texture_profile']=meta.get('profile','UE4 editor source')
             if meta.get('rgba_sha256'): image['UE_source_rgba_sha256']=meta['rgba_sha256']
+            if meta.get('delta_regions'):
+                import json
+                image['UE_delta_regions']=json.dumps(meta['delta_regions']);image['UE_delta_profile']=meta['delta_profile']
             image['UE_mips_validated']=meta['mips']
             image['flip_y']=meta['flip_y']
             image['clamp']=meta['clamp']

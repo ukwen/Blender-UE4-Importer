@@ -1,10 +1,18 @@
 """Genuine ShooterSam editor sources, guarded by explicit fixture environment."""
-import os,unittest
+import os,unittest,struct
 from pathlib import Path
 from ue5_editor_mesh import read_static,read_skeletal
 from ue5_blueprint import read_tables
 from ue5_editor_payload import read_trailer,extract_payload,compressed_header
 from ue5_editor_scene import placement_records
+
+class TrailerIdentityTest(unittest.TestCase):
+    def test_duplicate_digest(self):
+        from ue5_editor_payload import TRAILER_MAGIC,FOOTER_MAGIC
+        key=bytes(range(1,21));records=b''.join(key+struct.pack('<qQQHHB',i*64,64,1,0,0,0) for i in range(2))
+        header=struct.pack('<QIIQI',TRAILER_MAGIC,2,28+len(records),128,2)+records
+        blob=header+bytes(128)+struct.pack('<QQ',FOOTER_MAGIC,len(header)+128+20)+bytes.fromhex('c1832a9e')
+        with self.assertRaisesRegex(ValueError,'Duplicate'):read_trailer(blob)
 
 @unittest.skipUnless(os.environ.get('UE56_EDITOR_PROJECT') and os.environ.get('UE_EDITOR_PAYLOAD_DECODER'),'Set UE56_EDITOR_PROJECT and UE_EDITOR_PAYLOAD_DECODER')
 class TestEditor56(unittest.TestCase):

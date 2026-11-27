@@ -77,3 +77,7 @@ See [full UE5.6 reference skeleton and authored animation previews](docs/0.10.59
 ## 0.10.60-dev
 
 See [editor Blueprint components and sockets](docs/0.10.60-editor-components.md).
+
+## 0.10.61-dev
+
+See [editor texture regions and decoder portability](docs/0.10.61-editor-texture-regions.md).

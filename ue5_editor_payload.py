@@ -24,7 +24,7 @@ def read_trailer(raw, minimum=0):
     for i in range(count):
         pos=start+28+49*i
         digest=raw[pos:pos+20]; offset,stored,decoded,flags,filter_reason,access=struct.unpack_from('<qQQHHB',raw,pos+20)
-        require(any(digest) and digest not in records,'Duplicate or null payload identity')
+        require(any(digest) and digest.hex() not in records,'Duplicate or null payload identity')
         if access!=0:
             raise NotImplementedError('Referenced or virtualized editor payload unsupported')
         require(0<=offset<=data_size and 64<=stored<=min(MAX_PAYLOAD,data_size-offset) and 0<decoded<=MAX_PAYLOAD,'Invalid local payload extent')

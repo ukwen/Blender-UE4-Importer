@@ -1,4 +1,4 @@
-"""UE5 editor Texture2D: local BGRA8 single-mip UEDELTA source, 32-row stripes.
+"""UE5 editor Texture2D: local BGRA8 single-mip UEDELTA source, bounded vertical restart regions.
 Profile verified on original ShooterSam assets. Validate serialized color extrema.
 """
 import struct
@@ -11,13 +11,38 @@ from ue5_editor_payload import read_trailer,extract_payload
 from native_texture import MAX_BYTES,png_bytes
 
 
-def decode_delta(data,w,h):
+def delta_regions(src,w,h,opaque=False):
+    """Observed power-of-two profile, plus a conservative opaque-alpha region reader.
+
+    Non-power-of-two tile layout is not serialized explicitly in the tested tags.
+    Only infer it when constant nonzero alpha provides an unambiguous restart map.
+    """
+    import numpy as np
+    if w & (w-1)==0:
+        return [(0,w,min(h,max(32,32768//w)))], 'power_of_two'
+    require(opaque,'Non-power-of-two UEDELTA requires opaque source alpha evidence')
+    alpha=src[:,:,3]
+    require(np.all(alpha[0]==255) and np.all((alpha==0)|(alpha==255)), 'Unsupported opaque alpha restart markers')
+    bounds=[0]+(np.flatnonzero(np.any(alpha[:,1:]!=alpha[:,:-1],axis=0))+1).tolist()+[w]
+    require(len(bounds)<=65,'Too many delta column regions')
+    regions=[]
+    for left,right in zip(bounds,bounds[1:]):
+        rows=np.flatnonzero(alpha[:,left]==255)
+        step=int(rows[1]) if len(rows)>1 else h
+        require(step>=32 and np.array_equal(rows,np.arange(0,h,step)), 'Irregular opaque delta restart markers')
+        regions.append((left,right,step))
+    return regions,'opaque_alpha_restart_evidence'
+
+
+def decode_delta(data,w,h,opaque=False,return_regions=False):
     import numpy as np
     require(1<=w<=8192 and 1<=h<=8192 and w*h*4<=MAX_BYTES and len(data)==w*h*4,'Invalid delta texture extent')
     src=np.frombuffer(data,dtype=np.uint8).reshape(h,w,4); out=np.empty_like(src)
-    for y in range(0,h,32):
-        np.cumsum(src[y:y+32],axis=0,dtype=np.uint8,out=out[y:y+32])
-    return out
+    regions,profile=delta_regions(src,w,h,opaque)
+    for left,right,step in regions:
+        for y in range(0,h,step):
+            np.cumsum(src[y:y+step,left:right],axis=0,dtype=np.uint8,out=out[y:y+step,left:right])
+    return (out,regions,profile) if return_regions else out
 
 
 def read_texture(path,decoder=None):
@@ -46,17 +71,20 @@ def read_texture(path,decoder=None):
     require(len(tail)==60 and tail[:10]==bytes.fromhex('00000000000000020000') and tail[-6:]==bytes(6),'Unsupported texture bulk reference')
     digest=tail[26:46].hex();size=struct.unpack_from('<Q',tail,46)[0];require(size==w*h*4,'Invalid source byte size')
     raw,info=extract_payload(b,read_trailer(b,max(x['offset']+x['size'] for x in ex)),digest,size,decoder)
-    a=decode_delta(raw,w,h);rgba=a[:,:,[2,1,0,3]]
     # Independent serialized extrema from source layer metadata; 8-bit normalized values.
     color=s['LayerColorInfo_LockProtected'];require(color['type']==['ArrayProperty','StructProperty','TextureSourceLayerColorInfo','/Script/Engine'],'Invalid source color metadata')
     r=Reader(color['data']);require(r.i()==1,'Unsupported source color layers'); c=read_tag_stream(r,names);require(r.pos==len(r.data),'Unexpected source color metadata tail')
-    for k,actual in [('ColorMin',rgba.min(axis=(0,1))),('ColorMax',rgba.max(axis=(0,1)))]:
+    extrema={}
+    for k in ('ColorMin','ColorMax'):
         t=c.get(k);require(t and t['type']==['StructProperty','LinearColor','/Script/CoreUObject'] and len(t['data'])==16,'Missing source color extrema')
-        expected=struct.unpack('<4f',t['data']); values=[float(x)/255 for x in actual]
+        extrema[k]=struct.unpack('<4f',t['data'])
+    a,regions,profile=decode_delta(raw,w,h,opaque=all(abs(extrema[k][3]-1)<1e-6 for k in extrema),return_regions=True);rgba=a[:,:,[2,1,0,3]]
+    for k,actual in [('ColorMin',rgba.min(axis=(0,1))),('ColorMax',rgba.max(axis=(0,1)))]:
+        expected=extrema[k]; values=[float(x)/255 for x in actual]
         if boolean('bUseLegacyGamma',False) and boolean('SRGB',True): values[:3]=[x**2.2 for x in values[:3]]
         require(all(abs(x-y)<1e-6 for x,y in zip(values,expected)),f'Serialized {k} mismatch: {actual} vs {expected}')
     # Raw pixels are preserved. Green-channel flip is a material operation, not baked.
     addr=lambda k:enum(tags[k],'TextureAddress') if k in tags else 'TA_Wrap'
-    meta=dict(width=w,height=h,format='TSF_BGRA8',mips=1,source_png=False,srgb=boolean('SRGB',True),flip_y=boolean('bFlipGreenChannel',False),address_x=addr('AddressX'),address_y=addr('AddressY'),nearest=enum(tags['Filter'],'TextureFilter')=='TF_Nearest' if 'Filter' in tags else False,profile='UE5 editor UEDELTA',source_hash=info['hash'],rgba_sha256=hashlib.sha256(rgba.tobytes()).hexdigest(),color_extrema_verified=True)
+    meta=dict(width=w,height=h,format='TSF_BGRA8',mips=1,source_png=False,srgb=boolean('SRGB',True),flip_y=boolean('bFlipGreenChannel',False),address_x=addr('AddressX'),address_y=addr('AddressY'),nearest=enum(tags['Filter'],'TextureFilter')=='TF_Nearest' if 'Filter' in tags else False,profile='UE5 editor UEDELTA',source_hash=info['hash'],rgba_sha256=hashlib.sha256(rgba.tobytes()).hexdigest(),color_extrema_verified=True,delta_regions=regions,delta_profile=profile)
     meta['clamp']=meta['address_x']==meta['address_y']=='TA_Clamp'
     return png_bytes(w,h,rgba.tobytes()),meta
