@@ -141,3 +141,7 @@ See [selected-level source dependency qualification](docs/0.10.75-scene-dependen
 ## 0.10.76-dev
 
 See [native saved landscape heightfield reconstruction](docs/0.10.76-landscape.md).
+
+## 0.10.77-dev
+
+See [handoff](docs/HANDOFF.md), [roadmap](docs/ROADMAP.md), and [test report](docs/TEST_REPORT.md). Saved UE5 instance-component inventory reports unsupported payloads rather than treating component counts as decoded instances.

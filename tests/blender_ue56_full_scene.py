@@ -15,6 +15,7 @@ expected={}
 for rel in ('ThirdPerson/Lvl_ThirdPerson.umap','MyStuff/Maps/TestLevel.umap'):
     p=content/rel;s.active=next(i for i,m in enumerate(s.maps) if Path(m.filepath)==p)
     assert bpy.ops.ueimport.full_scene()=={'FINISHED'};root=next(c for c in scene.collection.children if c.get('UE_full_scene_source')==str(p));report=json.loads(bpy.data.texts[root['UE_report']].as_string());expected[rel]=report['counts'];print('FULL',rel,report['counts'],report['material_status'],report['coverage']['representation_counts'],flush=True)
+    assert report['instance_inventory']['inventory_complete'] and report['instance_inventory']['components']==0
     assert report['inventory_errors']==[] and report['coverage']['serialized_level_exports']>0
     if rel.startswith('ThirdPerson'):
         assert report['stages']['geometry']['actor_status']=={'reconstructed':53,'missing':2},report['stages']['geometry']['actor_status'];assert report['counts']['lights']>=1;assert report['counts']['meshes']>=53;assert report['material_status'].get('supported_pbr_subset',0)+report['material_status'].get('partial',0)>0
@@ -30,7 +31,7 @@ for rel in ('ThirdPerson/Lvl_ThirdPerson.umap','MyStuff/Maps/TestLevel.umap'):
     except ValueError as e:assert 'already imported' in str(e)
     assert set(new_ids())==ids
     if rel.startswith('ThirdPerson'):
-        single=out.with_name('thirdperson-transfer-074.blend');bpy.ops.wm.save_as_mainfile(filepath=str(single));bpy.ops.wm.open_mainfile(filepath=str(single));scene=bpy.context.scene;s=scene.ueimport_project;sentinel=scene.camera
+        single=out.with_name(out.stem+'-thirdperson.blend');bpy.ops.wm.save_as_mainfile(filepath=str(single));bpy.ops.wm.open_mainfile(filepath=str(single));scene=bpy.context.scene;s=scene.ueimport_project;sentinel=scene.camera
         assert len([c for c in scene.collection.children if c.get('UE_full_scene_source')])==1
 # Inject failure in a late stage on a different level; no newly created data survives.
 import ue5_editor_camera as cam

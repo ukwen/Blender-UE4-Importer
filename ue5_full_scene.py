@@ -6,7 +6,7 @@ from ue5_blueprint import read_tables, require
 from ue5_editor_scene import external_packages
 
 
-def actor_inventory(content, path):
+def actor_inventory(content, path, instance_records=None):
     """Inventory serialized direct PersistentLevel exports, not an Unreal runtime actor count."""
     content=Path(content).resolve();path=Path(path).resolve()
     level='/Game/'+path.relative_to(content).with_suffix('').as_posix()
@@ -17,6 +17,9 @@ def actor_inventory(content, path):
         rel=source.relative_to(content).as_posix()
         try:
             _,_,_,exports,ref,pkg=read_tables(source)
+            if instance_records is not None:
+                from ue5_instance_inventory import scan_exports
+                instance_records.extend(scan_exports(exports,ref,pkg,rel,level,source==path))
             for e in exports:
                 outer=e['outer']
                 if not outer:continue
@@ -60,7 +63,10 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
     dependencies=audit(project,path)
     require(not strict_dependencies or dependencies['ready_for_strict_import'],
             f"Source dependency check failed: {dependencies['unresolved_hard']} hard, {dependencies['unresolved_soft_only']} soft-only unresolved, {len(dependencies['unknown_tables'])} unknown tables. Run Analyze Level Dependencies or disable strict mode.")
-    inventory,errors=actor_inventory(content,path)
+    instance_records=[]
+    inventory,errors=actor_inventory(content,path,instance_records)
+    from ue5_instance_inventory import summarize
+    instance_report=summarize(instance_records,errors)
     light_data=lights(content,path);camera_data=cameras(content,path)
     before=set(new_ids());old_camera=scene.camera
     try:
@@ -87,7 +93,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
         require(scene.camera==old_camera,'Unexpected active camera change')
         objects=list(root.all_objects);require(objects,'No supported scene objects reconstructed')
         material_counts=Counter(v['status'] for v in gr.get('material_report',{}).values())
-        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset; no runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
+        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset; no runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
         text=bpy.data.texts.new(root.name+' - scene transfer.json');text.write(json.dumps(report,indent=2));root['UE_report']=text.name;root['UE_full_scene_source']=str(path);root['UE_preview_only']=True
         return root,report
     except Exception:

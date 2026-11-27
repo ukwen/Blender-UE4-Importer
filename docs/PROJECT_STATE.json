@@ -1,0 +1,67 @@
+{
+  "project": "Unreal Importer (Blender-UE4-Importer)",
+  "objective": "Direct native UE4/UE5 saved-project and level transfer into editable Blender scenes, no FBX/USD or gameplay emulation",
+  "repository": "https://github.com/ukwen/Blender-UE4-Importer",
+  "stable_branch": "master",
+  "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
+  "development_branch": "development",
+  "application_version": "0.10.77-dev",
+  "previous_verified_commit": "af1d82cb8d07ec251744f2a63d5b40b0b9b0900f",
+  "previous_verified_tree": "609634dac5498ac3579758ea728a2d12acb7d7ed",
+  "current_commit_resolution": "Use the exact published commit and tree from the immutable 0.10.77 Library checkpoint, compare to development branch and to the recovered Git tree. A commit cannot contain its own SHA.",
+  "milestone": "Reproducible continuity and conservative saved instance component inventory (not instance decoding)",
+  "library": {
+    "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
+    "blender_root": "/Development Tools/Blender/",
+    "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
+    "checkpoint": "Unreal_Importer_0.10.77_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.77-local.zip",
+    "install_archive": "install-077.zip",
+    "hash_manifest": "docs/RECOVERY_ASSETS.sha256"
+  },
+  "environment": {
+    "blender": "4.2.4 LTS",
+    "platform": "Linux x86-64",
+    "python": "3.13.5",
+    "gcc": "14.2.0",
+    "setup": "bash tools/restore_development.sh ASSET_DIRECTORY NEW_WORK_DIRECTORY"
+  },
+  "tests": {
+    "baseline": {
+      "passed": 68,
+      "skipped": 23,
+      "failed": 0
+    },
+    "current": {
+      "passed": 71,
+      "skipped": 23,
+      "failed": 0
+    },
+    "fresh_environment": true,
+    "two_level_blender_regression": true,
+    "scope": "bounded actual Blender acceptance, not Unreal runtime parity",
+    "isolated_install": {
+      "imported": 3,
+      "reopen_reuse": true
+    }
+  },
+  "roadmap": "docs/ROADMAP.md",
+  "handoff": "docs/HANDOFF.md",
+  "test_report": "docs/TEST_REPORT.md",
+  "dependencies": "docs/DEPENDENCIES.md",
+  "next_priority": "Original native instancing/foliage format evidence from existing assets, then supported remaining visual actor types; no invented payload or new downloads without approval",
+  "restrictions": [
+    "CPU only",
+    "preserve master",
+    "existing assets only",
+    "no secrets",
+    "do not rely on prior temporary files",
+    "test and commit before claiming success"
+  ],
+  "blockers": [
+    "missing MainLevel environment and terrain materials",
+    "missing Wraith skeleton/unresolved material group mappings",
+    "no positive original UE5 instancing evidence yet",
+    "Unreal runtime and Windows acceptance unverified"
+  ]
+}
