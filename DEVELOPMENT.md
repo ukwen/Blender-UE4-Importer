@@ -101,3 +101,7 @@ See [UE5.7 saved Blueprint composition](docs/0.10.65-ue57-blueprint.md).
 ## 0.10.66-dev
 
 See [targeted missing mesh recovery](docs/0.10.66-missing-mesh-repair.md).
+
+## 0.10.67-dev
+
+See [legacy PNG material channel previews and grid validation](docs/0.10.67-grid-channel-preview.md).

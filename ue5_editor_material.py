@@ -7,6 +7,8 @@ from skeleton_native import Reader
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
+EDITOR_MATERIAL_REVISION = "editor_material_067"
+
 
 def read_material(path):
     from package_inspector import inspect_package
@@ -192,7 +194,7 @@ def build_material(content,package,allow_partial=False):
     import bpy
     from texture_blender import load_editor_texture
     data=resolve_material(content,package);mat=bpy.data.materials.new(package.rsplit('/',1)[-1]);mat.use_nodes=True;mat['UE_material_package']=package
-    mat['UE_editor_graph']=json.dumps(data,sort_keys=True); nt=mat.node_tree;nodes=nt.nodes;links=nt.links;bs=next(n for n in nodes if n.type=='BSDF_PRINCIPLED');bs.location=(650,0);built={};active=set();issues=list(data['unsupported']);connected=[]
+    mat['UE_editor_graph']=json.dumps(data,sort_keys=True); nt=mat.node_tree;nodes=nt.nodes;links=nt.links;bs=next(n for n in nodes if n.type=='BSDF_PRINCIPLED');bs.location=(650,0);built={};texture_nodes={};texture_alpha={};active=set();issues=list(data['unsupported']);connected=[]
     def node(typ,label):
         n=nodes.new(typ);n.label=label;n.location=(-600+(len(nodes)%4)*220,-240*(len(nodes)//4));return n
     def constant(value,label):
@@ -221,7 +223,9 @@ def build_material(content,package,allow_partial=False):
         return n.outputs['Value' if op=='DOT_PRODUCT' else 'Vector']
     def select(sock,mask):
         if not mask[0] or mask[1:]==[1,1,1,0]:return sock
-        if mask[1:]==[0,0,0,1] and sock.node.type=='TEX_IMAGE':return sock.node.outputs['Alpha']
+        if mask[1:]==[0,0,0,1]:
+            if sock.as_pointer() in texture_alpha:return texture_alpha[sock.as_pointer()]
+            if sock.node.type=='TEX_IMAGE':return sock.node.outputs['Alpha']
         if not mask[4] and 1<=sum(mask[1:])<=2:
             selected=[v for v,m in zip(components(sock),mask[1:4]) if m]
             return selected[0] if len(selected)==1 else combine([*selected,0.],'Serialized two-channel mask')
@@ -243,7 +247,13 @@ def build_material(content,package,allow_partial=False):
             n.extension={'TA_Wrap':'REPEAT','TA_Clamp':'EXTEND','TA_Mirror':'MIRROR'}[x]
         else:issues.append('Unsupported mixed texture address modes: '+image.name)
     def edge(a):
-        require(a['index']>0,'Missing expression input');return select(emit(a['index'],a['output']),a['mask'])
+        require(a['index']>0,'Missing expression input');sock=emit(a['index'],a['output'])
+        # A serialized texture output slot already selects its channel. UE often
+        # repeats the same one-hot mask on the edge, including Alpha. Do not
+        # apply that mask again to the resulting scalar.
+        if data['nodes'][a['index']]['kind'] in ('TextureSample','TextureSampleParameter2D') and 1<=a['output']<=4:
+            require(not a['mask'][0] or a['mask']==[1]+[int(k==a['output']) for k in range(1,5)],'Conflicting texture output channel mask');return sock
+        return select(sock,a['mask'])
     def emit(i,output=0):
         key=(i,output)
         if key in built:return built[key]
@@ -295,12 +305,18 @@ def build_material(content,package,allow_partial=False):
                     coordinates=None
                     if 'Coordinates' in ins and ins['Coordinates']['index']:
                         x,y,z=components(edge(ins['Coordinates']));coordinates=combine([x,mathop('SUBTRACT',1.,y),0.],'Unreal V origin')
-                    p=d.get('texture');require(p and p.startswith('/Game/'),'Missing local texture reference');root=Path(content).resolve();f=(root/(p[6:]+'.uasset')).resolve();require(f.is_relative_to(root) and f.is_file(),'Missing texture '+p);n=node('ShaderNodeTexImage',label);n.image=load_editor_texture(f);n['UE_texture_package']=p;configure_sampler(n);built[i,0]=n.outputs['Color']
-                    if n.image.get('UE_texture_profile')=='UE5 1004 editor PNG':issues.append('Legacy PNG channel interpretation not independently verified')
+                    p=d.get('texture');require(p and p.startswith('/Game/'),'Missing local texture reference');root=Path(content).resolve();f=(root/(p[6:]+'.uasset')).resolve();require(f.is_relative_to(root) and f.is_file(),'Missing texture '+p);n=node('ShaderNodeTexImage',label);n.image=load_editor_texture(f);n['UE_texture_package']=p;configure_sampler(n);texture_nodes[i]=n;rgb=n.outputs['Color']
+                    if n.image.get('UE_texture_profile')=='UE5 1004 editor PNG' and n.image.get('UE_texture_format')=='TSF_BGRA8':
+                        # Older embedded source PNGs can contain FColor byte order
+                        # encoded as RGBA. Preserve the original packed PNG; correct
+                        # the sampling graph only as an explicitly partial preview.
+                        r,g,b=components(rgb);rgb=combine([b,g,r],'Legacy BGRA PNG channel-order preview')
+                        rgb.node['UE_legacy_png_channel_preview']='BGR to RGB';issues.append('Legacy BGRA PNG channel-order preview; Unreal-exported pixels not independently verified')
+                    built[i,0]=rgb;texture_alpha[rgb.as_pointer()]=n.outputs['Alpha']
                     if coordinates is not None:links.new(coordinates,n.inputs['Vector'])
                     if d['sampler_source'] in ('SSM_Wrap_WorldGroupSettings','SSM_Clamp_WorldGroupSettings'):n.extension='REPEAT' if d['sampler_source']=='SSM_Wrap_WorldGroupSettings' else 'EXTEND';issues.append('World-group sampler filtering preview')
                     elif d['sampler_source']!='SSM_FromTextureAsset':issues.append('Unsupported sampler source '+d['sampler_source'])
-                s=built[i,0];s=s.node.outputs['Alpha'] if output==4 else s
+                s=texture_nodes[i].outputs['Alpha'] if output==4 else built[i,0]
                 if 1<=output<=3:s=select(s,[1]+[int(k==output) for k in range(1,5)])
             elif kind=='LinearInterpolate' and output==0:
                 a,b,f=[edge(ins[k]) if k in ins else constant(d['defaults'][k],k) for k in ('A','B','Alpha')]

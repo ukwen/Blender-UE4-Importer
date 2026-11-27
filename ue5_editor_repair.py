@@ -42,7 +42,11 @@ def restore(filepath,anchors,materials=False,partial=False):
     from project_session import new_ids,rollback_new
     path=Path(filepath).resolve();project=UProject(str(path));content=Path(project.dir)/'Content';anchors=list(dict.fromkeys(anchors))
     require(anchors and len(anchors)<=10000,'Select one or more missing mesh placeholders')
-    level,index=record_index(content,path,any(a.get('UE_component_name') for a in anchors));results=[];cache={};pending=[];options=digest([bool(materials),bool(partial)])
+    level,index=record_index(content,path,any(a.get('UE_component_name') for a in anchors));results=[];cache={};pending=[];options_values=[bool(materials),bool(partial)]
+    if materials:
+        from ue5_editor_material import EDITOR_MATERIAL_REVISION
+        options_values.append(EDITOR_MATERIAL_REVISION)
+    options=digest(options_values)
     for a in anchors:
         record=dict(anchor=a.name,package=a.get('UE_mesh_package',''))
         try:
