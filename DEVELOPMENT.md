@@ -161,3 +161,7 @@ See [legacy 522 mixed-version Goblin full-scene acceptance](docs/0.10.80-goblin-
 ## 0.10.81-dev
 
 See [opt-in sky preview](docs/0.10.81-environment-preview.md). Separate saved-world previews never silently change the scene world.
+
+## 0.10.82-dev
+
+See [editor sampler fidelity](docs/0.10.82-sampler-fidelity.md). Explicit UV0, shared address helper and bounded direct tangent normal source-art preview; no runtime tangent/compression parity claim.

@@ -37,6 +37,9 @@ class MaterialTests(unittest.TestCase):
         _,flare=read_texture(self.path('T_Lensflare_01'));self.assertEqual(flare['delta_regions'],[(0,512,64)])
     def test_nested_instances(self):
         d=self.resolve('MI_ThirdPersonColWay');self.assertEqual(len(d['chain']),3);nodes={n['parameter']:n for n in d['nodes'].values()};self.assertAlmostEqual(nodes['Roughness']['value'],.268,places=6);self.assertAlmostEqual(nodes['Base Color']['value'][1],.527115,places=6)
+    def test_direct_normal_source_tags(self):
+        for stem in ('MI_Quinn_01','MI_Manny_02_New'):
+            data=self.resolve(stem);self.assertTrue(data['tangent_space_normal']);a=data['outputs']['Normal'];node=data['nodes'][a['index']];self.assertEqual(node['sampler_type'],'SAMPLERTYPE_Normal');self.assertEqual(a['output'],0);self.assertFalse(node['inputs'].get('Coordinates',{}).get('index'));self.assertTrue(node['texture'].startswith('/Game/'))
     def test_mannequin_channels(self):
         d=self.resolve('MI_Quinn_01');self.assertEqual(len(d['nodes']),54);n={v['parameter']:v for v in d['nodes'].values() if v['parameter']};self.assertTrue(n['MRA']['texture'].endswith('T_Quinn_01_MRA'));self.assertTrue(n['BNormal']['texture'].endswith('T_Quinn_01_N'));self.assertEqual(d['outputs']['Normal']['index'],62)
         d=self.resolve('MI_Manny_02_New');self.assertTrue(next(n for n in d['nodes'].values() if n['parameter']=='Logo?')['value'])

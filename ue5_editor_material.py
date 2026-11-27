@@ -7,7 +7,7 @@ from skeleton_native import Reader
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
-EDITOR_MATERIAL_REVISION = "editor_material_072"
+EDITOR_MATERIAL_REVISION = "editor_material_082"
 
 
 def read_material(path):
@@ -128,7 +128,7 @@ def read_material(path):
                 sub=read_tags(x['data'],names);f=sub.get('ShadingModelField',{})
                 if set(sub)=={'ShadingModelField'} and f.get('type')==['UInt16Property'] and len(f['data'])==2 and not f['flags']&0x28:shading_field=struct.unpack('<H',f['data'])[0]
             except (ValueError,KeyError,struct.error):pass
-    return dict(name=e['name'],kind='material',blend=name(t,'BlendMode','BLEND_Opaque'),shading_model=shading,shading_model_field=shading_field,material_domain=domain,opacity_mask_clip=val(t,'OpacityMaskClipValue',['FloatProperty'],'f'),nodes=nodes,outputs=outputs,unsupported=['UseMaterialAttributes'] if boolval(t,'bUseMaterialAttributes') else [])
+    return dict(name=e['name'],kind='material',blend=name(t,'BlendMode','BLEND_Opaque'),shading_model=shading,shading_model_field=shading_field,material_domain=domain,tangent_space_normal=boolval(t,'TangentSpaceNormal') if 'TangentSpaceNormal' in t else True,opacity_mask_clip=val(t,'OpacityMaskClipValue',['FloatProperty'],'f'),nodes=nodes,outputs=outputs,unsupported=['UseMaterialAttributes'] if boolval(t,'bUseMaterialAttributes') else [])
 
 
 def expand_local_functions(data,content,unsupported):
@@ -286,12 +286,16 @@ def build_material(content,package,allow_partial=False):
         n=node('ShaderNodeMixRGB',label);n.blend_type='MIX';n.use_clamp=False
         for j,v in enumerate((f,a,b)):links.new(v,n.inputs[j])
         return n.outputs[0]
-    def configure_sampler(n):
-        image=n.image;x=image.get('UE_address_x','TA_Wrap');y=image.get('UE_address_y','TA_Wrap')
+    def configure_sampler(n,d,coordinates):
+        from uv_semantics import uv_source,set_address,connect_sample
+        image=n.image;n['UE_sampler_source']=d['sampler_source']
         n.interpolation='Closest' if image.get('nearest',False) else 'Linear'
-        if x==y and x in ('TA_Wrap','TA_Clamp','TA_Mirror'):
-            n.extension={'TA_Wrap':'REPEAT','TA_Clamp':'EXTEND','TA_Mirror':'MIRROR'}[x]
-        else:issues.append('Unsupported mixed texture address modes: '+image.name)
+        set_address(n,image)
+        connect_sample(nt,n,coordinates if coordinates is not None else uv_source(nt,0))
+        if n.get('UE_address_unsupported'):issues.append('Unsupported texture address modes: '+image.name)
+        if n.get('UE_address_approximation'):issues.append('Mixed texture address base-level preview: '+image.name)
+        if d['sampler_source'] in ('SSM_Wrap_WorldGroupSettings','SSM_Clamp_WorldGroupSettings'):issues.append('World-group sampler filtering preview')
+        elif d['sampler_source']!='SSM_FromTextureAsset':issues.append('Unsupported sampler source '+d['sampler_source'])
     def edge(a):
         require(a['index']>0,'Missing expression input');sock=emit(a['index'],a['output'])
         # A serialized texture output slot already selects its channel. UE often
@@ -383,7 +387,7 @@ def build_material(content,package,allow_partial=False):
                     coordinates=None
                     if 'Coordinates' in ins and ins['Coordinates']['index']:
                         x,y,z=components(edge(ins['Coordinates']));coordinates=combine([x,mathop('SUBTRACT',1.,y),0.],'Unreal V origin')
-                    p=d.get('texture');require(p and p.startswith('/Game/'),'Missing local texture reference');root=Path(content).resolve();f=(root/(p[6:]+'.uasset')).resolve();require(f.is_relative_to(root) and f.is_file(),'Missing texture '+p);n=node('ShaderNodeTexImage',label);n.image=load_editor_texture(f);n['UE_texture_package']=p;configure_sampler(n);texture_nodes[i]=n;rgb=n.outputs['Color']
+                    p=d.get('texture');require(p and p.startswith('/Game/'),'Missing local texture reference');root=Path(content).resolve();f=(root/(p[6:]+'.uasset')).resolve();require(f.is_relative_to(root) and f.is_file(),'Missing texture '+p);n=node('ShaderNodeTexImage',label);n.image=load_editor_texture(f);n['UE_texture_package']=p;configure_sampler(n,d,coordinates);texture_nodes[i]=n;rgb=n.outputs['Color']
                     if n.image.get('UE_texture_profile')=='UE5 1004 editor PNG' and n.image.get('UE_texture_format')=='TSF_BGRA8':
                         # Older embedded source PNGs can contain FColor byte order
                         # encoded as RGBA. Preserve the original packed PNG; correct
@@ -391,9 +395,6 @@ def build_material(content,package,allow_partial=False):
                         r,g,b=components(rgb);rgb=combine([b,g,r],'Legacy BGRA PNG channel-order preview')
                         rgb.node['UE_legacy_png_channel_preview']='BGR to RGB';issues.append('Legacy BGRA PNG channel-order preview; Unreal-exported pixels not independently verified')
                     built[i,0]=rgb;texture_alpha[rgb.as_pointer()]=n.outputs['Alpha']
-                    if coordinates is not None:links.new(coordinates,n.inputs['Vector'])
-                    if d['sampler_source'] in ('SSM_Wrap_WorldGroupSettings','SSM_Clamp_WorldGroupSettings'):n.extension='REPEAT' if d['sampler_source']=='SSM_Wrap_WorldGroupSettings' else 'EXTEND';issues.append('World-group sampler filtering preview')
-                    elif d['sampler_source']!='SSM_FromTextureAsset':issues.append('Unsupported sampler source '+d['sampler_source'])
                 s=texture_nodes[i].outputs['Alpha'] if output==4 else built[i,0]
                 if 1<=output<=3:s=select(s,[1]+[int(k==output) for k in range(1,5)])
             elif kind=='LinearInterpolate' and output==0:
@@ -432,7 +433,18 @@ def build_material(content,package,allow_partial=False):
                 s=edge(a)
                 if k=='Specular':issues.append('Unreal specular to Principled IOR mapping not independently verified')
                 if k=='Normal':
-                    n=node('ShaderNodeNormalMap','Unreal tangent normal (Blender basis preview)');links.new(s,n.inputs['Color']);s=n.outputs[0];issues.append('Tangent-space normal basis not independently verified')
+                    src=data['nodes'][a['index']];sample=texture_nodes.get(a['index'])
+                    direct=(data.get('tangent_space_normal') is True and src['kind'] in ('TextureSample','TextureSampleParameter2D') and src.get('sampler_type')=='SAMPLERTYPE_Normal' and a['output']==0 and a['mask'] in ([0,0,0,0,0],[1,1,1,1,0]) and not src['inputs'].get('Coordinates',{}).get('index') and sample is not None and sample.image.get('UE_texture_profile')=='UE5 editor UEDELTA' and sample.image.colorspace_settings.name=='Non-Color' and 'flip_y' in sample.image)
+                    n=node('ShaderNodeNormalMap','Unreal tangent normal (Blender basis preview)')
+                    if direct:
+                        # Imported UV0 reverses V. DirectX-style source normal Y
+                        # therefore needs the opposite sign, unless the source
+                        # texture already requests Unreal's green-channel flip.
+                        r,g,b=components(s);flip=not sample.image['flip_y']
+                        s=combine([r,mathop('SUBTRACT',1.,g,'Source green convention') if flip else g,b],'Direct normal source RGB preview')
+                        n.uv_map='UV0';n['UE_normal_green_inverted']=flip;n['UE_normal_source_texture']=sample['UE_texture_package'];n['UE_normal_profile']='direct UV0 source-art RGB; no runtime compression parity'
+                        issues.append('Direct normal source-art green convention preview; runtime compression and tangent basis not independently verified')
+                    links.new(s,n.inputs['Color']);s=n.outputs[0];issues.append('Tangent-space normal basis not independently verified')
                 if k=='EmissiveColor':bs.inputs['Emission Strength'].default_value=1.
                 links.new(s,bs.inputs[socket]);connected.append(k);surface_inputs[k]=s
             elif a['use_constant'] and k!='Normal':
