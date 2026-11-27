@@ -42,7 +42,8 @@ for name in ('A','D','N'):
     im=load_native_texture(content/f'T_Worm_{name}.uasset','5.0',srgb=name=='D');im.use_fake_user=True
     assert tuple(im.size)==(256,256) and im.packed_file
 out=os.environ['UE5_COOKED_OUTPUT'];bpy.ops.wm.save_as_mainfile(filepath=out);bpy.ops.wm.open_mainfile(filepath=out)
-assert len([i for i in bpy.data.images if i.packed_file and i.get('UE_texture_format')])==3
+assert len([i for i in bpy.data.images if i.packed_file and i.get('UE_raw_texture_key')])==3
+assert len([i for i in bpy.data.images if i.packed_file and i.get('UE_texture_format') and not i.get('UE_raw_texture_key')])==3
 n=len(bpy.data.objects);s=bpy.context.scene.ueimport_project;assert bpy.ops.ueimport.batch_import()=={'FINISHED'}
 repeat=json.loads(bpy.data.texts[s.batch_report].as_string());assert len(repeat['results'])==2 and all(x.get('reused') for x in repeat['results']) and len(bpy.data.objects)==n
 bpy.ops.wm.save_as_mainfile(filepath=out)

@@ -37,15 +37,79 @@ class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
     profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy interleaved buffers'),('4.27','UE4.27','Inline separate render buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.6','UE5.6','Bounded fixed-weight inline skeletal LODs')],default='4.18')
     lod: IntProperty(name='Source LOD',description='UE5.6 cooked skeletal LOD index; other profiles require 0',default=0,min=0,max=2)
+    all_lods: BoolProperty(name='All native LODs on one rig',description='UE5.6 split skeletal mesh; one rig and shared materials with manual LOD switching',default=False)
     def execute(self,context):
         from skeletal_mesh_native import read_native_mesh, build_mesh
         try:
+            if self.all_lods:
+                if self.profile!='5.6': raise ValueError('Shared LOD import requires the UE5.6 profile')
+                from skeletal_lod_group import build_lod_group
+                arm,objects=build_lod_group(self.filepath,context.collection)
+                for obj in objects: obj['UE_source_package']=self.filepath
+                self.report({'INFO'},f'Imported {len(objects)} native LODs on one editable rig')
+                return {'FINISHED'}
             data=read_native_mesh(self.filepath,self.profile,self.lod); obj,arm=build_mesh(data)
             obj['UE_source_package']=self.filepath
             self.report({'INFO'},f"Imported {len(data['positions'])} skinned vertices, {len(data['bones'])} bones (material placeholders)")
             return {'FINISHED'}
         except (OSError,ValueError,RuntimeError,NotImplementedError) as exc:
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
+
+
+class SetUELod(bpy.types.Operator):
+    bl_idname='object.ue_set_native_lod'
+    bl_label='Set Native UE LOD'
+    bl_options={'REGISTER','UNDO'}
+    lod: IntProperty(name='Source LOD',default=0,min=0,max=2)
+    @classmethod
+    def poll(cls,context):
+        obj=context.object
+        return context.mode=='OBJECT' and obj is not None and obj.type=='ARMATURE' and bool(obj.get('UE_lod_group_count'))
+    def execute(self,context):
+        from skeletal_lod_group import disable_distance_lod
+        try: disable_distance_lod(context.object,self.lod)
+        except ValueError as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class EnableUELodDistance(bpy.types.Operator):
+    bl_idname='object.ue_enable_lod_distance'
+    bl_label='Enable UE LOD Camera Distance'
+    bl_description='Use explicit camera distances in metres, not Unreal screen-size thresholds'
+    bl_options={'REGISTER','UNDO'}
+    near: FloatProperty(name='LOD 1 distance (m)',default=5,min=.01)
+    far: FloatProperty(name='LOD 2 distance (m)',default=15,min=.01)
+    @classmethod
+    def poll(cls,context):
+        return SetUELod.poll(context) and context.scene.camera is not None
+    def invoke(self,context,event):
+        return context.window_manager.invoke_props_dialog(self)
+    def execute(self,context):
+        from skeletal_lod_group import enable_distance_lod
+        try: enable_distance_lod(context.object,context.scene.camera,float(self.near),float(self.far))
+        except ValueError as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class UELodPanel(bpy.types.Panel):
+    bl_idname='DATA_PT_ue_native_lods'
+    bl_label='Unreal Native LODs'
+    bl_space_type='PROPERTIES'
+    bl_region_type='WINDOW'
+    bl_context='data'
+    @classmethod
+    def poll(cls,context):
+        return SetUELod.poll(context)
+    def draw(self,context):
+        auto=context.object.get('UE_lod_mode')=='CAMERA_DISTANCE'
+        self.layout.label(text='Camera distance mode' if auto else 'Manual selection')
+        row=self.layout.row(align=True)
+        for i in range(3):
+            row.operator(SetUELod.bl_idname,text=f'LOD {i}',depress=not auto and context.object.get('UE_active_lod')==i).lod=i
+        if not auto: self.layout.operator(EnableUELodDistance.bl_idname)
+        else: self.layout.label(text='Choose a LOD to return to manual mode')
 
 
 class ImportUEAnimation(bpy.types.Operator, ImportHelper):
@@ -155,13 +219,15 @@ def menu(self,context):
     self.layout.operator(ImportUEPhysics.bl_idname,text='UE Physics Asset — Collision Preview (.uasset)')
     self.layout.operator(ImportUECookedStatic.bl_idname,text='UE Native Cooked Static Mesh (.uasset)')
     self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
-    self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4 Native Skeletal Mesh (.uasset)')
+    self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE Native Skeletal Mesh (.uasset)')
     self.layout.operator(ImportUEAnimation.bl_idname,text='UE4.27 Editor Raw Animation (.uasset)')
 def register():
     import native_sockets
     native_sockets.register()
+    bpy.utils.register_class(SetUELod); bpy.utils.register_class(EnableUELodDistance); bpy.utils.register_class(UELodPanel)
     bpy.utils.register_class(ImportUECookedMaterialInstance); bpy.utils.register_class(ImportUEPhysics); bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
     import native_sockets
+    bpy.utils.unregister_class(UELodPanel); bpy.utils.unregister_class(EnableUELodDistance); bpy.utils.unregister_class(SetUELod)
     native_sockets.unregister()
     bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory); bpy.utils.unregister_class(ImportUEPhysics); bpy.utils.unregister_class(ImportUECookedMaterialInstance)

@@ -47,7 +47,7 @@ for v in PROFILES:
         rgb=next(n for n in controls if n.type=='RGB');assert list(rgb.outputs[0].default_value)==meta['parameters'][1]['value']
     if v=='5.5':
         assert bpy.ops.ueimport.native_texture(filepath=str(srcdir/'T_Test.uasset'),version='5.5',srgb=True)=={'FINISHED'}
-        image=bpy.data.images['T_Test'];assert tuple(image.size)==(2048,2048) and image.packed_file and image['UE_mips_validated']==12
+        image=next(i for i in bpy.data.images if i.get('UE_texture_profile')=='5.5' and not i.get('UE_raw_texture_key'));assert tuple(image.size)==(2048,2048) and image.packed_file and image['UE_mips_validated']==12
     if v=='5.6':
         assert getattr(bpy.ops,'import').ue_cooked_material_instance(filepath=str(srcdir/'MI_Quinn_01.uasset'),profile=v)=={'FINISHED'}
         mat=bpy.data.materials['MI_Quinn_01'];meta=json.loads(mat['UE_cooked_instance']);assert len(meta['parameters'])==5

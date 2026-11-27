@@ -79,7 +79,7 @@ def root_class(path,project):
 
 class _NonGeometry(Exception): pass
 
-def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,planned_paths=None):
+def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,planned_paths=None,all_lods=False):
     """Import supported geometry assets as a gallery, not as a level layout."""
     import bpy,uasset
     from skeletal_mesh_native import read_native_mesh,build_mesh
@@ -97,7 +97,7 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
     project=uasset.UProject(descriptor); collection=bpy.data.collections.new('UE native geometry gallery')
     bpy.context.scene.collection.children.link(collection)
     records=[]; cursor=0.; totals=Counter()
-    stores=(bpy.data.objects,bpy.data.meshes,bpy.data.armatures,bpy.data.materials)
+    stores=(bpy.data.objects,bpy.data.meshes,bpy.data.armatures,bpy.data.materials,bpy.data.images)
     for path in paths:
         package='/Game/'+path.relative_to(content).with_suffix('').as_posix()
         record={'package':package}; before=None
@@ -110,7 +110,13 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
                 mesh=load_static(path,project,profile)
                 obj=bpy.data.objects.new(mesh.name,mesh); collection.objects.link(obj); root=obj
             else:
-                obj,root=build_mesh(read_native_mesh(path,profile),collection); mesh=obj.data
+                if all_lods and profile=='5.6' and path.with_suffix('.uexp').is_file():
+                    from skeletal_lod_group import build_lod_group
+                    root,group=build_lod_group(path,collection);obj=group[0]
+                    record['lods']=[{'lod':i,'vertices':len(o.data.vertices),'triangles':len(o.data.polygons)} for i,o in enumerate(group)]
+                    for o in group: o['UE_mesh_package']=package; o['UE_geometry_status']='reconstructed'
+                else: obj,root=build_mesh(read_native_mesh(path,profile),collection)
+                mesh=obj.data
             if not len(mesh.vertices) or not len(mesh.polygons): raise ValueError('Empty native geometry')
             # A gallery offset is explicit, leaving source mesh coordinates and skin unchanged.
             lo=min(v.co.x for v in mesh.vertices); hi=max(v.co.x for v in mesh.vertices)
@@ -120,6 +126,7 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
             record.update(status='reconstructed',vertices=len(mesh.vertices),triangles=len(mesh.polygons),bones=len(root.data.bones) if kind=='SkeletalMesh' else 0,object=obj.name)
             if 'UE_geometry_scope' in mesh:
                 record.update(geometry_scope=mesh['UE_geometry_scope'],external_bulk_bytes=mesh['UE_external_bulk_bytes'])
+            if profile in ('5.0','5.4','5.5','5.6') and path.with_suffix('.uexp').is_file():
                 from ue5_cooked_material import inspect_material_slots
                 record['material_instances']=inspect_material_slots(mesh,project,profile)
             totals.update({k:record[k] for k in ('vertices','triangles','bones')})
@@ -147,8 +154,8 @@ def finish_gallery(collection,report):
     text=bpy.data.texts.new(collection.name+' - report.json'); text.write(json.dumps(report,indent=2)); collection['UE_report']=text.name
     return collection,report
 
-def import_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False):
-    iterator=iter_geometry_folder(descriptor,subfolder,profile,include_physics)
+def import_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,all_lods=False):
+    iterator=iter_geometry_folder(descriptor,subfolder,profile,include_physics,all_lods=all_lods)
     while True:
         try: next(iterator)
         except StopIteration as stop: return finish_gallery(*stop.value)

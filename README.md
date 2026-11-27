@@ -114,3 +114,7 @@ Explicit UE5.4, 5.5 and 5.6 static render-geometry profiles, UE5.4/5.6 cooked ma
 ### Development 0.10.52: UE5.6 skeletal mesh
 
 The tested Quinn-style cooked fixed-weight skeletal profile supports all three native inline render LODs. Select UE5.6 and the source LOD (0–2) in the individual skeletal import command; the project browser imports LOD0. See [acceptance](docs/0.10.52-ue5-skeletal-lods.md).
+
+### Shared native skeletal LODs and cooked material dependencies (0.10.53)
+
+Opt-in UE5.6 shared-rig LOD import, manual or user-defined camera-distance switching, and recoverable project batches. Cooked UE5 material dependencies recover exact available UE5.0/5.5 texture images as raw, unconnected nodes; compiled shaders remain unresolved. See [workflow and limitations](docs/0.10.53-shared-lods-material-dependencies.md).

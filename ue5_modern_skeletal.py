@@ -7,6 +7,12 @@ from ue5_modern_static import package, material_ref
 
 
 def read_skeletal56(path, lod=0):
+    require(isinstance(lod,int) and 0<=lod<3,'Unsupported UE5.6 LOD selection')
+    return read_skeletal56_all(path)[lod]
+
+
+def read_skeletal56_all(path):
+    """Validate every native render LOD once before creating Blender data."""
     _,name,names,imports,r,source=package(path,'SkeletalMesh')
     require(r.take(10)==bytes.fromhex('00020602010206020903'),'Unsupported UE5.6 skeletal property fragments')
     ref=r.i(); require(-len(imports)<=ref<0 and imports[-ref-1][1]=='Skeleton','Invalid skeleton reference')
@@ -20,7 +26,7 @@ def read_skeletal56(path, lod=0):
         ref=r.i(); slot=r.name(names); r.take(32); materials.append((slot,material_ref(ref,imports)))
     require(materials,'Missing skeletal material table')
     bones=reference_skeleton(r,names,'d')
-    flag,count=r.unpack('II'); require(flag==1 and count==3 and 0<=lod<count,'Unsupported UE5.6 LOD selection')
+    flag,count=r.unpack('II'); require(flag==1 and count==3,'Unsupported UE5.6 LOD selection')
     results=[]
     for i in range(count):
         require(r.unpack('HII')==(5,0,1),'Unsupported UE5.6 inline LOD flags')
@@ -39,7 +45,9 @@ def read_skeletal56(path, lod=0):
         data.update(source_package=source,skeleton_package=skeleton_package,lod_index=i,lod_count=count,geometry_scope='native inline skeletal render LOD; cloth and ray tracing not reconstructed',external_bulk_bytes=0)
         results.append(data)
     require(r.take(96)==b'\x05'+bytes(89)+b'\x03\x03'+bytes(4) and r.pos==len(r.data),'Unsupported UE5.6 skeletal export trailer')
-    result=results[lod];result['lod_summary']=[{'vertices':len(x['positions']),'triangles':len(x['faces'])} for x in results]; return result
+    summary=[{'vertices':len(x['positions']),'triangles':len(x['faces'])} for x in results]
+    for result in results: result['lod_summary']=summary
+    return results
 
 
 def _lod(r,name,bones,materials,sections):

@@ -46,3 +46,7 @@ See [Modern UE5 cooked geometry, material parameters and texture acceptance](doc
 ## 0.10.52-dev
 
 See [UE5.6 native skeletal LOD acceptance](docs/0.10.52-ue5-skeletal-lods.md).
+
+## 0.10.53-dev
+
+See [Shared LODs and cooked material dependencies](docs/0.10.53-shared-lods-material-dependencies.md).

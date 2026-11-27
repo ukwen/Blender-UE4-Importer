@@ -175,21 +175,23 @@ def read_native_mesh(path, version, lod=0):
     return data
 
 
-def build_mesh(data, collection=None):
+def build_mesh(data, collection=None, *, _shared_arm=None, _shared_materials=None):
     """Build an editable armature and skinned mesh from the validated render buffers."""
     import bpy
     from skeleton_native import build_armature
     collection=collection or bpy.context.collection
-    arm=build_armature(data['name']+'_Armature',data['bones'],collection)
+    arm=_shared_arm if _shared_arm is not None else build_armature(data['name']+'_Armature',data['bones'],collection)
     mesh=None; obj=None; materials=[]
     try:
         mesh=bpy.data.meshes.new(data['name'])
         mesh.from_pydata([(y*.01,x*.01,z*.01) for x,y,z in data['positions']],[],data['faces'])
         mesh.update()
         require(not mesh.validate(clean_customdata=False),'Invalid Blender topology')
-        for slot,package in data['materials']:
-            mat=bpy.data.materials.new(slot); materials.append(mat); mat['UE_unresolved_material']=True
-            if package: mat['UE_material_package']=package
+        for i,(slot,package) in enumerate(data['materials']):
+            if _shared_materials is None:
+                mat=bpy.data.materials.new(slot); materials.append(mat); mat['UE_unresolved_material']=True
+                if package: mat['UE_material_package']=package
+            else: mat=_shared_materials[i]
             mesh.materials.append(mat)
         for poly,slot in zip(mesh.polygons,data['slots']): poly.material_index=slot; poly.use_smooth=True
         import json
@@ -234,5 +236,6 @@ def build_mesh(data, collection=None):
         if mesh and mesh.users==0: bpy.data.meshes.remove(mesh)
         for mat in materials:
             if mat.users==0: bpy.data.materials.remove(mat)
-        ar=arm.data; bpy.data.objects.remove(arm,do_unlink=True); bpy.data.armatures.remove(ar)
+        if _shared_arm is None:
+            ar=arm.data; bpy.data.objects.remove(arm,do_unlink=True); bpy.data.armatures.remove(ar)
         raise

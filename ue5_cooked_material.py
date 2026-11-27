@@ -103,10 +103,17 @@ def inspect_material_slots(mesh,project,profile):
         try:
             path=Path(project.resolve_package(source))
             if not path.is_file(): raise FileNotFoundError('Source material package unavailable')
-            cls,_,_,_,_,identity=package(path); require(identity==source,'Serialized source material identity mismatch')
+            from cooked_material_dependencies import inspect_asset
+            cls,_=inspect_asset(path,profile,source)
             if cls!='MaterialInstanceConstant': raise NotImplementedError('Cooked parent shader graph is unavailable')
             data=read_instance(path,profile); attach_instance_metadata(m,data)
             record.update(status='parameters_recovered_parent_unresolved',parameters=len(data['parameters']),parent=data['parent'])
         except (ValueError,OSError,NotImplementedError) as exc: record['detail']=str(exc)
+        if source:
+            from cooked_material_dependencies import recover_material_dependencies
+            record['dependency_chain']=recover_material_dependencies(m,project,profile,source)
+            packed=sum(t['status']=='packed_raw_channels' for dep in record['dependency_chain'] for t in dep.get('textures',[]))
+            record['packed_texture_dependencies']=packed
+            if packed and record['status']=='unresolved': record['status']='texture_dependencies_recovered_shader_unresolved'
         result.append(record)
     return result

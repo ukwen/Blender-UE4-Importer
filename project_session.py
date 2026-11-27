@@ -51,8 +51,11 @@ def job_fingerprint(plan,path,common,engine_hashes):
 def identity(plan,path):
     return digest([str(Path(plan['project']).resolve()),'geometry' if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY') else 'map',str(Path(path).resolve())])
 
-def options_key(plan,profile,materials,components,partial,physics):
-    return digest([SCHEMA,profile,physics] if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY') else [SCHEMA,profile,materials,components,partial])
+def options_key(plan,profile,materials,components,partial,physics,all_lods=False):
+    geometry=[SCHEMA,profile,physics]
+    # Keep existing LOD0 checkpoint identities compatible; opt-in grouped imports are distinct.
+    if all_lods and profile=='5.6': geometry.append('shared_native_lods')
+    return digest(geometry if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY') else [SCHEMA,profile,materials,components,partial])
 
 def collection_objects(collection):
     return list(collection.all_objects)
@@ -66,6 +69,10 @@ def validate_collection(collection,source,options):
         expected=json.loads(collection['UE_batch_members'])
         actual=sorted(o.get('UE_batch_member','') for o in collection_objects(collection))
         if expected!=actual or not actual or len(set(actual))!=len(actual): return 'collection membership changed'
+        # Group ownership includes the shared rig bindings, not just object UUIDs.
+        from skeletal_lod_group import members
+        for obj in collection_objects(collection):
+            if obj.type=='ARMATURE' and obj.get('UE_lod_group_count'): members(obj)
         result=json.loads(collection['UE_batch_result'])
         if not isinstance(result,dict) or result.get('status') not in ('completed','reconstructed'): return 'invalid saved result'
     except (ValueError,KeyError,TypeError): return 'missing or invalid recovery metadata'
@@ -102,10 +109,10 @@ def rollback_new(before):
     ids=[v for k,v in new_ids().items() if k not in before and not v.is_embedded_data]
     if ids: bpy.data.batch_remove(ids=ids)
 
-def run_session(plan,profile='4.27',materials=True,components=True,partial=False,physics=False):
+def run_session(plan,profile='4.27',materials=True,components=True,partial=False,physics=False,all_lods=False):
     import bpy
     from project_batch import run_jobs
-    scene=bpy.context.scene; common=source_fingerprint(plan); engine_hashes={}; options=options_key(plan,profile,materials,components,partial,physics)
+    scene=bpy.context.scene; common=source_fingerprint(plan); engine_hashes={}; options=options_key(plan,profile,materials,components,partial,physics,all_lods)
     for path in plan['jobs']:
         key=identity(plan,path); existing=find_existing(scene,key); source=job_fingerprint(plan,path,common,engine_hashes)
         owners=[o for o in scene.objects if o.get(OBJECT_TAG)==key]
@@ -117,7 +124,7 @@ def run_session(plan,profile='4.27',materials=True,components=True,partial=False
                 yield dict(job=path,status='blocked_stale',detail=reason+'; review/remove the prior imported collection before retrying'); continue
             result=json.loads(existing[0]['UE_batch_result']); result['collection']=existing[0].name
             result['reused']=True; yield result; continue
-        before=set(new_ids()); iterator=run_jobs(dict(plan,jobs=[path]),profile,materials,components,partial,physics)
+        before=set(new_ids()); iterator=run_jobs(dict(plan,jobs=[path]),profile,materials,components,partial,physics,all_lods)
         try:
             try: result=next(iterator)
             finally: iterator.close()

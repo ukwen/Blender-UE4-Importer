@@ -57,6 +57,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
     cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static and skeletal LOD0')],default='4.27')
+    geometry_all_lods: BoolProperty(name='All skeletal LODs on one rig',default=False,description='UE5.6: import all supported native render LODs with shared materials')
     geometry_physics: BoolProperty(name='Attach native physics previews',default=False,description='Resolve exact source PhysicsAsset references; missing or unsupported assets are reported without dropping geometry')
     batch_scope: EnumProperty(name='Batch scope',items=[('ALL_MAPS','All maps','Reconstruct all project maps'),('SELECTED_MAP','Selected map','Reconstruct selected map'),('GEOMETRY','Geometry folder','Native geometry inspection gallery'),('MAP_GEOMETRY','Selected map geometry','Import only known geometry dependencies of selected map into a gallery')],default='ALL_MAPS')
     job_items: CollectionProperty(type=UEIMPORT_Job)
@@ -166,7 +167,7 @@ class UEIMPORT_OT_geometry_gallery(bpy.types.Operator):
         state=context.scene.ueimport_project
         try:
             from project_geometry import import_geometry_folder
-            collection,report=import_geometry_folder(bpy.path.abspath(state.project_path),state.geometry_folder,state.cooked_profile,state.geometry_physics)
+            collection,report=import_geometry_folder(bpy.path.abspath(state.project_path),state.geometry_folder,state.cooked_profile,state.geometry_physics,state.geometry_all_lods)
         except Exception as exc:
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
         count=report['counts'].get('reconstructed',0)
@@ -254,7 +255,7 @@ class UEIMPORT_OT_batch(bpy.types.Operator):
         if self.state.recovery_copy:
             from project_session import save_recovery_copy
             self.recovery_path=save_recovery_copy()
-        self.iterator=run_session(self.plan,self.state.cooked_profile,self.state.static_materials,self.state.components,self.state.partial_materials,self.state.geometry_physics)
+        self.iterator=run_session(self.plan,self.state.cooked_profile,self.state.static_materials,self.state.components,self.state.partial_materials,self.state.geometry_physics,self.state.geometry_all_lods)
         self.timer=None;self.wm=context.window_manager;self.next_tick=0.;self.finished=False
         self.wm.progress_begin(0,len(self.plan['jobs']))
         type(self)._active=True
@@ -339,6 +340,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             if state.batch_scope=='GEOMETRY': box.prop(state,'geometry_folder')
             else: box.label(text='Gallery of selected map dependencies')
             box.prop(state,'geometry_physics')
+            if state.cooked_profile=='5.6': box.prop(state,'geometry_all_lods')
         else:
             box.prop(state,'components');box.prop(state,'static_materials')
             if state.static_materials: box.prop(state,'partial_materials')
@@ -368,6 +370,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.prop(state, 'cooked_profile')
             layout.prop(state, 'geometry_folder')
             layout.prop(state, 'geometry_physics')
+            if state.cooked_profile=='5.6': layout.prop(state,'geometry_all_lods')
             layout.operator('ueimport.geometry_gallery', icon='OUTLINER_OB_ARMATURE')
             layout.separator()
             layout.prop(state, 'components')
