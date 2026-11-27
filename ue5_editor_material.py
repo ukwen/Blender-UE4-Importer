@@ -7,7 +7,7 @@ from skeleton_native import Reader
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
-EDITOR_MATERIAL_REVISION = "editor_material_069"
+EDITOR_MATERIAL_REVISION = "editor_material_071"
 
 
 def read_material(path):
@@ -117,7 +117,18 @@ def read_material(path):
         for a in n['inputs'].values():require(not a['index'] or a['index'] in nodes,'Expression input outside material')
         if 'declaration' in n:require(n['declaration'] in nodes and nodes[n['declaration']]['kind']=='NamedRerouteDeclaration','Invalid named reroute')
     require(all(not a['index'] or a['index'] in nodes for a in outputs.values()),'Material output outside graph')
-    return dict(name=e['name'],kind='material',blend=name(t,'BlendMode','BLEND_Opaque'),nodes=nodes,outputs=outputs,unsupported=['UseMaterialAttributes'] if boolval(t,'bUseMaterialAttributes') else [])
+    # A single explicit unlit shading model is required for the transparent
+    # surface preview. Preserve unfamiliar fields without guessing their meaning.
+    shading=name(t,'ShadingModel','not_serialized');domain=name(t,'MaterialDomain','MD_Surface')
+    shading_field=None
+    if 'ShadingModels' in t:
+        x=t['ShadingModels']
+        if x['type']==['StructProperty','MaterialShadingModelField','/Script/Engine'] and not x['flags']&0x28:
+            try:
+                sub=read_tags(x['data'],names);f=sub.get('ShadingModelField',{})
+                if set(sub)=={'ShadingModelField'} and f.get('type')==['UInt16Property'] and len(f['data'])==2 and not f['flags']&0x28:shading_field=struct.unpack('<H',f['data'])[0]
+            except (ValueError,KeyError,struct.error):pass
+    return dict(name=e['name'],kind='material',blend=name(t,'BlendMode','BLEND_Opaque'),shading_model=shading,shading_model_field=shading_field,material_domain=domain,nodes=nodes,outputs=outputs,unsupported=['UseMaterialAttributes'] if boolval(t,'bUseMaterialAttributes') else [])
 
 
 def expand_local_functions(data,content,unsupported):
@@ -198,11 +209,18 @@ def resolve_material(content,package):
     data.update(package=package,chain=chain,parameters=list(overrides.values()),unsupported=unsupported);return data
 
 
+def unlit_translucent_profile(data):
+    return (data.get('blend')=='BLEND_Translucent' and data.get('shading_model')=='MSM_Unlit'
+            and data.get('shading_model_field')==1 and data.get('material_domain')=='MD_Surface'
+            and not data.get('unsupported') and not any(a.get('index') for k,a in data['outputs'].items()
+                if k in ('ShadingModel','WorldPositionOffset','PixelDepthOffset','Refraction','MaterialAttributes')))
+
+
 def build_material(content,package,allow_partial=False):
     import bpy
     from texture_blender import load_editor_texture
     data=resolve_material(content,package);mat=bpy.data.materials.new(package.rsplit('/',1)[-1]);mat.use_nodes=True;mat['UE_material_package']=package
-    mat['UE_editor_graph']=json.dumps(data,sort_keys=True); nt=mat.node_tree;nodes=nt.nodes;links=nt.links;bs=next(n for n in nodes if n.type=='BSDF_PRINCIPLED');bs.location=(650,0);built={};texture_nodes={};texture_alpha={};active=set();issues=list(data['unsupported']);connected=[]
+    mat['UE_editor_graph']=json.dumps(data,sort_keys=True); nt=mat.node_tree;nodes=nt.nodes;links=nt.links;bs=next(n for n in nodes if n.type=='BSDF_PRINCIPLED');bs.location=(650,0);built={};texture_nodes={};texture_alpha={};active=set();issues=list(data['unsupported']);connected=[];surface_inputs={}
     def node(typ,label):
         n=nodes.new(typ);n.label=label;n.location=(-600+(len(nodes)%4)*220,-240*(len(nodes)//4));return n
     def constant(value,label):
@@ -268,8 +286,8 @@ def build_material(content,package,allow_partial=False):
         # A serialized texture output slot already selects its channel. UE often
         # repeats the same one-hot mask on the edge, including Alpha. Do not
         # apply that mask again to the resulting scalar.
-        if data['nodes'][a['index']]['kind'] in ('TextureSample','TextureSampleParameter2D','ParticleColor') and 1<=a['output']<=4:
-            require(not a['mask'][0] or a['mask']==[1]+[int(k==a['output']) for k in range(1,5)],'Conflicting texture output channel mask');return sock
+        if data['nodes'][a['index']]['kind'] in ('TextureSample','TextureSampleParameter2D','ParticleColor','VectorParameter') and 1<=a['output']<=4:
+            require(not a['mask'][0] or a['mask']==[1]+[int(k==a['output']) for k in range(1,5)],'Conflicting output channel mask');return sock
         return select(sock,a['mask'])
     def emit(i,output=0):
         key=(i,output)
@@ -277,7 +295,11 @@ def build_material(content,package,allow_partial=False):
         require(i not in active,'Material expression cycle');active.add(i)
         try:
             d=data['nodes'][i];kind=d['kind'];label=d['parameter'] or d['name'];ins=d['inputs']
-            if kind in ('ScalarParameter','VectorParameter','Constant','Constant3Vector') and output==0:s=constant(d['value'],label)
+            if kind in ('ScalarParameter','Constant','Constant3Vector') and output==0:s=constant(d['value'],label)
+            elif kind=='VectorParameter' and 0<=output<=4:
+                if (i,0) not in built:
+                    v=d['value'];require(len(v)==4,'Invalid vector parameter width');rgb=constant(v,label);alpha=constant(v[3],label+' (alpha parameter)');built[i,0]=rgb;texture_alpha[rgb.as_pointer()]=alpha
+                rgb=built[i,0];s=texture_alpha[rgb.as_pointer()] if output==4 else select(rgb,[1]+[int(k==output) for k in range(1,5)]) if output else rgb
             elif kind=='Constant2Vector' and output==0:s=combine([*d['value'],0.],label)
             elif kind=='ParticleColor' and 0<=output<=4:
                 # A neutral editable preview, never a recovered Niagara/Cascade value.
@@ -393,7 +415,7 @@ def build_material(content,package,allow_partial=False):
                 if k=='Normal':
                     n=node('ShaderNodeNormalMap','Unreal tangent normal (Blender basis preview)');links.new(s,n.inputs['Color']);s=n.outputs[0];issues.append('Tangent-space normal basis not independently verified')
                 if k=='EmissiveColor':bs.inputs['Emission Strength'].default_value=1.
-                links.new(s,bs.inputs[socket]);connected.append(k)
+                links.new(s,bs.inputs[socket]);connected.append(k);surface_inputs[k]=s
             elif a['use_constant'] and k!='Normal':
                 v=a['constant'];bs.inputs[socket].default_value=v[0] if len(v)==1 else v;connected.append(k)
         except Exception as exc:issues.append(k+': '+str(exc))
@@ -404,16 +426,24 @@ def build_material(content,package,allow_partial=False):
         try:
             s=edge(ao);n=node('ShaderNodeMath','Unreal Ambient Occlusion (unconnected data)');n.operation='ADD';n.inputs[1].default_value=0.;links.new(s,n.inputs[0]);preserved.append('AmbientOcclusion');issues.append('Ambient Occlusion preserved; no equivalent Principled input')
         except Exception as exc:issues.append('AmbientOcclusion: '+str(exc))
-    # Preserve opacity as editable data only. Do not silently turn Unreal blend
-    # modes or first-person clipping into Blender transparency semantics.
+    # Preserve source opacity as editable data. Only the bounded explicit unlit
+    # translucent preview below consumes it; masked/runtime clipping is not inferred.
     for k in ('Opacity','OpacityMask'):
         a=data['outputs'].get(k)
         if a and a['index']:
             try:
-                s=edge(a);require(s.type=='VALUE','Non-scalar opacity');n=node('ShaderNodeMath','Unreal '+k+' (unconnected data)');n.operation='ADD';n.inputs[1].default_value=0.;links.new(s,n.inputs[0]);n['UE_preserved_output']=k;preserved.append(k);issues.append(k+' preserved; Unreal blend or clipping not evaluated')
+                s=edge(a);require(s.type=='VALUE','Non-scalar opacity');n=node('ShaderNodeMath','Unreal '+k+' (source data)');n.operation='ADD';n.inputs[1].default_value=0.;links.new(s,n.inputs[0]);n['UE_preserved_output']=k;preserved.append(k);surface_inputs[k]=n.outputs[0];issues.append(k+' preserved; Unreal blend or clipping not evaluated')
             except Exception as exc:issues.append(k+': '+str(exc))
     for k,a in data['outputs'].items():
         if a['index'] and k not in connected and k not in preserved:issues.append('Untranslated output '+k)
+    # Only explicit, single-model unlit translucent surface graphs with both
+    # usable branches qualify. Do not use Principled alpha for lit, masked,
+    # additive, or runtime-dependent blend equations. Strict mode stays opaque.
+    if allow_partial and unlit_translucent_profile(data) and {'EmissiveColor','Opacity'}<=surface_inputs.keys():
+        emission=node('ShaderNodeEmission','Unreal unlit emission preview');links.new(surface_inputs['EmissiveColor'],emission.inputs['Color']);emission.inputs['Strength'].default_value=1.
+        transparent=node('ShaderNodeBsdfTransparent','Unreal transparent preview');transparent.inputs['Color'].default_value=(1.,1.,1.,1.)
+        alpha=mathop('ADD',surface_inputs['Opacity'],0.,'Preview opacity clamped to 0–1');alpha.node.use_clamp=True
+        blend=node('ShaderNodeMixShader','Unlit translucent preview (not engine blend parity)');links.new(alpha,blend.inputs[0]);links.new(transparent.outputs[0],blend.inputs[1]);links.new(emission.outputs[0],blend.inputs[2]);out=next(n for n in nodes if n.type=='OUTPUT_MATERIAL');links.new(blend.outputs[0],out.inputs['Surface']);blend['UE_unlit_translucent_preview']=True;mat['UE_surface_preview']='unlit_translucent';issues.append('Unlit emission/transparent surface approximation; no Unreal depth, sorting or renderer equivalence')
     if data['blend']!='BLEND_Opaque':issues.append('Untranslated blend mode '+data['blend'])
     status='partial' if issues else 'supported_pbr_subset';mat['UE_editor_material_status']=status;mat['UE_unresolved_material']=bool(issues);mat['UE_editor_material_issues']=json.dumps(sorted(set(issues)));mat['UE_editor_connected_outputs']=json.dumps(connected);mat['UE_editor_preserved_outputs']=json.dumps(preserved)
     if issues and not allow_partial:

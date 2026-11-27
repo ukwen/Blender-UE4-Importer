@@ -117,3 +117,7 @@ See [procedural material coordinate and opacity previews](docs/0.10.69-procedura
 ## 0.10.70-dev
 
 See [authored root translation and external pose validation](docs/0.10.70-root-translation.md).
+
+## 0.10.71-dev
+
+See [bounded unlit translucent surface previews](docs/0.10.71-unlit-translucency.md).
