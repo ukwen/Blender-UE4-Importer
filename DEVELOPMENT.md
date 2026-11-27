@@ -121,3 +121,7 @@ See [authored root translation and external pose validation](docs/0.10.70-root-t
 ## 0.10.71-dev
 
 See [bounded unlit translucent surface previews](docs/0.10.71-unlit-translucency.md).
+
+## 0.10.72-dev
+
+See [saved masked character materials and source character integration](docs/0.10.72-masked-character.md).

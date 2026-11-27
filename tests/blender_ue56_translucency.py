@@ -12,7 +12,8 @@ for name in ('M_radial_ramp_soft','M_SimpleGlow','M_WP_Linkgun_Connection','M_Ma
     m=build_material(root,pkg(name),True);m.use_fake_user=True
     results[name]=dict(surface=surface(m).type,preview=m.get('UE_surface_preview','none'),issues=json.loads(m['UE_editor_material_issues']))
     if name in ('M_radial_ramp_soft','M_SimpleGlow'):assert surface(m).type=='MIX_SHADER' and m.get('UE_surface_preview')=='unlit_translucent',results[name]
-    if name in ('M_Mannequin','M_LensFlare_02'):assert not m.get('UE_surface_preview')
+    if name=='M_LensFlare_02':assert not m.get('UE_surface_preview')
+    if name=='M_Mannequin':assert m.get('UE_surface_preview')=='masked'
     strict=build_material(root,pkg(name),False);assert strict['UE_editor_material_status']=='metadata_only' and not strict.get('UE_surface_preview') and surface(strict).type=='BSDF_PRINCIPLED';bpy.data.materials.remove(strict)
 mat=bpy.data.materials['M_radial_ramp_soft'];bpy.ops.mesh.primitive_plane_add(size=2);plane=bpy.context.object;plane.data.uv_layers.active.name='UV0';plane.data.materials.append(mat)
 bpy.ops.object.camera_add(location=(0,0,3));cam=bpy.context.object;cam.data.type='ORTHO';cam.data.ortho_scale=2;sc=bpy.context.scene;sc.camera=cam

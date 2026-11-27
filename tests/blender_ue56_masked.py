@@ -1,0 +1,16 @@
+"""Validate source Mannequin mask on camera rays; not Unreal runtime parity."""
+import os,sys,json,bpy,numpy as np
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from ue5_editor_material import build_material
+root=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content';out=Path(os.environ['UE56_EDITOR_OUTPUT']);bpy.ops.wm.read_factory_settings(use_empty=True)
+pkg='/Game/Characters/Mannequins/Materials/M_Mannequin';mat=build_material(root,pkg,True);assert mat.get('UE_surface_preview')=='masked',mat['UE_editor_material_issues'];assert mat.get('UE_mask_clip_source')=='preview_default_not_serialized'
+strict=build_material(root,pkg,False);assert strict['UE_editor_material_status']=='metadata_only' and not strict.get('UE_surface_preview');bpy.data.materials.remove(strict)
+bpy.ops.mesh.primitive_plane_add(size=2);plane=bpy.context.object;plane.data.uv_layers.active.name='UV0';plane.data.materials.append(mat)
+bpy.ops.object.camera_add(location=(0,0,.12));cam=bpy.context.object;cam.data.type='PERSP';cam.data.lens=12.;cam.data.sensor_width=36.;cam.data.clip_start=.001;sc=bpy.context.scene;sc.camera=cam
+sc.render.engine='CYCLES';sc.cycles.device='CPU';sc.cycles.samples=16;sc.cycles.use_adaptive_sampling=False;sc.cycles.use_denoising=False;sc.render.film_transparent=True;sc.render.resolution_x=96;sc.render.resolution_y=96;sc.render.resolution_percentage=100;sc.render.image_settings.file_format='OPEN_EXR';sc.render.image_settings.color_depth='32';sc.render.image_settings.color_mode='RGBA';sc.render.threads_mode='FIXED';sc.render.threads=4
+bpy.ops.wm.save_as_mainfile(filepath=str(out));bpy.ops.wm.open_mainfile(filepath=str(out));sc=bpy.context.scene;mat=bpy.data.materials['M_Mannequin'];nodes=mat.node_tree.nodes;toggle=next(n for n in nodes if n.get('UE_first_person_preview'));cutout=next(n for n in nodes if n.label=='Head Cutout');assert abs(cutout.outputs[0].default_value-16.40704345703125)<1e-5
+a=((np.arange(96)+.5)/96-.5)*.36;x,y=np.meshgrid(a,a);dist=np.sqrt(x*x+y*y+.12**2)*100;checks=[]
+for first,threshold in [(0.,16.40704345703125),(1.,16.40704345703125),(1.,20.)]:
+    toggle.outputs[0].default_value=first;cutout.outputs[0].default_value=threshold;sc.render.filepath=str(out.with_name(f'mask-{first}-{threshold}.exr'));bpy.ops.render.render(write_still=True);im=bpy.data.images.load(sc.render.filepath,check_existing=False);raw=np.empty(96*96*4,dtype=np.float32);im.pixels.foreach_get(raw);bpy.data.images.remove(im);alpha=raw.reshape(96,96,4)[:,:,3];expected=(dist>=threshold) if first else np.ones_like(dist,dtype=bool);interior=np.abs(dist-threshold)>.5 if first else np.ones_like(dist,dtype=bool);err=np.abs(alpha[interior]-expected[interior]);result=dict(first_person=first,cutout_cm=threshold,pixels=int(interior.sum()),max_alpha_error=float(err.max()),mean_alpha_error=float(err.mean()),expected_clipped=int((~expected&interior).sum()),actual_clipped=int(((alpha<.5)&interior).sum()));print('MASK_CHECK',result,flush=True);assert err.max()<1e-5,result;checks.append(result)
+out.with_suffix('.json').write_text(json.dumps(dict(checks=checks,reopened=True,strict_refusal=True,material=pkg,runtime_parity=False),indent=2));print('MASK_PASS',flush=True)

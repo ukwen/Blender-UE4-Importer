@@ -7,7 +7,7 @@ from skeleton_native import Reader
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
-EDITOR_MATERIAL_REVISION = "editor_material_071"
+EDITOR_MATERIAL_REVISION = "editor_material_072"
 
 
 def read_material(path):
@@ -128,7 +128,7 @@ def read_material(path):
                 sub=read_tags(x['data'],names);f=sub.get('ShadingModelField',{})
                 if set(sub)=={'ShadingModelField'} and f.get('type')==['UInt16Property'] and len(f['data'])==2 and not f['flags']&0x28:shading_field=struct.unpack('<H',f['data'])[0]
             except (ValueError,KeyError,struct.error):pass
-    return dict(name=e['name'],kind='material',blend=name(t,'BlendMode','BLEND_Opaque'),shading_model=shading,shading_model_field=shading_field,material_domain=domain,nodes=nodes,outputs=outputs,unsupported=['UseMaterialAttributes'] if boolval(t,'bUseMaterialAttributes') else [])
+    return dict(name=e['name'],kind='material',blend=name(t,'BlendMode','BLEND_Opaque'),shading_model=shading,shading_model_field=shading_field,material_domain=domain,opacity_mask_clip=val(t,'OpacityMaskClipValue',['FloatProperty'],'f'),nodes=nodes,outputs=outputs,unsupported=['UseMaterialAttributes'] if boolval(t,'bUseMaterialAttributes') else [])
 
 
 def expand_local_functions(data,content,unsupported):
@@ -213,6 +213,17 @@ def unlit_translucent_profile(data):
     return (data.get('blend')=='BLEND_Translucent' and data.get('shading_model')=='MSM_Unlit'
             and data.get('shading_model_field')==1 and data.get('material_domain')=='MD_Surface'
             and not data.get('unsupported') and not any(a.get('index') for k,a in data['outputs'].items()
+                if k in ('ShadingModel','WorldPositionOffset','PixelDepthOffset','Refraction','MaterialAttributes')))
+
+
+def masked_surface_profile(data):
+    """Bounded default-lit surface mask preview."""
+    clip=data.get('opacity_mask_clip')
+    return (data.get('blend')=='BLEND_Masked' and data.get('material_domain')=='MD_Surface'
+            and (data.get('shading_model'),data.get('shading_model_field')) in
+                (('not_serialized',None),('MSM_DefaultLit',2))
+            and (clip is None or 0.<clip<=1.) and not data.get('unsupported')
+            and not any(a.get('index') for k,a in data['outputs'].items()
                 if k in ('ShadingModel','WorldPositionOffset','PixelDepthOffset','Refraction','MaterialAttributes')))
 
 
@@ -328,6 +339,14 @@ def build_material(content,package,allow_partial=False):
                 if 'AEqualsB' in ins and ins['AEqualsB']['index']:
                     eq=mathop('LESS_THAN',mathop('ABSOLUTE',mathop('SUBTRACT',a,b)),d['threshold']);s=mix(s,edge(ins['AEqualsB']),eq,label+' equality')
                 else:issues.append('If equality boundary is a preview; no Unreal-evaluated reference')
+            elif kind=='IsFirstPerson' and output==0:
+                s=constant(0.,'Unreal first-person preview (0 or 1)');s.node['UE_first_person_preview']=True;issues.append('First-person state is a manual preview control; Unreal runtime state not evaluated')
+            elif kind=='Length' and output==0:
+                a=ins['Input'];src=data['nodes'][a['index']]
+                if src['kind']=='WorldPosition' and src.get('world_offset')=='WPT_CameraRelative' and a['output']==0 and a['mask'] in ([0,0,0,0,0],[1,1,1,1,0]):
+                    n=node('ShaderNodeCameraData','Camera-relative distance preview');s=mathop('MULTIPLY',n.outputs['View Distance'],100.,label+' (cm)');issues.append('Camera-relative length uses Blender camera distance; no Unreal first-person projection parity')
+                else:
+                    v=edge(a);require(v.type=='VECTOR','Unsupported Length input');n=node('ShaderNodeVectorMath',label);n.operation='LENGTH';links.new(v,n.inputs[0]);s=n.outputs['Value']
             elif kind in ('WorldPosition','ActorPositionWS','VertexNormalWS') and output==0:
                 if kind=='WorldPosition':require(d.get('world_offset','default_not_serialized')=='default_not_serialized','Explicit WorldPosition offset mode unsupported: '+d['world_offset'])
                 if kind=='ActorPositionWS':n=node('ShaderNodeObjectInfo',label);sock=n.outputs['Location'];issues.append('Actor origin approximated by Blender object origin')
@@ -444,6 +463,12 @@ def build_material(content,package,allow_partial=False):
         transparent=node('ShaderNodeBsdfTransparent','Unreal transparent preview');transparent.inputs['Color'].default_value=(1.,1.,1.,1.)
         alpha=mathop('ADD',surface_inputs['Opacity'],0.,'Preview opacity clamped to 0–1');alpha.node.use_clamp=True
         blend=node('ShaderNodeMixShader','Unlit translucent preview (not engine blend parity)');links.new(alpha,blend.inputs[0]);links.new(transparent.outputs[0],blend.inputs[1]);links.new(emission.outputs[0],blend.inputs[2]);out=next(n for n in nodes if n.type=='OUTPUT_MATERIAL');links.new(blend.outputs[0],out.inputs['Surface']);blend['UE_unlit_translucent_preview']=True;mat['UE_surface_preview']='unlit_translucent';issues.append('Unlit emission/transparent surface approximation; no Unreal depth, sorting or renderer equivalence')
+    if allow_partial and masked_surface_profile(data) and 'OpacityMask' in surface_inputs:
+        clip=data.get('opacity_mask_clip');source='serialized' if clip is not None else 'preview_default_not_serialized';clip=.3333 if clip is None else clip
+        threshold=constant(clip,'Unreal mask clip threshold ('+source+')');threshold.node['UE_mask_clip_source']=source
+        alpha=mathop('SUBTRACT',1.,mathop('LESS_THAN',surface_inputs['OpacityMask'],threshold),'Binary mask (>= clip)')
+        transparent=node('ShaderNodeBsdfTransparent','Unreal clipped surface preview');transparent.inputs['Color'].default_value=(1.,1.,1.,1.)
+        blend=node('ShaderNodeMixShader','Masked surface preview (not engine blend parity)');links.new(alpha,blend.inputs[0]);links.new(transparent.outputs[0],blend.inputs[1]);links.new(bs.outputs[0],blend.inputs[2]);out=next(n for n in nodes if n.type=='OUTPUT_MATERIAL');links.new(blend.outputs[0],out.inputs['Surface']);blend['UE_masked_preview']=True;mat['UE_surface_preview']='masked';mat['UE_mask_clip_source']=source;issues.append('Binary mask surface preview; no Unreal renderer or first-person parity')
     if data['blend']!='BLEND_Opaque':issues.append('Untranslated blend mode '+data['blend'])
     status='partial' if issues else 'supported_pbr_subset';mat['UE_editor_material_status']=status;mat['UE_unresolved_material']=bool(issues);mat['UE_editor_material_issues']=json.dumps(sorted(set(issues)));mat['UE_editor_connected_outputs']=json.dumps(connected);mat['UE_editor_preserved_outputs']=json.dumps(preserved)
     if issues and not allow_partial:
