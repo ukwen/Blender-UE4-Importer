@@ -118,6 +118,9 @@ def reconstruct(filepath,materials=False,components=False,partial=False):
         report['component_report']=dict(actors=len(actors),objects=component_objects,status=dict(component_counts),skipped=skips,scope='saved static components with exact CDO/SCS defaults; native C++ defaults not independently verified')
         report['components_status']='bounded saved Blueprint static components; no runtime execution'
         report['decode_attempts']=resolver.decode_attempts;report['dependencies']={p:{'status':r['status'],'detail':r['detail']} for p,r in resolver.records.items()}
+        from ue5_editor_characters import extend_characters
+        report['character_report']=extend_characters(content,filepath,collection)
+        report['components_status']='bounded saved Blueprint static and skeletal components; no runtime execution'
     if materials:
         from ue5_editor_material import bind_slots
         report['material_report']=bind_slots(collection.objects,content,partial)

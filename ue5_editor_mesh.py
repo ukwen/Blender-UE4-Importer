@@ -172,7 +172,7 @@ def build_static(data):
         raise
 
 
-def read_skeletal(path,decoder=None):
+def read_skeletal(path,decoder=None,allow_unresolved_slots=False):
     """Recover explicit editor LOD0 source, including original skin weights."""
     meta,raw,imports,exports,ref,package=read_tables(path);names=meta['names']
     require(meta['ue5'] in (1016,1017),'UE5.6 editor skeletal profile required')
@@ -200,9 +200,14 @@ def read_skeletal(path,decoder=None):
     require(r.count(8192)==len(bones),'Native reference pose count mismatch')
     for b in bones:
         native=r.unpack('10d');source=b['rotation']+b['translation']+b['scale'];require(max(abs(x-y) for x,y in zip(native,source))<1e-5,'Native and source reference poses differ')
-    mapping={}
+    original_materials=list(materials); mapping={}; unresolved=[]
     for group,slot in data['slots'].items():
-        matches=[i for i,m in enumerate(materials) if m[0]==slot];require(len(matches)==1,'Ambiguous skeletal material slot '+slot);mapping[group]=matches[0]
+        matches=[i for i,m in enumerate(original_materials) if m[0]==slot]
+        if len(matches)==1:mapping[group]=matches[0]
+        else:
+            require(allow_unresolved_slots,'Ambiguous skeletal material slot '+slot)
+            mapping[group]=len(materials);materials.append((slot,''));unresolved.append(dict(group=group,name=slot,candidates=matches))
+    data['original_materials']=original_materials;data['unresolved_material_groups']=unresolved
     sk=tags.get('Skeleton');require(sk and sk['type']==['ObjectProperty'] and len(sk['data'])==4,'Missing skeletal asset reference')
     si=struct.unpack('<i',sk['data'])[0];require(si<0 and ref(si)['kind']=='Skeleton' and package(si),'Invalid skeleton package')
     data.update(name=e['name'],source=str(path),materials=materials,group_to_slot=mapping,source_hash=info['hash'],raw_size=info['raw_size'],skeleton_package=package(si),declared_lods=count)
@@ -222,6 +227,9 @@ def build_skeletal(data,collection=None):
         for i,v in enumerate(sorted(data['vertices'])):
             for j,w in data['weights'][v].items():groups[j].add([i],w/65535,'REPLACE')
         mod=obj.modifiers.new('UE skinning','ARMATURE');mod.object=arm;mod.use_deform_preserve_volume=False
+        if data.get('unresolved_material_groups'):
+            import json
+            mesh['UE_unresolved_material_groups']=json.dumps(data['unresolved_material_groups']);mesh['UE_original_material_table']=json.dumps(data['original_materials'])
         mesh['UE_source_lod_index']=0;mesh['UE_declared_source_models']=data['declared_lods'];mesh['UE_source_format']='UE5 editor skinned FMeshDescription'
         arm['UE_skeleton_package']=data['skeleton_package'];arm['UE_skeleton_status']='editor_source_skinning';return obj,arm
     except Exception:

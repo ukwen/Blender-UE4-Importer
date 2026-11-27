@@ -139,6 +139,14 @@ def placements(content,map_path):
     return out,skipped
 
 
+def character_fields(tags):
+    require(not any(k in tags for k in ('bAbsoluteLocation','bAbsoluteRotation','bAbsoluteScale','AttachSocketName')),'Unsupported character transform');out={}
+    for k,kind,default in [('RelativeLocation','Vector',(0.,0.,0.)),('RelativeRotation','Rotator',(0.,0.,0.)),('RelativeScale3D','Vector',(1.,1.,1.))]:
+        v=tags.get(k);out[k]=default
+        if v:
+            require(v['type']==['StructProperty',kind,'/Script/CoreUObject'] and len(v['data'])==24 and not v['flags']&0x20,'Invalid character transform');out[k]=Reader(v['data']).unpack('3d')
+    require(all(math.isfinite(x) for v in out.values() for x in v) and min(out['RelativeScale3D'])>0,'Invalid character transform');return out
+
 def character_defaults(path):
     """Explicit CDO body/root pair. No inference from imported mesh lists."""
     path=Path(path).resolve();m,b,im,ex,ref,pkg=read_tables(path);names=m['names'];require(m['ue5'] in (1016,1017),'Unsupported editor Blueprint version')
@@ -152,34 +160,48 @@ def character_defaults(path):
         if k in mt:
             j=index_value(mt,k);require(j<0 and ref(j)['kind']=='SkeletalMesh' and pkg(j),'Invalid skeletal mesh reference');refs.append(pkg(j))
     require(len(set(refs))==1,'No unique explicit skeletal mesh')
-    def fields(tags):
-        require(not any(k in tags for k in ('bAbsoluteLocation','bAbsoluteRotation','bAbsoluteScale','AttachSocketName')),'Unsupported character transform');out={}
-        for k,kind,default in [('RelativeLocation','Vector',(0.,0.,0.)),('RelativeRotation','Rotator',(0.,0.,0.)),('RelativeScale3D','Vector',(1.,1.,1.))]:
-            v=tags.get(k);out[k]=default
-            if v:
-                require(v['type']==['StructProperty',kind,'/Script/CoreUObject'] and len(v['data'])==24 and not v['flags']&0x20,'Invalid character transform');out[k]=Reader(v['data']).unpack('3d')
-        require(all(math.isfinite(x) for v in out.values() for x in v) and min(out['RelativeScale3D'])>0,'Invalid character transform');return out
     content=next((p for p in path.parents if p.name=='Content' and len(list(p.parent.glob('*.uproject')))==1),None);require(content is not None,'Blueprint must be inside original project Content')
-    return dict(name=cls['name'],source='/Game/'+path.relative_to(content).with_suffix('').as_posix(),mesh_package=refs[0],root_fields=fields(rt),mesh_fields=fields(mt),content=content)
+    overrides=[]
+    for j in array(mt,'OverrideMaterials'):
+        require(j==0 or j<0 and ref(j)['kind'] in ('Material','MaterialInstanceConstant') and pkg(j),'Invalid class body material override');overrides.append(pkg(j) if j else '')
+    package='/Game/'+path.relative_to(content).with_suffix('').as_posix()
+    require(not m.get('package_name') or m['package_name']==package,'Character Blueprint package identity mismatch')
+    return dict(overrides=overrides,name=cls['name'],source=package,mesh_package=refs[0],root_fields=character_fields(rt),mesh_fields=character_fields(mt),root_name=root['name'],mesh_name=mesh['name'],root_tags=rt,mesh_tags=mt,content=content)
 
 
 def build_character_preview(path,collection=None,materials=False,partial=False,sockets=True):
+    data=character_defaults(path)
+    return build_character_data(data,collection,materials,partial,sockets)
+
+def build_character_data(data,collection=None,materials=False,partial=False,sockets=True,allow_unresolved_slots=False,decoded_cache=None,allow_missing_sockets=False):
     import bpy,json
     from blueprint_placement import apply_fields
     from ue5_editor_mesh import read_skeletal,build_skeletal
     from project_session import new_ids,rollback_new
-    data=character_defaults(path);content=data['content'];package=data['mesh_package'];require(package.startswith('/Game/'),'Unsupported skeletal mesh mount')
+    content=data['content'];package=data['mesh_package'];require(package.startswith('/Game/'),'Unsupported skeletal mesh mount')
     source=(content/(package[6:]+'.uasset')).resolve();require(source.is_relative_to(content) and source.is_file(),'Missing original skeletal mesh '+package)
-    decoded=read_skeletal(source);before=set(new_ids());collection=collection or bpy.context.collection
+    if decoded_cache is None:decoded_cache={}
+    if source not in decoded_cache:decoded_cache[source]=read_skeletal(source,allow_unresolved_slots=allow_unresolved_slots)
+    decoded=decoded_cache[source];before=set(new_ids());collection=collection or bpy.context.collection
     try:
         obj,arm=build_skeletal(decoded,collection);anchor=bpy.data.objects.new(data['name'],None);collection.objects.link(anchor);anchor.empty_display_type='PLAIN_AXES';anchor.empty_display_size=.2;apply_fields(anchor,data['root_fields']);arm.parent=anchor;apply_fields(arm,data['mesh_fields']);anchor['UE_blueprint_package']=data['source'];anchor['UE_native_defaults_unverified']=True;anchor['UE_preview_only']=True;obj['UE_mesh_package']=package
+        if data.get('overrides'):
+            obj['UE_material_override_packages']=json.dumps(data['overrides'])
+            if decoded.get('unresolved_material_groups'):obj['UE_unresolved_override_slots']=True
+            for i,pkg in enumerate(data['overrides'] if not decoded.get('unresolved_material_groups') else []):
+                require(i<len(obj.material_slots),'Invalid override slot index')
+                if pkg:
+                    mat=bpy.data.materials.new(pkg.rsplit('/',1)[-1]);mat['UE_material_package']=pkg;mat['UE_unresolved_material']=True;obj.material_slots[i].link='OBJECT';obj.material_slots[i].material=mat
         if materials:
             from ue5_editor_material import bind_slots
             bind_slots([obj],content,partial)
         if sockets:
             from ue5_editor_skeleton import read_skeleton
             from native_sockets import create_socket_anchors
-            sp=decoded['skeleton_package'];require(sp.startswith('/Game/'),'Unsupported skeleton mount');p=(content/(sp[6:]+'.uasset')).resolve();require(p.is_relative_to(content) and p.is_file(),'Missing original reference skeleton')
+            sp=decoded['skeleton_package'];require(sp.startswith('/Game/'),'Unsupported skeleton mount');p=(content/(sp[6:]+'.uasset')).resolve();require(p.is_relative_to(content),'Reference skeleton escapes Content')
+            if not p.is_file() and allow_missing_sockets:
+                arm['UE_socket_status']='missing original reference skeleton: '+sp;return anchor,obj,arm
+            require(p.is_file(),'Missing original reference skeleton')
             sk=read_skeleton(p);require(sk['skeleton_package']==sp,'Skeleton identity mismatch');records=sk['sockets'];available=[r for r in records if arm.data.bones.get(r['bone']) is not None]
             arm['UE_socket_definitions']=json.dumps(records);arm['UE_omitted_socket_names']=json.dumps([r['name'] for r in records if r not in available])
             if available:create_socket_anchors(arm,available,collection)

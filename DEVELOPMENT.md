@@ -125,3 +125,7 @@ See [bounded unlit translucent surface previews](docs/0.10.71-unlit-translucency
 ## 0.10.72-dev
 
 See [saved masked character materials and source character integration](docs/0.10.72-masked-character.md).
+
+## 0.10.73-dev
+
+See [saved skeletal characters in native level reconstruction](docs/0.10.73-level-characters.md).

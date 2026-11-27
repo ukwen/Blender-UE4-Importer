@@ -154,7 +154,8 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
         count = report['actor_status'].get('reconstructed', 0)
         foliage = report.get('foliage_report', {}).get('instances', 0)
         components = report.get('component_report', {}).get('status', {}).get('reconstructed', 0)
-        self.report({'INFO'}, f'{count}/{report["static_actors"]} static actors; {foliage} foliage instances; {components} mesh components; report: {collection["UE_report"]}')
+        characters=report.get('character_report',{}).get('status',{}); bodies=characters.get('reconstructed',0)+characters.get('geometry_only_unresolved_slots',0)
+        self.report({'INFO'}, f'{count}/{report["static_actors"]} static actors; {foliage} foliage instances; {components} mesh components; {bodies} skeletal bodies; report: {collection["UE_report"]}')
         return {'FINISHED'}
 
 
@@ -351,7 +352,7 @@ class UEIMPORT_OT_batch(bpy.types.Operator):
             blocked=sum(r['status']=='blocked_stale' for r in self.results)
             failed=sum(r['status'] in ('failed','unsupported') for r in self.results)
             self.state.batch_status=f"{status}: {len(self.results)}/{len(self.plan['jobs'])}; {reused} reused, {blocked} blocked, {failed} failed"
-            self.report({'WARNING'} if status!='completed' or any(r['status'] in ('failed','unsupported','blocked_stale') or r.get('has_unresolved_static') or r.get('result',{}).get('physics',{}).get('status') in ('missing','unavailable') for r in self.results) else {'INFO'},self.state.batch_status)
+            self.report({'WARNING'} if status!='completed' or any(r['status'] in ('failed','unsupported','blocked_stale') or r.get('has_unresolved_static') or r.get('has_unresolved_characters') or r.get('result',{}).get('physics',{}).get('status') in ('missing','unavailable') for r in self.results) else {'INFO'},self.state.batch_status)
         finally:
             if self.timer: self.wm.event_timer_remove(self.timer)
             self.wm.progress_end();type(self)._active=False

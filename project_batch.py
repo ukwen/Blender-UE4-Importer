@@ -32,8 +32,9 @@ def run_jobs(plan,profile='4.27',materials=True,components=True,partial=False,ph
             before={x.as_pointer() for store in stores for x in store}
             try:
                 collection,report=reconstruct_static_map(path,materials=materials,allow_partial_materials=partial,cooked_profile=profile,components=components)
-                result=dict(job=path,status='completed',collection=collection.name,report=collection['UE_report'],static=report['actor_status'],foliage=report.get('foliage_report',{}).get('instances',0),components=report.get('component_report',{}).get('status',{}))
+                result=dict(job=path,status='completed',collection=collection.name,report=collection['UE_report'],static=report['actor_status'],foliage=report.get('foliage_report',{}).get('instances',0),components=report.get('component_report',{}).get('status',{}),characters=report.get('character_report',{}).get('status',{}))
                 result['has_unresolved_static']=any(k!='reconstructed' and v for k,v in result['static'].items())
+                ch=report.get('character_report',{});result['has_unresolved_characters']=bool(ch.get('skipped') or any(r['status']!='reconstructed' or r.get('socket_status','').startswith('missing ') for r in ch.get('records',[])))
                 yield result
             except Exception as exc:
                 created=[x for store in stores for x in store if x.as_pointer() not in before]

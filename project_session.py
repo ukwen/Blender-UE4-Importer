@@ -63,7 +63,7 @@ def options_key(plan,profile,materials,components,partial,physics,all_lods=False
         geometry.extend([EDITOR_MATERIAL_REVISION,partial])
     mapping=[SCHEMA,profile,materials,components,partial]
     if is_editor and materials:mapping.append(EDITOR_MATERIAL_REVISION)
-    if is_editor and components:mapping.append('editor_components_063')
+    if is_editor and components:mapping.append('editor_components_073')
     return digest(geometry if plan['scope'] in ('GEOMETRY','MAP_GEOMETRY') else mapping)
 
 def collection_objects(collection):
