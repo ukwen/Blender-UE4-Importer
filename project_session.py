@@ -22,6 +22,8 @@ def source_fingerprint(plan):
     from project_preflight import content_paths
     project=Path(plan['project']).resolve(); content=project.parent/'Content'
     files=[project]; packages=content_paths(content)
+    for folder in (content/"__ExternalActors__",content/"__ExternalObjects__"):
+        packages.extend(p for p in folder.rglob("*.uasset") if p.is_file() and p.resolve().is_relative_to(content.resolve()))
     for p in packages:
         files.append(p)
         files.extend(p.with_suffix(ext) for ext in ('.uexp','.ubulk','.uptnl') if p.with_suffix(ext).is_file())

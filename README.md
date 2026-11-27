@@ -122,3 +122,6 @@ Opt-in UE5.6 shared-rig LOD import, manual or user-defined camera-distance switc
 ### UE5.7 editor dependency inventory (0.10.54)
 
 Preflight reads the tested tagged 1018 dependency tables, including custom-version-driven UTF-8 soft subpaths. This is dependency inspection only, not native UE5.7 mesh or Blueprint execution support.
+
+### UE5.6 editor source reconstruction (0.10.55)
+Original monolithic 1016/1017 static and skeletal source LOD0 MeshDescriptions and root StaticMeshActor placements (including World Partition external actors) are supported for the tested ShooterSam layout. Configure the separately built payload decoder; see [editor source development notes](docs/0.10.55-ue56-editor.md). Editor materials remain unresolved placeholders with original package identities.

@@ -41,6 +41,15 @@ class ImportUESkeletalMesh(bpy.types.Operator, ImportHelper):
     def execute(self,context):
         from skeletal_mesh_native import read_native_mesh, build_mesh
         try:
+            from pathlib import Path
+            from package_inspector import inspect_package
+            if not Path(self.filepath).with_suffix('.uexp').is_file() and inspect_package(self.filepath).get('ue5') in (1016,1017):
+                if self.lod or self.all_lods: raise ValueError('Only original editor source LOD0 supported; generated LODs are not reconstructed')
+                from ue5_editor_mesh import read_skeletal,build_skeletal
+                data=read_skeletal(self.filepath);obj,arm=build_skeletal(data,context.collection)
+                obj['UE_source_package']=self.filepath
+                self.report({'INFO'},f"Imported {len(data['vertices'])} original editor vertices and {len(data['bones'])} bones")
+                return {'FINISHED'}
             if self.all_lods:
                 if self.profile!='5.6': raise ValueError('Shared LOD import requires the UE5.6 profile')
                 from skeletal_lod_group import build_lod_group

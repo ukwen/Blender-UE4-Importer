@@ -66,6 +66,10 @@ class MeshResolver:
 
 def reconstruct_static_map(filepath, materials=False, allow_partial_materials=False, cooked_profile='4.27', components=False):
     """Return a new collection plus measured per-actor and per-package results."""
+    from package_inspector import inspect_package
+    if inspect_package(filepath).get('ue5') in (1016,1017):
+        from ue5_editor_scene import reconstruct
+        return reconstruct(filepath,materials,components)
     resolver = MeshResolver(uasset.UProject(filepath), cooked_profile)
     collection, report = map_layout.import_layout(filepath, mesh_resolver=resolver)
     counts = Counter(o['UE_geometry_status'] for o in collection.objects)

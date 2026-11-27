@@ -1,4 +1,4 @@
-"""Read-only UE5 1012/1018 tagged editor package tables and selected Blueprint fields.
+"""Read-only UE5 1012–1018 tagged editor package tables and selected Blueprint fields.
 Layout reference: UAssetAPI Import.cs, Export.cs, MainSerializer.cs, FPropertyTypeName.cs.
 Does not execute Blueprint code or reconstruct inherited transforms.
 """
@@ -13,7 +13,7 @@ def require(ok,message):
 
 def read_tables(path):
     path=Path(path); meta=inspect_package(path)
-    require(meta.get('status')=='tables_inspected' and meta['ue4']==522 and meta['ue5'] in (1012,1018) and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected UE5 1012/1018 tagged monolithic editor package')
+    require(meta.get('status')=='tables_inspected' and meta['ue4']==522 and 1012 <= meta['ue5'] <= 1018 and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected UE5 1012–1018 tagged monolithic editor package')
     require(not meta.get('cell_export_count',0) and not meta.get('cell_import_count',0),'Verse cell tables unsupported')
     raw=path.read_bytes(); names=meta['names']; ic,ec=meta['import_count'],meta['export_count']; io,eo=meta['import_offset'],meta['export_offset']
     require(0<ic<=100000 and 0<ec<=100000 and io+40*ic==eo and eo+112*ec<=meta['header_end'],'Unsupported UE5 table extents')

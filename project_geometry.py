@@ -47,6 +47,10 @@ def load_static(path,project,profile):
     if path.with_suffix('.uexp').is_file():
         from cooked_static import read_static,build_static
         return build_static(read_static(path,profile))
+    from package_inspector import inspect_package
+    if inspect_package(path).get('ue5') in (1016,1017):
+        from ue5_editor_mesh import read_static,build_static
+        return build_static(read_static(path))
     import uasset,umesh
     asset=uasset.UAsset(str(path),False,project)
     try:
@@ -62,6 +66,12 @@ def root_class(path,project):
     from package_inspector import inspect_package
     import uasset
     meta=inspect_package(path)
+    if meta.get('status')=='tables_inspected' and meta.get('ue5') in (1016,1017):
+        from ue5_blueprint import read_tables
+        _,_,_,exports,_,_=read_tables(path)
+        kinds=[e['kind'] for e in exports if not e['outer'] and e['kind'] not in ('MetaData','SkeletalMeshEditorData')]
+        if len(kinds)==1:return kinds[0]
+        raise NotImplementedError('Expected one root editor asset')
     if meta.get('status')!='tables_inspected' or meta.get('legacy')!=-7:
         raise NotImplementedError('Unsupported editor package: '+meta.get('status','unknown'))
     asset=uasset.UAsset(str(path),False,project)
@@ -115,6 +125,12 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
                     root,group=build_lod_group(path,collection);obj=group[0]
                     record['lods']=[{'lod':i,'vertices':len(o.data.vertices),'triangles':len(o.data.polygons)} for i,o in enumerate(group)]
                     for o in group: o['UE_mesh_package']=package; o['UE_geometry_status']='reconstructed'
+                elif not path.with_suffix('.uexp').is_file():
+                    from package_inspector import inspect_package
+                    if inspect_package(path).get('ue5') in (1016,1017):
+                        from ue5_editor_mesh import read_skeletal,build_skeletal
+                        obj,root=build_skeletal(read_skeletal(path),collection)
+                    else: obj,root=build_mesh(read_native_mesh(path,profile),collection)
                 else: obj,root=build_mesh(read_native_mesh(path,profile),collection)
                 mesh=obj.data
             if not len(mesh.vertices) or not len(mesh.polygons): raise ValueError('Empty native geometry')
@@ -125,7 +141,7 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
             root['UE_gallery_offset_x']=root.location.x
             record.update(status='reconstructed',vertices=len(mesh.vertices),triangles=len(mesh.polygons),bones=len(root.data.bones) if kind=='SkeletalMesh' else 0,object=obj.name)
             if 'UE_geometry_scope' in mesh:
-                record.update(geometry_scope=mesh['UE_geometry_scope'],external_bulk_bytes=mesh['UE_external_bulk_bytes'])
+                record.update(geometry_scope=mesh['UE_geometry_scope'],external_bulk_bytes=mesh.get('UE_external_bulk_bytes',0))
             if profile in ('5.0','5.4','5.5','5.6') and path.with_suffix('.uexp').is_file():
                 from ue5_cooked_material import inspect_material_slots
                 record['material_instances']=inspect_material_slots(mesh,project,profile)

@@ -28,7 +28,7 @@ class Reader:
         return b[:-1].decode('utf8')
     def name(self,names):
         idx,num=self.unpack('ii')
-        if not 0<=idx<len(names) or not 0<=num<=1000000: raise ValueError('Invalid FName')
+        if not 0<=idx<len(names) or not 0<=num<=2147483647: raise ValueError('Invalid FName')
         return names[idx]+('_'+str(num-1) if num else '')
 
 

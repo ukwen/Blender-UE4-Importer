@@ -54,3 +54,6 @@ See [Shared LODs and cooked material dependencies](docs/0.10.53-shared-lods-mate
 ## 0.10.54-dev
 
 See [UE5.7 editor dependency tables](docs/0.10.54-ue57-dependencies.md).
+
+## 0.10.55-dev
+See [UE5.6 editor source reconstruction](docs/0.10.55-ue56-editor.md).

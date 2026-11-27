@@ -67,7 +67,7 @@ def read_record(path,project):
                 refs={i.object_name for i in a.imports if i.class_name=='Package' and i.object_name.startswith('/') and not i.object_name.startswith('/Script/')}
                 try: record.update(soft_references=soft_refs_ue4(a),soft_coverage='summary_table')
                 except Exception as exc: record['soft_detail']=str(exc)
-        elif meta['ue5'] in (1012,1018):
+        elif meta['ue5'] is not None and 1012 <= meta['ue5'] <= 1018:
             from ue5_blueprint import read_tables
             _,_,imports,exports,_,_=read_tables(path)
             classes={e['kind'] for e in exports if not e['outer']}
@@ -104,6 +104,17 @@ def preflight(descriptor,scope='ALL_MAPS',selected=None,subfolder='',job_filter=
         records[key]=read_record(p,project)
         if records[key].get('source_package') and records[key]['source_package']!=key:
             records[key]['identity_warning']='Serialized package path differs from Content-relative path; dependencies are not silently remapped.'
+    # External actor assets are map-owned, not independent gallery jobs.
+    from ue5_editor_scene import external_packages
+    for _, map_path in maps:
+        key=package_id(map_path,content);record=records[key]
+        if record.get('ue5') not in (1016,1017) or 'World' not in record['classes']:continue
+        external=external_packages(content,map_path)
+        if not external:continue
+        hard=set(record['references']);soft=set(record['soft_references']);counts=Counter()
+        for p in external:
+            actor=read_record(p,project);hard.update(actor['references']);soft.update(actor['soft_references']);counts[actor['coverage']]+=1
+        record.update(references=sorted(hard),soft_references=sorted(soft),external_actor_count=len(external),external_actor_coverage=dict(counts))
     if scope=='ALL_MAPS': seeds=[package_id(p,content) for _,p in maps]
     elif scope in ('SELECTED_MAP','MAP_GEOMETRY'):
         if selected not in {p for _,p in maps}: raise ValueError('Selected map is missing; scan again')
@@ -143,4 +154,4 @@ def preflight(descriptor,scope='ALL_MAPS',selected=None,subfolder='',job_filter=
             edge['referenced_by'].append(k)
             if ref in records[k]['references']: edge['hard_referenced_by'].append(k)
             if ref in records[k]['soft_references']: edge['soft_referenced_by'].append(k)
-    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),source_map=root_seeds[0] if scope=='MAP_GEOMETRY' else None,jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 and UE5 1012/1018 soft-summary references; does not prove required runtime dependencies. Supported UE5.0 and modern UE5 split import tables are inspected; other split/unsupported tables are unknown. Engine packages are not recursively inspected.')
+    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),source_map=root_seeds[0] if scope=='MAP_GEOMETRY' else None,jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 and UE5 1012–1018 soft-summary and UE5.6 external actor references; does not prove required runtime dependencies. Supported UE5.0 and modern UE5 split import tables are inspected; other split/unsupported tables are unknown. Engine packages are not recursively inspected.')
