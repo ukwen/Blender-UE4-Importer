@@ -113,3 +113,7 @@ See [saved UE5.6 spring-arm camera rig previews](docs/0.10.68-camera-preview.md)
 ## 0.10.69-dev
 
 See [procedural material coordinate and opacity previews](docs/0.10.69-procedural-preview.md).
+
+## 0.10.70-dev
+
+See [authored root translation and external pose validation](docs/0.10.70-root-translation.md).

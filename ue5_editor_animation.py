@@ -1,5 +1,5 @@
 """UE5.6 editor FK control-rig dense transform samples, not runtime evaluation."""
-import math
+import math, hashlib
 from skeleton_native import Reader
 from ue5_blueprint import read_tables, require
 from ue5_editor_tags import export_tags, read_tags, read_tag_stream
@@ -116,4 +116,10 @@ def read_animation(path):
             v=p[k];require(v['type']==['StructProperty','MovieSceneFloatChannel','/Script/MovieScene'],'Invalid transform channel type');channels.append(read_channel(v['data'],n))
         trans=list(zip(*channels[:3]));rot=[quaternion_xyz(*xyz) for xyz in zip(*channels[3:6])];scale=list(zip(*channels[6:]));require(all(min(s)>0 for s in scale),'Nonpositive source scale');tracks[name[:-8]]=[trans,rot,scale]
     require(r.pos==len(r.data),'Unexpected transform array trailer')
-    return dict(name=ref(root)['name'],frames=n,duration=(n-1)/30,tracks=tracks,skeleton_package=pkg(sk),compressed_tail=0,semantics='editor_fk_direct_local_transforms_no_engine_root_motion_or_retargeting',source_root_motion=boolean(t,'bEnableRootMotion'),source_root_lock=boolean(t,'bForceRootLock'),source_fps=30,source_controls=count,source_preview_required=preview,source_additive=additive,source_retarget=retarget,source_rate_scale=rate_scale,scalar_curves=curves,ignored_metadata=[key for key in t if key in ('AttributeCurves','RawCurveData','AnimNotifyTracks','AuthoredSyncMarkers')]+(['ControlChannelMap'] if 'ControlChannelMap' in section else []),source_retarget_name=nm(t,'RetargetSource') if 'RetargetSource' in t else '')
+    root_fields={}
+    for key in ('bEnableRootMotion','bForceRootLock','bUseNormalizedRootMotionScale'):
+        if key in t:root_fields[key]=boolean(t,key)
+    if 'RootMotionRootLock' in t:
+        require(t['RootMotionRootLock']['type'] in (['ByteProperty','ERootMotionRootLock','/Script/Engine'],['EnumProperty','ERootMotionRootLock','/Script/Engine']),'Invalid root lock type')
+        root_fields['RootMotionRootLock']=nm(t,'RootMotionRootLock')
+    return dict(source_sha256=hashlib.sha256(b).hexdigest(),source_package=m.get('package_name',''),source_root_fields=root_fields,name=ref(root)['name'],frames=n,duration=(n-1)/30,tracks=tracks,skeleton_package=pkg(sk),compressed_tail=0,semantics='editor_fk_direct_local_transforms_no_engine_root_motion_or_retargeting',source_root_motion=boolean(t,'bEnableRootMotion'),source_root_lock=boolean(t,'bForceRootLock'),source_fps=30,source_controls=count,source_preview_required=preview,source_additive=additive,source_retarget=retarget,source_rate_scale=rate_scale,scalar_curves=curves,ignored_metadata=[key for key in t if key in ('AttributeCurves','RawCurveData','AnimNotifyTracks','AuthoredSyncMarkers')]+(['ControlChannelMap'] if 'ControlChannelMap' in section else []),source_retarget_name=nm(t,'RetargetSource') if 'RetargetSource' in t else '')

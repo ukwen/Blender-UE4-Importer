@@ -139,6 +139,7 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
     allow_subset: BoolProperty(name='Allow same-skeleton track subset',description='Omit absent tracks only when original skeleton package identity matches; no engine retargeting',default=False)
     allow_source_preview: BoolProperty(name='Allow additive / retarget source preview',description='Import original authored pose samples only, without Unreal runtime additive or retarget evaluation',default=False)
     apply_rate_scale: BoolProperty(name='Apply source playback rate',description='Use serialized RateScale to retime the Action; otherwise preserve authored source time',default=False)
+    root_translation_mode: EnumProperty(name='Authored root translation',items=[('SOURCE','Original','Keep original root translation'),('IN_PLACE','In-place + trajectory','Lock root translation to first authored sample; keep editable relative trajectory in meters; not Unreal runtime extraction')],default='SOURCE')
     start_frame: FloatProperty(name='Start frame',default=1.,min=0.,max=100000.)
     @classmethod
     def poll(cls,context):
@@ -147,7 +148,7 @@ class ImportUEAnimation(bpy.types.Operator, ImportHelper):
         from animation_native import read_animation, make_action
         try:
             data=read_animation(self.filepath)
-            action=make_action(context.object,data,context.scene,self.start_frame,self.allow_subset,self.apply_rate_scale,self.allow_source_preview)
+            action=make_action(context.object,data,context.scene,self.start_frame,self.allow_subset,self.apply_rate_scale,self.allow_source_preview,self.root_translation_mode)
             self.report({'INFO'},f"Imported {data['frames']} raw samples, {len(data['tracks'])} tracks, {len(data.get('scalar_curves',{}))} scalar curves; runtime effects not evaluated")
             return {'FINISHED'}
         except (OSError,ValueError,RuntimeError,NotImplementedError,KeyError) as exc:
@@ -278,7 +279,7 @@ def menu(self,context):
     self.layout.operator(ImportUECookedStatic.bl_idname,text='UE Native Cooked Static Mesh (.uasset)')
     self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
     self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE Native Skeletal Mesh (.uasset)')
-    self.layout.operator(ImportUEAnimation.bl_idname,text='UE4.27 Editor Raw Animation (.uasset)')
+    self.layout.operator(ImportUEAnimation.bl_idname,text='UE4.27 / UE5.6 Editor Animation (.uasset)')
 def register():
     import native_sockets
     native_sockets.register()

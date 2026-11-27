@@ -111,7 +111,20 @@ def read_animation(path):
     finally: asset.Close()
 
 
-def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=False,allow_source_preview=False):
+def authored_root_translation(track, frames):
+    """Return relative authored root translation in Blender armature-space meters.
+
+    This is not Unreal's runtime root extraction, root lock, or rotation delta.
+    """
+    require(type(frames) is int and frames >= 2, 'Invalid root sample count')
+    require(track and len(track)==3 and len(track[0]) in (1,frames), 'Missing dense root translation')
+    trans=track[0]
+    require(all(len(t)==3 and all(math.isfinite(v) for v in t) for t in trans),'Invalid root translation')
+    x,y,z=trans[0]
+    return [((b-y)*.01,(a-x)*.01,(c-z)*.01) for a,b,c in (trans if len(trans)==frames else trans*frames)]
+
+
+def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=False,allow_source_preview=False,root_translation_mode='SOURCE'):
     """Convert sampled UE local transforms to Blender rest-relative pose channels."""
     import bpy
     from mathutils import Matrix, Quaternion, Vector
@@ -132,6 +145,13 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
     dropped=sorted(set(tracks)-set(names))
     require(not dropped or (allow_subset and source_package and source_package==target_package and set(tracks).intersection(names)), 'Animation tracks do not match selected skeleton; enable same-package subset explicitly')
     n=data['frames']; require(n*len(bones)<=250000,'Animation sample limit exceeded')
+    require(root_translation_mode in ('SOURCE','IN_PLACE'),'Unknown authored root translation mode')
+    trajectory=None;root_prop='UE_authored_root_delta_m';root_origin=None
+    if root_translation_mode=='IN_PLACE':
+        require(data.get('semantics','').startswith('editor_fk') and data.get('source_root_motion'),'In-place option requires UE5.6 editor animation with serialized root motion enabled')
+        require(names[0].casefold()=='root' and not bones[0].parent and all(b.parent for b in bones[1:]),'In-place option requires a single named root hierarchy')
+        trajectory=authored_root_translation(tracks.get(names[0]),n);root_origin=tracks[names[0]][0][0]
+        require(root_prop not in arm or (arm.get('UE_authored_root_delta_owner')=='editor_fk_v1' and hasattr(arm[root_prop],'__len__') and len(arm[root_prop])==3 and all(type(x) is float and math.isfinite(x) for x in arm[root_prop])),'Authored root trajectory property collision')
     axis=Matrix(((0,1,0,0),(1,0,0,0),(0,0,1,0),(0,0,0,1)))
     rest=[]; defaults=[]; parents=[]
     for i,b in enumerate(bones):
@@ -161,6 +181,7 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
             t,q,s=defaults[j]; track=tracks.get(b.name)
             if track:
                 t,q,s=[channel[0 if len(channel)==1 else i] if channel else fallback for channel,fallback in zip(track,(t,q,s))]
+            if j==0 and trajectory is not None:t=root_origin
             transform=local(t,q,s); p=parents[j]
             world=worlds[p]@transform if p>=0 else transform; worlds.append(world)
             pose=world@rest[j].inverted()@b.matrix_local; desired.append(pose)
@@ -170,9 +191,22 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
             require(max(abs(basis[x][y]-check[x][y]) for x in range(4) for y in range(4))<.0001,'Animation requires unsupported shear')
             if b.name in prev and rot.dot(prev[b.name])<0: rot.negate()
             prev[b.name]=rot.copy(); values[b.name].append(tuple(loc)+tuple(rot)+tuple(scale))
-    action=bpy.data.actions.new(data['name']); action.use_fake_user=True
+    action=bpy.data.actions.new(data['name']+(' / In-place' if trajectory is not None else '')); action.use_fake_user=True
     modes={b.name:b.rotation_mode for b in arm.pose.bones}; had_animation=ad is not None
+    root_added=False;root_owner_before=arm.get('UE_authored_root_delta_owner')
     try:
+        if trajectory is not None:
+            if root_prop not in arm:
+                require(root_owner_before is None,'Authored root trajectory owner collision')
+                arm[root_prop]=(0.,0.,0.);root_added=True;arm['UE_authored_root_delta_owner']='editor_fk_v1'
+            for j in range(3):
+                fc=action.fcurves.new('['+json.dumps(root_prop)+']',index=j,action_group='Unreal authored root trajectory (meters)')
+                fc.keyframe_points.add(n);fc.keyframe_points.foreach_set('co',[v for i,row in enumerate(trajectory) for v in (times[i],row[j])])
+                for key in fc.keyframe_points:key.interpolation='LINEAR'
+                fc.extrapolation='CONSTANT';fc.update()
+            action['UE_authored_root_translation_json']=json.dumps(dict(origin_cm=root_origin,delta_m=trajectory,space='Blender armature space',root=names[0]))
+            action['UE_root_translation_mode']='in_place_first_sample_translation_only'
+            action['UE_root_trajectory_semantics']='Editable relative authored trajectory; does not drive armature object; rotation and scale retained; no Unreal runtime extraction or root lock'
         for name,rows in values.items():
             pb=arm.pose.bones[name]
             for prop,offset,width in (('location',0,3),('rotation_quaternion',3,4),('scale',7,3)):
@@ -202,7 +236,7 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
         action['UE_duration_seconds']=data['duration'];action['UE_playback_duration_seconds']=duration; action['UE_source_frames']=n; action['UE_source_skeleton']=data.get('skeleton_package',''); action['UE_compressed_tail_bytes']=data['compressed_tail']
         action['UE_omitted_tracks']=','.join(dropped); action['UE_animation_semantics']=data.get('semantics','raw_local_transforms_no_engine_retargeting')
         if 'source_fps' in data:
-            action['UE_unanimated_bones']=','.join(sorted(set(names)-set(tracks))); action['UE_source_fps']=data['source_fps']; action['UE_source_root_motion']=data['source_root_motion']; action['UE_source_root_lock']=data['source_root_lock']; action['UE_source_retarget_name']=data['source_retarget_name']
+            action['UE_unanimated_bones']=','.join(sorted(set(names)-set(tracks))); action['UE_source_fps']=data['source_fps']; action['UE_source_animation_sha256']=data.get('source_sha256',''); action['UE_source_animation_package']=data.get('source_package','') or ''; action['UE_source_animation_name']=data['name']; action['UE_source_root_fields_json']=json.dumps(data.get('source_root_fields',{}),sort_keys=True); action['UE_sample_start_frame']=start; action['UE_sample_step_frames']=duration*fps/(n-1); action['UE_source_root_motion']=data['source_root_motion']; action['UE_source_root_lock']=data['source_root_lock']; action['UE_source_retarget_name']=data['source_retarget_name']
         if 'source_rate_scale' in data:
             action['UE_source_preview_only']=bool(data.get('source_preview_required'));action['UE_additive_source_json']=json.dumps(data.get('source_additive',{}));action['UE_retarget_source_json']=json.dumps(data.get('source_retarget',{}));action['UE_source_rate_scale']=data['source_rate_scale'];action['UE_rate_scale_applied']=apply_rate_scale;action['UE_ignored_metadata']=','.join(data.get('ignored_metadata',[]))
         if props:arm['UE_editor_curve_names']=json.dumps(sorted(set(prior_curves)|set(props.values())))
@@ -213,6 +247,9 @@ def make_action(arm,data,scene,start=1.,allow_subset=False,apply_rate_scale=Fals
         if arm.animation_data and arm.animation_data.action==action: arm.animation_data.action=None
         if not had_animation: arm.animation_data_clear()
         for name,mode in modes.items(): arm.pose.bones[name].rotation_mode=mode
+        if root_added:
+            if root_prop in arm:del arm[root_prop]
+            if 'UE_authored_root_delta_owner' in arm:del arm['UE_authored_root_delta_owner']
         for prop in added:
             if prop in arm:del arm[prop]
         if props:
