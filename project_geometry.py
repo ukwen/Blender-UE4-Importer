@@ -11,9 +11,13 @@ def split_root_class(path):
     path=Path(path)
     if path.stat().st_size>16*1024*1024: raise ValueError('Split header exceeds size limit')
     raw=path.read_bytes(); r=Reader(raw)
-    if raw[:8]==MAGIC+b'\xf8\xff\xff\xff':
+    if raw[:8] in (MAGIC+b'\xf8\xff\xff\xff',MAGIC+b'\xf7\xff\xff\xff'):
         from ue5_cooked_geometry import package
-        return package(path)[0]
+        from ue5_modern_static import package as modern_package
+        if raw[4:8]==b'\xf8\xff\xff\xff':
+            try: return package(path)[0]
+            except (ValueError,NotImplementedError): pass
+        return modern_package(path)[0]
     if r.take(4)!=MAGIC or r.unpack('5i')!=(-7,0,0,0,0):
         raise NotImplementedError('Unsupported split package header')
     if r.i()!=len(raw) or r.string()!='None': raise ValueError('Invalid split header')
@@ -80,7 +84,7 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
     import bpy,uasset
     from skeletal_mesh_native import read_native_mesh,build_mesh
     from uproject_browser import discover_maps
-    if profile not in ('4.18','4.27','5.0'): raise ValueError('Select an explicit cooked profile')
+    if profile not in ('4.18','4.27','5.0','5.4','5.5','5.6'): raise ValueError('Select an explicit cooked profile')
     descriptor,_,_=discover_maps(descriptor)
     content=(Path(descriptor).parent/'Content').resolve()
     folder=(content/subfolder).resolve()
@@ -114,6 +118,10 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
             obj['UE_mesh_package']=package; obj['UE_geometry_status']='reconstructed'
             root['UE_gallery_offset_x']=root.location.x
             record.update(status='reconstructed',vertices=len(mesh.vertices),triangles=len(mesh.polygons),bones=len(root.data.bones) if kind=='SkeletalMesh' else 0,object=obj.name)
+            if 'UE_geometry_scope' in mesh:
+                record.update(geometry_scope=mesh['UE_geometry_scope'],external_bulk_bytes=mesh['UE_external_bulk_bytes'])
+                from ue5_cooked_material import inspect_material_slots
+                record['material_instances']=inspect_material_slots(mesh,project,profile)
             totals.update({k:record[k] for k in ('vertices','triangles','bones')})
             if include_physics and kind=='SkeletalMesh':
                 from physics_native import associate_physics

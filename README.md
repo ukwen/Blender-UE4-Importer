@@ -106,3 +106,7 @@ Selected map geometry imports only known reachable geometry into a resumable gal
 ### 0.10.50-dev
 
 Native UE5.0 cooked static meshes, skinned meshes and reference skeletons for the bounded Matya split-package profile. Explicit UE5.0 selection in import menus and project gallery, with native hard dependency inspection. Cooked material graphs and arbitrary UE5 editor/Nanite/IoStore geometry remain unsupported. See [development notes](docs/0.10.50-ue5-cooked-geometry.md).
+
+### Development 0.10.51: modern UE5 cooked assets
+
+Explicit UE5.4, 5.5 and 5.6 static render-geometry profiles, UE5.4/5.6 cooked material-instance parameter recovery, and UE5.5 BC1 texture mip-chain import are now available. These are bounded sample-validated profiles, not general UE5 support. See [acceptance and limitations](docs/0.10.51-modern-ue5.md).

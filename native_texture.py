@@ -22,6 +22,10 @@ def read_texture(path, version):
     Does not decode arbitrary unversioned properties. Caller supplies known version.
     Only split cooked packages with exactly one supported 2D platform block.
     """
+    if version=='5.5':
+        from ue5_modern_texture import read_texture55
+        w,h,fmt,mips=read_texture55(path)
+        return w,h,fmt,mips[0],len(mips)
     if version not in ('4.18', '4.27', '5.0'):
         raise NotImplementedError('Unsupported cooked texture profile')
     path = Path(path)
@@ -144,7 +148,7 @@ def png_bytes(w,h,rgba):
 if __name__ == '__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('asset',type=Path); p.add_argument('output',type=Path)
-    p.add_argument('--version',required=True,choices=['4.18','4.27','5.0'])
+    p.add_argument('--version',required=True,choices=['4.18','4.27','5.0','5.5'])
     a=p.parse_args()
     w,h,fmt,raw,count=read_texture(a.asset,a.version)
     with a.output.open('xb') as f: f.write(png_bytes(w,h,decode_rgba(w,h,fmt,raw)))

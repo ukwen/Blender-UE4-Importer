@@ -75,7 +75,7 @@ class ImportUECookedStatic(bpy.types.Operator, ImportHelper):
     bl_options={'REGISTER','UNDO'}
     filename_ext='.uasset'
     filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
-    profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Interleaved buffers'),('4.27','UE4.27','Separate inline buffers'),('5.0','UE5.0','Bounded unversioned split profile')],default='4.27')
+    profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Interleaved buffers'),('4.27','UE4.27','Separate inline buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static only')],default='4.27')
     def execute(self,context):
         from cooked_static import read_static,build_static
         try:
@@ -86,6 +86,28 @@ class ImportUECookedStatic(bpy.types.Operator, ImportHelper):
             return {'FINISHED'}
         except (OSError,ValueError,RuntimeError,NotImplementedError) as exc:
             self.report({'ERROR'},str(exc)); return {'CANCELLED'}
+
+
+class ImportUECookedMaterialInstance(bpy.types.Operator, ImportHelper):
+    bl_idname='import.ue_cooked_material_instance'
+    bl_label='Inspect cooked UE material instance'
+    bl_description='Recover native source parameters and package identities; parent shader remains unresolved'
+    bl_options={'REGISTER','UNDO'}
+    filename_ext='.uasset'
+    filter_glob: StringProperty(default='*.uasset',options={'HIDDEN'})
+    profile: EnumProperty(name='Cooked material profile',items=[('5.4','UE5.4','Bounded instance parameter schema'),('5.6','UE5.6','Bounded instance parameter schema')],default='5.4')
+    def execute(self,context):
+        from ue5_cooked_material import read_instance,attach_instance_metadata
+        mat=None
+        try:
+            data=read_instance(self.filepath,self.profile)
+            mat=bpy.data.materials.new(data['name']);mat['UE_material_package']=data['source_package'];mat.use_fake_user=True
+            attach_instance_metadata(mat,data)
+            self.report({'INFO'},f"Recovered {len(data['parameters'])} native material parameters; parent shader unresolved")
+            return {'FINISHED'}
+        except (OSError,ValueError,RuntimeError,NotImplementedError) as exc:
+            if mat is not None: bpy.data.materials.remove(mat)
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 
 class BindUEAccessory(bpy.types.Operator):
@@ -128,16 +150,17 @@ class ImportUEPhysics(bpy.types.Operator, ImportHelper):
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 def menu(self,context):
+    self.layout.operator(ImportUECookedMaterialInstance.bl_idname,text='UE Cooked Material Instance Parameters (.uasset)')
     self.layout.operator(ImportUEPhysics.bl_idname,text='UE Physics Asset — Collision Preview (.uasset)')
-    self.layout.operator(ImportUECookedStatic.bl_idname,text='UE4 Native Cooked Static Mesh (.uasset)')
+    self.layout.operator(ImportUECookedStatic.bl_idname,text='UE Native Cooked Static Mesh (.uasset)')
     self.layout.operator(ImportUESkeleton.bl_idname,text='UE Reference Skeleton (.uasset)')
     self.layout.operator(ImportUESkeletalMesh.bl_idname,text='UE4 Native Skeletal Mesh (.uasset)')
     self.layout.operator(ImportUEAnimation.bl_idname,text='UE4.27 Editor Raw Animation (.uasset)')
 def register():
     import native_sockets
     native_sockets.register()
-    bpy.utils.register_class(ImportUEPhysics); bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
+    bpy.utils.register_class(ImportUECookedMaterialInstance); bpy.utils.register_class(ImportUEPhysics); bpy.utils.register_class(BindUEAccessory); bpy.utils.register_class(ImportUECookedStatic); bpy.utils.register_class(ImportUESkeleton); bpy.utils.register_class(ImportUESkeletalMesh); bpy.utils.register_class(ImportUEAnimation); bpy.types.TOPBAR_MT_file_import.append(menu)
 def unregister():
     import native_sockets
     native_sockets.unregister()
-    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory); bpy.utils.unregister_class(ImportUEPhysics)
+    bpy.types.TOPBAR_MT_file_import.remove(menu); bpy.utils.unregister_class(ImportUEAnimation); bpy.utils.unregister_class(ImportUESkeletalMesh); bpy.utils.unregister_class(ImportUESkeleton); bpy.utils.unregister_class(ImportUECookedStatic); bpy.utils.unregister_class(BindUEAccessory); bpy.utils.unregister_class(ImportUEPhysics); bpy.utils.unregister_class(ImportUECookedMaterialInstance)

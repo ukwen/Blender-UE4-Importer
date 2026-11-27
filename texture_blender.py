@@ -78,7 +78,7 @@ class UEIMPORT_OT_native_texture(bpy.types.Operator, ImportHelper):
     bl_description = 'Import and pack UE4 editor source art or cooked BC1/BC4/BC5 with matching sidecars'
     filename_ext = '.uasset'
     filter_glob: StringProperty(default='*.uasset', options={'HIDDEN'})
-    version: EnumProperty(name='Asset profile', items=[('editor','UE4 editor source','Versioned monolithic source texture')]+[(v,'Cooked '+v,'') for v in ('4.18','4.27','5.0')], default='editor')
+    version: EnumProperty(name='Asset profile', items=[('editor','UE4 editor source','Versioned monolithic source texture')]+[(v,'Cooked '+v,'') for v in ('4.18','4.27','5.0','5.5')], default='editor')
     srgb: BoolProperty(name='sRGB color', default=False)
     normal: BoolProperty(name='Reconstruct BC5 normal Z', default=False)
 

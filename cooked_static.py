@@ -9,6 +9,8 @@ def read_static(path,version):
     if version=="5.0":
         from ue5_cooked_geometry import read_static50
         return read_static50(path)
+    from ue5_modern_static import PROFILES,read_static_modern
+    if version in PROFILES: return read_static_modern(path,version)
     require(version in ('4.18','4.27'),'Unsupported cooked static profile')
     p=Path(path); side=p.with_suffix('.uexp')
     require(p.stat().st_size<=16*1024*1024 and side.stat().st_size<=128*1024*1024,'Package size limit')
@@ -114,7 +116,10 @@ def build_static(data):
             a=mesh.color_attributes.new(name='UE_VertexColor',type='BYTE_COLOR',domain='CORNER'); a.data.foreach_set('color_srgb',[x/255 for l in mesh.loops for x in (data['colors'][l.vertex_index][2],data['colors'][l.vertex_index][1],data['colors'][l.vertex_index][0],data['colors'][l.vertex_index][3])])
         mesh['UE_material_bindings']=json.dumps([(name,package or '') for name,package in data['materials']])
         a=mesh.attributes.new('UE_source_material_index','INT','FACE'); a.data.foreach_set('value',data['slots'])
-        mesh['UE_source_format']='cooked_static_'+data['version']; return mesh
+        mesh['UE_source_format']='cooked_static_'+data['version']
+        for key in ('source_package','geometry_scope','external_bulk_bytes'):
+            if key in data: mesh['UE_'+key]=data[key]
+        return mesh
     except Exception:
         bpy.data.meshes.remove(mesh)
         for mat in mats:
