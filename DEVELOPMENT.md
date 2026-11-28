@@ -177,3 +177,7 @@ See [fog and material semantics](docs/0.10.84-fog-and-material.md). Explicit bas
 ## 0.10.85-dev
 
 See [saved level sets and partition ownership](docs/0.10.85-level-sets.md). Atomic checked independent maps, partition ownership and explicit unsupported composition, material override guard and external actor path safety.
+
+## 0.10.86-dev
+
+[Native saved brush operands](docs/0.10.86-brush-operands.md): exact bounded inline UE5.6 Polys geometry, 53 original operands, explicit CSG roles and non-rendering collection. Compiled BSP and volume reconstruction remain outstanding.

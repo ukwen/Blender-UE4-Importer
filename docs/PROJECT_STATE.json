@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.85-dev",
-  "previous_verified_commit": "809bb689f45585b965451941092476031c7df15a",
-  "previous_verified_tree": "e256e218f9d5cc1013753c4cea4911fc57966651",
-  "current_commit_resolution": "Match immutable 0.10.85 Library checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "World Partition ownership audit and atomic checked independent saved level transfer; material override guard",
+  "application_version": "0.10.86-dev",
+  "previous_verified_commit": "efde4eb9e155a6a81b647577db01d894e242804e",
+  "previous_verified_tree": "441d7a686aae5c9835c2db71a6612fe4519581c4",
+  "current_commit_resolution": "Match immutable 0.10.86 Library checkpoint and published development commit/tree to archive hashes.",
+  "milestone": "Native saved brush operands (not compiled BSP) in unified scene transfer",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.85_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.85-local.zip",
-    "install_archive": "install-085.zip",
+    "checkpoint": "Unreal_Importer_0.10.86_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.86-local.zip",
+    "install_archive": "install-086.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,47 +30,86 @@
   },
   "tests": {
     "baseline": {
-      "passed": 86,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 91,
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Baseline source/installer hashes, local Git tree and four original dependency archive hashes verified; reused restored Blender/decoder",
-    "partition_original_maps": 4,
-    "owned_external_actor_packages": 465,
-    "external_ownership_errors": 0,
-    "streaming_disabled": 4,
-    "native_composition_candidates": 0,
-    "level_set": {
-      "original_levels": 2,
-      "objects": 75,
-      "meshes": 54,
-      "armatures": 1,
+    "current": {
+      "passed": 95,
+      "skipped": 23,
+      "failed": 0
+    },
+    "environment_reverified": "Existing recovered source tree matches published 0.10.85, source/installer and four original dependency archive hashes verified; reused restored Blender and decoder",
+    "brush_original": {
+      "main": {
+        "skipped": [],
+        "untyped_brushes": [
+          "Brush_10"
+        ],
+        "compiled_model_components": 17,
+        "scope": "Inline explicit CSG operands only; compiled BSP, volumes, external brushes and material projection not reconstructed",
+        "operands": 45,
+        "roles": {
+          "Brush_Add": 45
+        },
+        "vertices": 360,
+        "faces": 271,
+        "rendered_bsp": false
+      },
+      "test": {
+        "skipped": [],
+        "untyped_brushes": [
+          "Brush_1"
+        ],
+        "compiled_model_components": 9,
+        "scope": "Inline explicit CSG operands only; compiled BSP, volumes, external brushes and material projection not reconstructed",
+        "operands": 8,
+        "roles": {
+          "Brush_Add": 4,
+          "Brush_Subtract": 4
+        },
+        "vertices": 64,
+        "faces": 48,
+        "rendered_bsp": false
+      },
+      "counts": {
+        "MainLevel": 45,
+        "TestLevel": 8
+      },
+      "pre": {
+        "max_local_vertex_error_m": 0.0,
+        "max_normal_error": 1.3244769213095208e-07,
+        "max_translation_error_m": 3.662109378410605e-06,
+        "max_scale_error": 0.0,
+        "max_world_vertex_error_m": 3.932099938981686e-06,
+        "max_rotation_matrix_error": 2.384185791015625e-07,
+        "source_face_corners": 1274
+      },
+      "post": {
+        "max_local_vertex_error_m": 0.0,
+        "max_normal_error": 1.3244769213095208e-07,
+        "max_translation_error_m": 3.662109378410605e-06,
+        "max_scale_error": 0.0,
+        "max_world_vertex_error_m": 3.932099938981686e-06,
+        "max_rotation_matrix_error": 2.384185791015625e-07,
+        "source_face_corners": 1274
+      },
+      "reopen": true,
       "max_reopen_matrix_error": 0,
-      "duplicate_refusal": true,
-      "late_rollback": true,
-      "world_camera_preserved": true,
-      "active_report_persisted": true
+      "scope": "Source brush operands only, not compiled BSP or rendered geometry; MainLevel brush-only stage, TestLevel full scene"
     },
     "single_level_regression": true,
-    "original_instance_regression": true,
-    "fog_regression": true,
+    "level_set_regression": true,
     "legacy_and_goblin": "Previously verified, not rerun",
     "isolated_install": {
-      "imported": 3,
-      "reopen_reuse": true,
-      "scope": "Runtime tested; final archive checked separately"
+      "scope": "See immutable milestone checkpoint for final archive acceptance"
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Native level composition only with positive streaming/LevelInstance records; improve existing visual geometry and scene fidelity, then modern instancing, professional UI and performance. No new downloads.",
+  "next_priority": "Compiled BSP Model/ModelComponent visible surfaces with original format evidence, then landscape layers, rendered decal projection where source assets permit, modern instancing and professional usability/performance. No new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -89,6 +128,7 @@
     "Runtime tangent basis, normal compression and arbitrary normal expressions, mixed sampler mip/anisotropic behavior and exact material appearance unverified. Library quota may require GitHub-only incremental recovery.",
     "Legacy sky, actual UE fog scattering/capture/radiance equivalence, missing fog defaults/unsupported fields and EEVEE not validated.",
     "Active base-property flags without serialized values (MI_GlowNT BlendMode and ShadingModel), float4 alpha, arbitrary vector widths and missing material functions remain unresolved.",
-    "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition."
+    "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition.",
+    "Compiled BSP and volume Model profiles not decoded; explicit source brush operands are non-rendering, not final CSG surfaces."
   ]
 }
