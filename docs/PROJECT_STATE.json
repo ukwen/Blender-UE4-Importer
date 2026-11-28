@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.105-dev",
-  "previous_verified_commit": "bb7ee47c700f7fd2e6d8648a9a0aabd5212642ee",
-  "previous_verified_tree": "3c355fb2b735c8efc04cf3a9040fe0a04d0edfeb",
+  "application_version": "0.10.106-dev",
+  "previous_verified_commit": "219ed0ed7005cf0169519b13e6f1635ea8fcc54c",
+  "previous_verified_tree": "f781290216b8bfd7b11857db14206ae8d80fca52",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Typed advanced material chains, direct modern materials, classic wind and source texture boundary",
+  "milestone": "Native material-bearing static entrypoints and classic source-model LOD traversal",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.105_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.105-local.zip",
-    "install_archive": "install-105.zip",
+    "checkpoint": "Unreal_Importer_0.10.106_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.106-local.zip",
+    "install_archive": "install-106.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,110 +31,49 @@
   },
   "tests": {
     "python": {
-      "passed": 159,
+      "passed": 160,
       "failed": 0,
       "skipped": 10
     },
-    "modern_material_entrypoints": {
-      "materials": 5,
+    "native_static_entrypoints": {
+      "original_assets": 3,
       "packed_images": 4,
       "inherited_import_attempts": 0,
       "reopen": true,
-      "rollback": true
+      "rollback": true,
+      "controlled_lods": [
+        0,
+        2
+      ],
+      "missing_lods": [
+        1
+      ]
     },
-    "classic_material": {
-      "chain_records": 3,
-      "expanded_expressions": 34,
-      "effective_parameters": 13,
-      "stale_guids_corroborated": 3,
-      "texture_parity": 3,
-      "wind_profile_parity": 3,
-      "inherited_import_attempts": 0,
-      "reopen": true,
-      "native_wind_masks_zero": true
-    },
-    "layer_replay": {
-      "controlled_render_max_error": 2.384185793236071e-08,
-      "reopen": true
-    },
-    "full_goblin": {
-      "scope": "Partial mixed-version fixture; original UE4.26 map, test-only descriptor",
-      "counts": {
-        "geometry_objects": 1009,
-        "lighting_objects": 2,
-        "objects": 1011,
-        "meshes": 36,
-        "armatures": 30,
-        "lights": 1,
-        "cameras": 0
-      },
-      "static_status": {
-        "missing": 559,
-        "reconstructed": 3
-      },
-      "component_status": {
-        "anchor_only": 16,
-        "reconstructed": 33,
-        "inherited_mesh_unresolved": 1,
-        "missing": 34
-      },
-      "coverage": {
-        "anchor_or_marker": 32,
-        "geometry": 33,
-        "not_reconstructed": 7,
-        "light_preview": 1,
-        "unresolved_geometry": 559
-      },
-      "source_relative_locations_validated": 592,
-      "max_relative_position_error_m": 3.412052258814641e-05,
-      "character_bodies": 15,
-      "sockets": 300,
-      "accessories": {
-        "reconstructed": 3,
-        "missing": 34
-      },
-      "packed_images": 3,
-      "material_status": {
-        "partial_graph_unresolved": 1,
-        "missing_dependencies": 2
-      },
-      "dependency_gaps": 622,
-      "strict_gate": true,
-      "late_rollback": true,
-      "duplicates_refused": true,
-      "reopen": true,
-      "active_camera_preserved": true
-    },
-    "independent_western": {
-      "mesh_objects": 2814,
+    "original_static522_parity": 4,
+    "west_independent": {
+      "meshes": 2814,
       "rigs": 36,
       "foliage": 462,
-      "materials": 10,
-      "packed_images": 5,
       "reopen": true
     },
-    "modern_level_set": {
+    "goblin": {
+      "objects": 1011,
+      "meshes": 36,
+      "rigs": 30,
+      "reopen": true
+    },
+    "level_set": {
       "objects": 94,
       "max_reopen_matrix_error": 0,
       "rollback": true
     },
-    "isolated_install": "See external checkpoint",
-    "removal_gate": {
-      "passed": false,
-      "remaining_files": [
-        "uasset.py",
-        "umap.py",
-        "umat.py",
-        "umesh.py"
-      ],
-      "literal_import_sites": 30
-    }
+    "installer": "See external checkpoint"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace remaining inherited material graph/layer and earlier profile paths, mesh/map compatibility and native multi-LOD; preserve regressions and require removal gate plus provenance/rights audit.",
+  "next_priority": "Replace remaining inherited material graph/layer and earlier package profiles; migrate remaining mesh/map compatibility, original multi-LOD and gallery paths; require removal gate and provenance/rights audit.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -158,7 +97,7 @@
     "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
     "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. Safe UE5.6 in-map stage cancellation verified; individual synchronous/native calls and legacy maps remain indivisible. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
     "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported.",
-    "Four inherited files and 30 literal import sites remain; full legacy layer/graph, earlier profiles, independent multi-LOD, map/mesh compatibility and provenance/rights audit open. Missing engine wind source and runtime primitive semantics not verified."
+    "Four inherited files and 29 literal sites remain; full legacy layer/graph, earlier profiles, original multi-LOD positive evidence and gallery support, map/mesh compatibility and rights audit open. Missing engine wind source and runtime primitive semantics not verified."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

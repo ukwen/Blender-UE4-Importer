@@ -38,7 +38,35 @@ def flag(reader):
     return bool(result)
 
 
-def read_static(path):
+def read_source_models(reader, raw, bulk_base, export_end, count):
+    """Read explicit source-model slots, preserving absent LOD identities.
+
+    The one-model profile is original-fixture verified; multi-model traversal
+    is exercised with controlled headers, not an original multi-LOD package.
+    """
+    require(1 <= count <= 64, 'Invalid source LOD count')
+    result=[]; missing=[]; spans=[]; total=0
+    for index in range(count):
+        if not flag(reader):
+            missing.append(index); continue
+        flags, expanded, packed, offset = reader.unpack('IIIq')
+        if flags not in (0x201,0x203):
+            raise UnsupportedProfile('Unsupported source bulk flags')
+        start=bulk_base+offset; end=start+packed
+        require(offset>=0 and start>=export_end and 0<expanded<=128*1024*1024 and 0<packed<=128*1024*1024 and end<=len(raw)-4, 'Invalid source bulk extent')
+        require(all((start,end)==span or end<=span[0] or start>=span[1] for span in spans), 'Overlapping source bulk extents')
+        total+=expanded
+        require(total<=256*1024*1024, 'Aggregate source LOD byte limit')
+        spans.append((start,end)); payload=raw[start:end]
+        if flags&2: payload=decompress_chunks(payload,expanded)
+        else: require(packed==expanded, 'Uncompressed source size mismatch')
+        reader.take(16); flag(reader)
+        result.append((index,decode_mesh_description(payload)))
+    if not result: raise UnsupportedProfile('No stored MeshDescription source')
+    return result,missing
+
+
+def read_static_lods(path):
     path = Path(path)
     meta, raw, table = read_package(path)
     versions = classic_custom_versions(raw) if meta['ue5'] is None else {}
@@ -53,10 +81,7 @@ def read_static(path):
     models = [p for p in props if p.name=='SourceModels' and p.index==0]
     require(len(models)==1 and models[0].kind=='ArrayProperty' and models[0].parameters==('StructProperty',) and len(models[0].data)>=4, 'Missing SourceModels array')
     count = struct.unpack_from('<i',models[0].data)[0]
-    # The original fixtures each have one explicit source LOD. Retain the
-    # existing compatibility path for other source-model layouts.
-    if count != 1:
-        raise UnsupportedProfile('Only one explicit editor source LOD validated')
+    require(1<=count<=64, 'Invalid source LOD count')
     if flag(reader): reader.take(16)
     require(reader.take(2)==b'\0\0' and not flag(reader), 'Expected unstripped editor mesh')
     table.reference(reader.i()); table.reference(reader.i())
@@ -65,19 +90,7 @@ def read_static(path):
         data=reader.take(chars if chars>0 else -2*chars); require(data.endswith(b'\0' if chars>0 else b'\0\0'),'Unterminated high-resolution source name')
     reader.take(4+16) # high-resolution CRC, lighting GUID
     sockets=[table.reference(reader.i()) for _ in range(reader.count(1024))]
-    require(flag(reader),'No stored MeshDescription source')
-    flags, expanded, packed, offset = reader.unpack('IIIq')
-    if flags not in (0x201,0x203):
-        raise UnsupportedProfile('Unsupported source bulk flags')
-    start = summary['bulk_data_offset'] + offset
-    # Bulk must not overlap any serialized export or the package end signature.
-    require(start>=max(e.offset+e.size for e in table.exports) and offset>=0 and 0<expanded<=128*1024*1024 and 0<packed<=128*1024*1024 and start+packed<=len(raw)-4,'Invalid source bulk extent')
-    payload=raw[start:start+packed]
-    if flags&2:
-        payload=decompress_chunks(payload,expanded)
-    else:
-        require(packed==expanded,'Uncompressed source size mismatch')
-    reader.take(16); flag(reader)
+    models,missing=read_source_models(reader,raw,summary['bulk_data_offset'],max(e.offset+e.size for e in table.exports),count)
     require(not flag(reader),'SpeedTree source not supported')
     slots=[]; display=[]
     for _ in range(reader.count(4096)):
@@ -88,8 +101,13 @@ def read_static(path):
         require(not ref or bool(package),'Unresolved material slot reference')
         slots.append((imported,package));display.append(name)
     require(slots and reader.pos==export.size,'Unexpected editor static mesh tail')
-    geometry=decode_mesh_description(payload)
-    return dict(name=export.name,source=str(path),geometry=geometry,materials=slots,display=display,sockets=[s.name if s else None for s in sockets])
+    return [dict(name=export.name,source=str(path),geometry=geometry,materials=slots,display=display,
+                 sockets=[s.name if s else None for s in sockets],lod_index=index,lod_count=count,missing_lods=missing)
+            for index,geometry in models]
+
+
+def read_static(path):
+    return read_static_lods(path)[0]
 
 
 def build_static(data):
@@ -105,7 +123,7 @@ def build_static(data):
         else:
             mesh['UE_material_binding_error']='MeshDescription material slot mapping is ambiguous or missing'
         mesh['UE_material_bindings']=json.dumps(data['materials']);mesh['UE_static_material_slots']=names
-        mesh['UE_source_lod_count']=1;mesh['UE_lod_index']=0;mesh['UE_missing_source_lods']='[]';mesh['UE_socket_references']=json.dumps(data['sockets'])
+        mesh['UE_source_lod_count']=data['lod_count'];mesh['UE_lod_index']=data['lod_index'];mesh['UE_missing_source_lods']=json.dumps(data['missing_lods']);mesh['UE_socket_references']=json.dumps(data['sockets'])
         return mesh
     except Exception:
         bpy.data.meshes.remove(mesh)

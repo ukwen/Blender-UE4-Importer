@@ -124,16 +124,7 @@ def build_legacy_static(data):
 def import_legacy_static(export,import_materials=False,all_lods=False):
     data=read_legacy_static(export);mesh=build_legacy_static(data)
     if import_materials:
-        # Reuse the existing material importer; no new shader implementation.
-        import bpy
-        from umat import TryGetUMaterialImport
-        for (name,package),display,index in zip(data['materials'],data['display'],data['material_refs']):
-            ref=export.asset.DecodePackageIndex(index)
-            try: mat=TryGetUMaterialImport(ref,mesh=mesh) if ref else None
-            except Exception: mat=None
-            if mat is None:
-                mat=bpy.data.materials.new(display);mat['UE_unresolved_material']=True;mat['UE_material_package']=package
-            mesh.materials.append(mat)
-        for p,v in zip(mesh.polygons,mesh.attributes['UE_source_material_index'].data):p.material_index=v.value
+        from material_stage import MaterialResolver, bind_native_mesh_slots
+        bind_native_mesh_slots(mesh,MaterialResolver(export.asset.uproject,allow_partial=True))
     if all_lods: mesh.name=data['name']+'_LOD0'
     return [mesh] if all_lods else mesh

@@ -20,6 +20,8 @@ def run_files(operator, action):
         try:
             if not path.is_file(): raise FileNotFoundError(path)
             result=action(path); succeeded+=1
+            if isinstance(result,list) and any(isinstance(o,bpy.types.Object) and o.get("UE_unresolved_material") for o in result):
+                previews+=1
             if isinstance(result,bpy.types.Material) and result.get("UE_unresolved_material"):
                 previews+=1;print(f"{path.name}: {result.get('UE_editor_material_status','partial')} — source graph limitations recorded in material properties")
         except Exception as exc:
@@ -30,35 +32,48 @@ def run_files(operator, action):
 
 
 def import_mesh(path, materials, all_lods):
-    # Geometry-only supported editor meshes need no legacy module. Full graph
-    # and other profiles retain the previous compatibility implementation.
-    if not materials:
-        from package_inspector import inspect_package
-        meta=inspect_package(path)
-        data=mesh=None
-        if meta.get('ue5') is None and not meta['sidecars']:
-            if meta.get('ue4')==508:
-                from legacy_static import read_legacy_static_path, build_legacy_static
-                from package_records import read_package
-                _,_,table=read_package(path)
-                if any(e.kind=='StaticMesh' and not e.outer for e in table.exports):
-                    mesh=build_legacy_static(read_legacy_static_path(path))
-            elif meta.get('ue4')==522:
-                from package_records import read_package
-                _,_,table=read_package(path)
-                if any(e.kind=='StaticMesh' and not e.outer for e in table.exports):
-                    from editor_static522 import read_static, build_static, UnsupportedProfile
-                    try: data=read_static(path)
+    """Use typed static routes before explicitly deferred legacy profiles."""
+    import json
+    from package_inspector import inspect_package
+    from package_records import read_package
+    from project_paths import ProjectPaths
+    from project_session import new_ids, rollback_new
+    path=Path(path).resolve(); meta=inspect_package(path)
+    before=set(new_ids()); meshes=[]
+    try:
+        if meta.get('status')=='tables_inspected' and not meta.get('flags',0)&0x80002000 and not meta.get('sidecars') and meta.get('ue4') in (508,522) and meta.get('ue5') in (None,1016,1017):
+            _,_,table=read_package(path)
+            if any(e.kind=='StaticMesh' and not e.outer for e in table.exports):
+                if meta['ue5'] in (1016,1017):
+                    from ue5_editor_mesh import read_static,build_static
+                    meshes=[build_static(read_static(path))]
+                elif meta['ue4']==508:
+                    from legacy_static import read_legacy_static_path,build_legacy_static
+                    meshes=[build_legacy_static(read_legacy_static_path(path))]
+                else:
+                    from editor_static522 import read_static_lods,build_static,UnsupportedProfile
+                    try: data=read_static_lods(path)
                     except UnsupportedProfile: pass
-                    else: mesh=build_static(data)
-        if mesh is not None:
-            if all_lods: mesh.name += '_LOD0'
-            try:
+                    else: meshes=[build_static(d) for d in (data if all_lods else data[:1])]
+        if meshes:
+            objects=[]
+            if materials:
+                from material_stage import MaterialResolver,bind_native_mesh_slots
+                resolver=MaterialResolver(ProjectPaths(path),allow_partial=True)
+                for mesh in meshes: bind_native_mesh_slots(mesh,resolver)
+            for i,mesh in enumerate(meshes):
+                if all_lods: mesh.name+=f"_LOD{mesh.get('UE_lod_index',0)}"
                 obj=bpy.data.objects.new(mesh.name,mesh);bpy.context.collection.objects.link(obj)
-            except Exception:
-                if mesh.users==0:bpy.data.meshes.remove(mesh)
-                raise
-            return [obj]
+                if all_lods and i: obj.hide_set(True);obj.hide_render=True
+                if materials:
+                    obj['UE_material_report']=json.dumps(resolver.records,sort_keys=True)
+                    obj['UE_unresolved_material']=any(r['status']!='graph_imported_unverified' for r in resolver.records.values())
+                    if obj['UE_unresolved_material']: print(path.name+': unresolved material branches; see UE_material_report')
+                objects.append(obj)
+            return objects
+    except Exception:
+        rollback_new(before);raise
+    # Non-migrated mesh profiles retain their compatibility entrypoint.
     from umesh import ImportUMeshAsObject
     return ImportUMeshAsObject(str(path),materials=materials,all_lods=all_lods)
 

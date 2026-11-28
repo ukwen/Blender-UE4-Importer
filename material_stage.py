@@ -146,6 +146,26 @@ class MaterialResolver:
         return mat
 
 
+def bind_native_mesh_slots(mesh,resolver):
+    """Bind only serialized slots; preserve polygon indices across slot replacement."""
+    bindings=json.loads(mesh.get('UE_material_bindings','[]'))
+    if not bindings or mesh.get('UE_material_binding_error'):
+        raise ValueError('Unresolved native material slot mapping')
+    attr=mesh.attributes.get('UE_source_material_index')
+    indices=[v.value for v in attr.data] if attr is not None else [p.material_index for p in mesh.polygons]
+    if len(indices)!=len(mesh.polygons) or any(not 0<=i<len(bindings) for i in indices):
+        raise ValueError('Invalid native material index')
+    old=list(mesh.materials)
+    resolved=[resolver.resolve(package,slot) for slot,package in bindings]
+    mesh.materials.clear()
+    for mat in resolved: mesh.materials.append(mat)
+    for poly,index in zip(mesh.polygons,indices): poly.material_index=index
+    # Only remove disposable placeholders created by the native geometry builder.
+    for mat in old:
+        if mat and mat.users==0 and mat.get('UE_unresolved_material') and mat not in resolved:
+            bpy.data.materials.remove(mat)
+
+
 def bind_scene_materials(collection, project, allow_partial=False):
     resolver = MaterialResolver(project, allow_partial=allow_partial)
     bound = set()
