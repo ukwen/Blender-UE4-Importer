@@ -217,3 +217,7 @@ Scoped recovery plan review and confirmation, ignored-file diagnostics, zero-rea
 ## 0.10.95-dev
 
 Cooperative UE5.6 full-scene and checked-level reconstruction with safe in-map actor/component/material checkpoints; exact rollback, actual X11 Escape, source-backed material closure diagnostics including decal/terrain, original UE5.7 fixture audit, and platform-local installer acceptance launcher. See [stage cancellation and evidence audit](docs/0.10.95-stage-cancellation.md).
+
+## 0.10.96-dev — independent component migration
+
+Separate `feature/independent-importer` branch, preserving development 0.10.95. Remove three inherited files; generated shader groups, registration lifecycle, native editor texture boundary. See [provenance and remaining replacements](docs/INDEPENDENCE.md). Not a clean-room or commercial release claim.

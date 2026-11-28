@@ -7,7 +7,7 @@ from bpy_extras.io_utils import ImportHelper
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path: sys.path.append(cur_dir)
 
-import uasset, umat, umesh, register_helper
+import uasset, umat, umesh, addon_lifecycle
 from uasset import UAsset, Import, Export, FVector, FColor
 from umat import TryGetUMaterialImport
 from umesh import ImportMeshUAsset
@@ -298,11 +298,9 @@ class ImportUMap(bpy.types.Operator, ImportHelper):
 reg_classes = ( ImportUMap, )
 
 def register():
-    register_helper.RegisterClasses(reg_classes)
-    register_helper.RegisterDrawFnc(bpy.types.TOPBAR_MT_file_import, ImportUMap, menu_import_umap)
+    addon_lifecycle.register(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umap)
 def unregister():
-    register_helper.TryUnregisterClasses(reg_classes)
-    register_helper.UnregisterDrawFnc(bpy.types.TOPBAR_MT_file_import, ImportUMap, menu_import_umap)
+    addon_lifecycle.unregister(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umap)
 
 if __name__ != "umap":
     importlib.reload(uasset)

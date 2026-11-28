@@ -4,19 +4,19 @@
   "repository": "https://github.com/ukwen/Blender-UE4-Importer",
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
-  "development_branch": "development",
-  "application_version": "0.10.95-dev",
-  "previous_verified_commit": "a977335b7a90ac25d6419d897e9c7226be57e2fc",
-  "previous_verified_tree": "4f9de194697b0916e59404aa2f01f914c6ff5bc4",
+  "development_branch": "feature/independent-importer",
+  "application_version": "0.10.96-dev",
+  "previous_verified_commit": "8afb826f9a63f92a7e6c67d4cbfde7d820764de3",
+  "previous_verified_tree": "954982b398cdbcf672cf7efea7d5c7ea485142a8",
   "current_commit_resolution": "Match immutable 0.10.95 checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "Safe in-map stage cancellation, material source gaps, expanded UE5.7 audit and platform-local installer launcher",
+  "milestone": "Independent registration, generated shader groups and native editor texture boundary; commercial migration incomplete",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.95_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.95-local.zip",
-    "install_archive": "install-095.zip",
+    "checkpoint": "Unreal_Importer_0.10.96_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.96-local.zip",
+    "install_archive": "install-096.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -29,49 +29,33 @@
     "setup": "bash tools/restore_development.sh ASSET_DIRECTORY NEW_WORK_DIRECTORY"
   },
   "tests": {
-    "baseline": {
-      "passed": 110,
-      "skipped": 23,
-      "failed": 0
-    },
-    "expanded_current": {
+    "python": {
       "passed": 125,
       "skipped": 10,
       "failed": 0
     },
-    "midmap": {
-      "static_actors_before_cancel": 32,
-      "static_actor_total": 1976,
-      "single_and_set_exact_rollback": true,
-      "desktop_escape": true,
-      "retry_objects": 62,
+    "generated_shader_groups": {
+      "groups": 22,
+      "render_evaluations": 7,
+      "max_abs_error": 2.3841858e-08,
+      "reopen": true,
+      "same_name_isolation": true
+    },
+    "native_texture_bridge": {
+      "original_texture": true,
+      "missing_refused": true,
+      "source_unchanged": true,
       "reopen": true
     },
-    "full_scene": {
-      "objects": 94,
-      "late_failure_rollback": true,
-      "reopen": true
-    },
-    "landscape": {
-      "corner_uvs": 4064256,
-      "missing_decal_packages": 103,
-      "missing_terrain_packages": 1,
-      "weight_layers_status": "not_serialized_in_supported_profile"
-    },
-    "ue57": {
-      "editor_blueprints": 5,
-      "anchors": 8,
-      "metadata_only": 2,
-      "cooked_unversioned_packages": 70,
-      "reopen": true
-    },
-    "isolated_install": "See immutable checkpoint for final archive acceptance"
+    "registration_smoke": true,
+    "long_original_material_regression": "timed out before final reopen acceptance",
+    "isolated_install": "see checkpoint"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Bound long synchronous native/terrain/dependency stages and verify Windows installer/desktop on native Windows; broader formats require original positive source evidence.",
+  "next_priority": "Independent package parser and typed records; replace inherited mesh, material and map integration; audit all code and dependencies",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -95,5 +79,8 @@
     "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
     "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. Safe UE5.6 in-map stage cancellation verified; individual synchronous/native calls and legacy maps remain indivisible. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
     "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported."
-  ]
+  ],
+  "reference_development_branch": "development",
+  "provenance": "docs/INDEPENDENCE.md",
+  "commercial_distribution_ready": false
 }

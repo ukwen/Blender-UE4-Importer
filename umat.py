@@ -1,5 +1,5 @@
 from __future__ import annotations
-import bpy, sys, time, os, pathlib, subprocess, importlib
+import bpy, sys, time, os, pathlib, importlib
 from struct import *
 from mathutils import *
 from bpy.props import *
@@ -7,65 +7,25 @@ from bpy_extras.io_utils import ImportHelper
 
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path: sys.path.append(cur_dir)
-import uasset, register_helper
+import uasset, addon_lifecycle
 from uasset import UAsset, Import, Export, Properties, UProperty
 
-umodel_path = os.environ.get('UMODEL_PATH', os.path.join(cur_dir, 'umodel.exe' if os.name == 'nt' else 'umodel'))
 mute_ior = True
 mute_fresnel = True
 
-blend_filepath = pathlib.Path(cur_dir) / "UE_nodes.blend"
-node_tree_path = blend_filepath / "NodeTree"
-def TryAppendNodeGroups():
-    if 'AdditiveSurface' not in bpy.data.node_groups:
-        with bpy.data.libraries.load(str(blend_filepath)) as (data_from, data_to):
-            for node_group in data_from.node_groups:
-                bpy.ops.wm.append(filepath=str(node_tree_path / node_group), directory=str(node_tree_path), filename=node_group, set_fake=True)
+from generated_shader_groups import ensure as TryAppendNodeGroups, get as generated_group, KEYS as generated_keys
 
 def TryGetExtractedImport(imp:Import, extract_dir):
-    if not hasattr(imp, "extracted"):
-        archive_path = imp.import_ref.object_name
-        # Native editor source first; no source-tree writes or external executable.
-        try:
-            from texture_blender import load_editor_texture
-            imp.extracted = load_editor_texture(imp.asset.ToProjectPath(archive_path), imp.asset.uproject)
-            return imp.extracted
-        except Exception as exc:
-            print(f"Native editor texture unavailable for {archive_path}: {exc}")
-        try:
-            asset_path = imp.asset.ToProjectPath(archive_path)
-            if not os.path.isfile(asset_path):
-                imp.extracted = None
-                return None
-        except (OSError, ValueError):
-            imp.extracted = None
-            return None
-        extracted_path = os.path.normpath(extract_dir + archive_path + ".png")
-        if not os.path.exists(extracted_path):
-            asset_path = imp.asset.ToProjectPath(archive_path)
-            extract_dir = os.path.join(extract_dir, "Engine" if archive_path.startswith("/Engine/") else "Game")
-            print(f"Extracting {asset_path}")
-            try:
-                subprocess.run([umodel_path, "-export", "-png", f"-out={extract_dir}", asset_path], check=True, timeout=180)
-            except (OSError, subprocess.SubprocessError) as exc:
-                print(f"Texture extraction failed for {archive_path}: {exc}")
-                imp.extracted = None
-                return None
-        try:
-            imp.extracted = tex = bpy.data.images.load(extracted_path, check_existing=True)
-
-            tex_uasset_path = imp.asset.ToProjectPath(archive_path)
-            with UAsset(tex_uasset_path, uproject=imp.asset.uproject) as asset:
-                for export in asset.exports:
-                    if export.export_class_type == 'Texture2D':
-                        export.ReadProperties(False)
-                        tex.colorspace_settings.name = 'sRGB' if export.properties.TryGetValue('SRGB',True) else 'Non-Color'
-                        tex['flip_y'] = export.properties.TryGetValue('bFlipGreenChannel',False)
-                        tex['UE_address_x'] = export.properties.TryGetValue('AddressX', 'TA_Wrap')
-                        tex['UE_address_y'] = export.properties.TryGetValue('AddressY', 'TA_Wrap')
-                        tex['clamp'] = export.properties.TryGetValue('AddressX', 'TA_Wrap') == 'TA_Clamp' and export.properties.TryGetValue('AddressY', 'TA_Wrap') == 'TA_Clamp'
-                        break
-        except: imp.extracted = None
+    """Use validated editor source only; no external executable or implicit cache."""
+    if hasattr(imp, 'extracted') and imp.extracted is not None:
+        return imp.extracted
+    archive_path = imp.import_ref.object_name
+    try:
+        from texture_blender import load_editor_texture
+        imp.extracted = load_editor_texture(imp.asset.ToProjectPath(archive_path), imp.asset.uproject)
+    except Exception as exc:
+        print(f"Native texture unavailable for {archive_path}: {exc}")
+        imp.extracted = None
     return imp.extracted
 
 class UE2BlenderNodeMapping():
@@ -187,7 +147,6 @@ UE2BlenderNode_dict = {
     'MaterialExpressionBlackBody'         : UE2BlenderNodeMapping('ShaderNodeBlackbody', hide=False, inputs={'Temp':0}),
     'CheapContrast_RGB'                   : UE2BlenderNodeMapping('ShaderNodeBrightContrast', width=None, hide=False, inputs={'FunctionInputs':('Color','Contrast')}),
     'BlendAngleCorrectedNormals'          : UE2BlenderNodeMapping('ShaderNodeGroup', subtype='BlendAngleCorrectedNormals', width=None, hide=False, inputs={'FunctionInputs':(0,1)}),
-    'CameraDepthFade'                     : UE2BlenderNodeMapping('ShaderNodeGroup', subtype='CameraDepthFade', width=None, hide=False, inputs={'FunctionInputs':(0,1,2)}),
     'MaterialExpressionFunctionInput'     : UE2BlenderNodeMapping('NodeReroute', hide=False, width=None),
     'MaterialExpressionFunctionOutput'    : UE2BlenderNodeMapping('NodeReroute', hide=False, width=None, inputs={'A':0}),
 }
@@ -206,7 +165,7 @@ def SetupNode(node_tree, name, mapping:UE2BlenderNodeMapping, node_data) -> bpy.
     node.hide = mapping.hide
     SetNodePos(node, node_data.export.properties)
     if mapping.subtype:
-        if mapping.bl_idname == 'ShaderNodeGroup': node.node_tree = bpy.data.node_groups[mapping.subtype]
+        if mapping.bl_idname == 'ShaderNodeGroup': node.node_tree = generated_group(mapping.subtype) if mapping.subtype in generated_keys else bpy.data.node_groups[mapping.subtype]
         else: node.operation = mapping.subtype
     if mapping.label: node.label = mapping.label
     node.use_custom_color = mapping.color != None
@@ -220,7 +179,7 @@ def SetupNode(node_tree, name, mapping:UE2BlenderNodeMapping, node_data) -> bpy.
             rgb_in = node.outputs['Color']
             if node_data.export.properties.TryGetValue('SamplerType') == 'SAMPLERTYPE_Normal':
                 rgb2n = node_tree.nodes.new('ShaderNodeGroup')
-                rgb2n.node_tree = bpy.data.node_groups['RGBtoNormalY-']
+                rgb2n.node_tree = generated_group('RGBtoNormalY-')
                 rgb2n.hide = True
                 SetNodePos(rgb2n, node_data.export.properties)
                 rgb2n.location += Vector((0,30))
@@ -228,7 +187,7 @@ def SetupNode(node_tree, name, mapping:UE2BlenderNodeMapping, node_data) -> bpy.
                 rgb_in = rgb2n.outputs['Normal']
 
             rgba:bpy.types.ShaderNode = node_tree.nodes.new('ShaderNodeGroup')
-            rgba.node_tree = bpy.data.node_groups['RGBA']
+            rgba.node_tree = generated_group('RGBA')
             rgba.hide, rgba.width,rgba.show_options  = (True, 100, False)
             rgba.location = node.location + Vector((160,-32))
             node_tree.links.new(rgb_in, rgba.inputs['RGB'])
@@ -260,7 +219,7 @@ def TryRemapNormal(params, node_tree, node_data):
         node_tree.links.new(normal_map.outputs['Normal'], node_data.node.inputs['Normal'])
 
         n2rgb = node_tree.nodes.new('ShaderNodeGroup')
-        n2rgb.node_tree = bpy.data.node_groups['NormalToRGB']
+        n2rgb.node_tree = generated_group('NormalToRGB')
         n2rgb.location = normal_map.location + Vector((-160, -130))
         n2rgb.hide = True
         node_tree.links.new(n2rgb.outputs['RGB'], normal_map.inputs['Color'])
@@ -278,7 +237,9 @@ def SetBlend(params, mat, node_data):
             mat.surface_render_method = 'BLENDED'
 
             additive = mat.node_tree.nodes.new('ShaderNodeGroup')
-            additive.node_tree = bpy.data.node_groups['AdditiveSurface']
+            additive.node_tree = generated_group('AdditiveSurface')
+            mat['UE_BlendModeApproximation'] = additive.node_tree['UI_approximation']
+            mat.node_tree['Error'] = True
             additive.location = node_data.node.location + Vector((0, 150))
             mat.node_tree.links.new(additive.outputs[0], mat.node_tree.nodes['Material Output'].inputs['Surface'])
             node_data.input_remap = { 'EmissiveColor':additive.inputs['Emission'] }
@@ -326,7 +287,7 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
             raise ValueError('Missing material function reference')
         classname = matfnc_imp.object_name
         mapping = UE2BlenderNode_dict.get(classname)
-        if not mapping or (mapping.bl_idname == 'ShaderNodeGroup' and mapping.subtype not in bpy.data.node_groups):
+        if not mapping or (mapping.bl_idname == 'ShaderNodeGroup' and mapping.subtype not in generated_keys):
             # Each imported call owns its group, so instance edits cannot mutate siblings.
             try:
                 node_group, fn_graph = ImportMaterialFunction(matfnc_imp, mesh, graph_data.stack)
@@ -396,7 +357,11 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
             const_val = params.TryGetValue(ue_name, const_default)
             node.inputs[bl_name].default_value = const_val
 
-    if mapping.bl_idname == 'ShaderNodeGroup': node.show_options = False
+    if mapping.bl_idname == 'ShaderNodeGroup':
+        node.show_options = False
+        if node.node_tree.get('UI_approximation'):
+            node['UE_approximation'] = node.node_tree['UI_approximation']
+            node_tree['Error'] = True
 
     value = params.TryGetValue('DefaultValue')
     if value == None: value = params.TryGetValue('Constant')
@@ -546,8 +511,8 @@ def SetNodeTexture(node, image):
     links = node.outputs['Color'].links
     if len(links) > 0:
         linked_node = links[0].to_node
-        if linked_node.type == 'GROUP' and linked_node.node_tree and linked_node.node_tree.name.startswith('RGBtoNormal'):
-            linked_node.node_tree = bpy.data.node_groups['RGBtoNormal' if image.get('flip_y', False) else 'RGBtoNormalY-']
+        if linked_node.type == 'GROUP' and linked_node.node_tree and linked_node.node_tree.get('UI_group_key','').startswith('RGBtoNormal'):
+            linked_node.node_tree = generated_group('RGBtoNormal' if image.get('flip_y', False) else 'RGBtoNormalY-')
 def ImportMaterialFunction(mat_fnc_imp:Import, mesh=None, stack=()):
     from material_stage import package_reference
     package = package_reference(mat_fnc_imp)
@@ -768,11 +733,9 @@ ImportUMat.__annotations__ = {name: eval(value, globals()) if isinstance(value, 
 reg_classes = ( ImportUMat, )
 
 def register():
-    register_helper.RegisterClasses(reg_classes)
-    register_helper.RegisterDrawFnc(bpy.types.TOPBAR_MT_file_import, ImportUMat, menu_import_umat)
+    addon_lifecycle.register(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umat)
 def unregister():
-    register_helper.TryUnregisterClasses(reg_classes)
-    register_helper.UnregisterDrawFnc(bpy.types.TOPBAR_MT_file_import, ImportUMat, menu_import_umat)
+    addon_lifecycle.unregister(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umat)
 
 if __name__ != "umat":
     importlib.reload(uasset)
