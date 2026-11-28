@@ -1,9 +1,27 @@
 import os,unittest
 from pathlib import Path
 import numpy as np
-from ue5_editor_landscape import collapse_heightmap,weld_tiles,records,source_atlas,source_corner_uv
+from ue5_editor_landscape import collapse_heightmap,weld_tiles,records,source_atlas,source_corner_uv,mesh_coordinates,mesh_corner_indices
 
 class LandscapeTests(unittest.TestCase):
+    def test_optimized_buffers_match_reference(self):
+        rng=np.random.default_rng(100)
+        for h,w in [(3,5),(9,7),(127,253)]:
+            g=rng.integers(-32768,32768,size=(h,w),dtype=np.int32)
+            for x,y in [(0,0),(-126,252),(123,-789)]:
+                yy,xx=np.indices((h,w),dtype=np.float32)
+                expected=np.stack(((yy+y)*.01,(xx+x)*.01,g.astype(np.float32)/128*.01),axis=-1).ravel()
+                np.testing.assert_array_equal(mesh_coordinates(g,(x,y)),expected)
+                ids=np.arange(h*w,dtype=np.int32).reshape(h,w);a=ids[:-1,:-1].ravel()
+                np.testing.assert_array_equal(mesh_corner_indices(g.shape),np.stack((a,a+w,a+w+1,a+1),axis=1).ravel())
+        for q,s,n,cols,rows in [(63,63,1,3,2),(126,63,2,2,3),(2,1,2,2,1)]:
+            h,w=rows*q+1,cols*q+1;side=(s+1)*n;meta=dict(component_quads=q,subsection_quads=s,subsections=n,width=cols*side,height=rows*side)
+            yy,xx=np.indices((h-1,w-1),dtype=np.int32);tx,ty=xx//q,yy//q;lx,ly=xx%q,yy%q
+            u=(tx*side+lx+lx//s).ravel();v=(ty*side+ly+ly//s).ravel();expected=np.empty((len(u),4,2),dtype=np.float32)
+            for k,(dx,dy) in enumerate(((0,0),(0,1),(1,1),(1,0))):
+                expected[:,k,0]=(u+dx+.5)/meta['width'];expected[:,k,1]=1-(v+dy+.5)/meta['height']
+            uv,comp=source_corner_uv(meta,(h,w));np.testing.assert_array_equal(uv,expected.reshape(-1,2));np.testing.assert_array_equal(comp,(ty*cols+tx).ravel())
+
     def test_subsections_and_seams(self):
         # Two subsections of two vertices each: shared edge encoded twice.
         h=np.array([[0,1,1,2],[3,4,4,5],[3,4,4,5],[6,7,7,8]],dtype=np.int32)+32768

@@ -3,6 +3,32 @@ import json
 from pathlib import Path
 
 
+def map_redirector(path):
+    """Identify a bounded original UE5 map alias, not a World export.
+
+    Never follow an alias automatically; unknown or malformed files remain
+    discoverable for diagnosis. Avoid reading large map payloads during scans.
+    """
+    import struct
+    from ue5_blueprint import read_tables
+    try:
+        if Path(path).stat().st_size>1024*1024:return None
+        meta,raw,imports,exports,ref,package=read_tables(path)
+        if meta['ue5'] not in (1016,1017) or len(exports)!=1:return None
+        e=exports[0];cls=ref(e['class_index'])
+        if e['outer'] or e['kind']!='ObjectRedirector' or e['class_index']>=0 or cls['kind']!='Class' or cls['class_package']!='/Script/CoreUObject':return None
+        if ref(cls['outer'])['name']!='/Script/CoreUObject':return None
+        payload=raw[e['offset']:e['offset']+e['size']]
+        if e['script_start']!=0 or e['script_end']!=9 or len(payload)!=17 or payload[:13]!=bytes(13):return None
+        idx=struct.unpack_from('<i',payload,13)[0]
+        if idx>=0:return None
+        target=ref(idx);dest=package(idx)
+        if target['kind']!='World' or target['class_package']!='/Script/Engine' or not dest.startswith('/Game/') or target['name']!=dest.rsplit('/',1)[-1]:return None
+        return dest
+    except Exception:
+        return None
+
+
 def validate_selection(project, paths):
     content=(Path(project).resolve().parent/'Content').resolve()
     selected=[Path(p).resolve() for p in paths]

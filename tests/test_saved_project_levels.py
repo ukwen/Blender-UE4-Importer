@@ -1,6 +1,6 @@
 import os,tempfile,unittest
 from pathlib import Path
-from saved_project_levels import validate_selection
+from saved_project_levels import validate_selection,map_redirector
 from ue5_level_layout import inventory,saved_bool
 from ue5_material_semantics import base_property_audit
 
@@ -13,6 +13,17 @@ class SavedLevelTests(unittest.TestCase):
                 with self.assertRaises(ValueError):validate_selection(project,paths)
             (c/'__ExternalActors__').mkdir();x=c/'__ExternalActors__'/'x.umap';x.touch()
             with self.assertRaises(ValueError):validate_selection(project,[x])
+    def test_unknown_map_not_discarded_as_redirector(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'unknown.umap';p.write_bytes(b'not a package');self.assertIsNone(map_redirector(p))
+    @unittest.skipUnless(os.environ.get('UE56_EDITOR_PROJECT'),'Original fixture required')
+    def test_original_map_redirector(self):
+        c=Path(os.environ['UE56_EDITOR_PROJECT']).parent/'Content';p=c/'MyStuff/TestLevel.umap'
+        self.assertEqual(map_redirector(p),'/Game/MyStuff/Maps/TestLevel')
+        self.assertIsNone(map_redirector(c/'MyStuff/Maps/TestLevel.umap'))
+        self.assertIsNone(map_redirector(c/'ThirdPerson/Lvl_ThirdPerson.umap'))
+        with tempfile.TemporaryDirectory() as d:
+            q=Path(d)/'bad.umap';raw=bytearray(p.read_bytes());raw[1205:1209]=bytes(4);q.write_bytes(raw);self.assertIsNone(map_redirector(q))
     def test_external_actor_root_cannot_escape(self):
         from ue5_editor_scene import external_packages
         with tempfile.TemporaryDirectory() as d:

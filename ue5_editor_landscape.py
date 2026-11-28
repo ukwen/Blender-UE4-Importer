@@ -95,13 +95,40 @@ def source_corner_uv(meta,grid_shape):
     import numpy as np
     q,s,n=(meta[k] for k in ('component_quads','subsection_quads','subsections'));side=(s+1)*n
     h,w=grid_shape;require((w-1)%q==0 and (h-1)%q==0 and meta['width']==(w-1)//q*side and meta['height']==(h-1)//q*side,'Source UV grid mismatch')
-    yy,xx=np.indices((h-1,w-1),dtype=np.int32)
-    tx=xx//q;ty=yy//q;lx=xx%q;ly=yy%q
-    u=(tx*side+lx+lx//s).ravel();v=(ty*side+ly+ly//s).ravel()
-    uv=np.empty((len(u),4,2),dtype=np.float32)
+    # Source coordinates are separable. Keep only one-dimensional index
+    # vectors and broadcast into the final contiguous corner buffer.
+    xx=np.arange(w-1,dtype=np.int32);yy=np.arange(h-1,dtype=np.int32)
+    tx,lx=xx//q,xx%q;ty,ly=yy//q,yy%q
+    u=tx*side+lx+lx//s;v=ty*side+ly+ly//s
+    uv=np.empty((h-1,w-1,4,2),dtype=np.float32)
     for k,(dx,dy) in enumerate(((0,0),(0,1),(1,1),(1,0))):
-        uv[:,k,0]=(u+dx+.5)/meta['width'];uv[:,k,1]=1-(v+dy+.5)/meta['height']
-    return uv.reshape(-1,2),(ty*((w-1)//q)+tx).ravel()
+        uv[:,:,k,0]=(u+dx+.5)/meta['width']
+        uv[:,:,k,1]=(1-(v+dy+.5)/meta['height'])[:,None]
+    return uv.reshape(-1,2),(ty[:,None]*((w-1)//q)+tx).ravel()
+
+
+def mesh_coordinates(grid,origin):
+    """Contiguous float32 coordinates, same arithmetic/order as saved heightfield."""
+    import numpy as np
+    h,w=grid.shape;x,y=origin
+    co=np.empty((h,w,3),dtype=np.float32)
+    co[:,:,0]=((np.arange(h,dtype=np.float32)+y)*.01)[:,None]
+    co[:,:,1]=(np.arange(w,dtype=np.float32)+x)*.01
+    co[:,:,2]=grid
+    co[:,:,2]/=128;co[:,:,2]*=.01
+    return co.ravel()
+
+
+def mesh_corner_indices(shape):
+    """Generate row-major quad corners without a full vertex-ID grid."""
+    import numpy as np
+    h,w=shape
+    rows=np.arange(h-1,dtype=np.int32)*w;cols=np.arange(w-1,dtype=np.int32)
+    faces=np.empty((h-1,w-1,4),dtype=np.int32)
+    faces[:,:,0]=rows[:,None]+cols
+    for i,offset in enumerate((w,w+1,1),1):
+        np.add(faces[:,:,0],offset,out=faces[:,:,i])
+    return faces.ravel()
 
 
 def texture_bindings(tags,actor,ref,pkg,names):
@@ -189,12 +216,13 @@ def records(content,map_path,decoder=None,surface_data=None):
 def build(collection,record,grid,atlas=None):
     import bpy,numpy as np
     from blueprint_placement import apply_fields
-    h,w=grid.shape;x,y=record['grid_origin'];yy,xx=np.indices((h,w),dtype=np.float32)
-    co=np.stack(((yy+y)*.01,(xx+x)*.01,grid.astype(np.float32)/128*.01),axis=-1).reshape(-1,3)
-    ids=np.arange(h*w,dtype=np.int32).reshape(h,w);a=ids[:-1,:-1].ravel();faces=np.stack((a,a+w,a+w+1,a+1),axis=1).ravel();count=len(a)
+    h,w=grid.shape;count=(h-1)*(w-1)
     mesh=bpy.data.meshes.new(record['actor']+' heightfield');obj=None;image=None
     try:
-        mesh.vertices.add(h*w);mesh.vertices.foreach_set('co',co.ravel());mesh.loops.add(count*4);mesh.loops.foreach_set('vertex_index',faces);mesh.polygons.add(count);mesh.polygons.foreach_set('loop_start',np.arange(count,dtype=np.int32)*4);mesh.polygons.foreach_set('loop_total',np.full(count,4,dtype=np.int32));mesh.polygons.foreach_set('use_smooth',np.ones(count,dtype=np.bool_));mesh.update(calc_edges=True)
+        # Do not retain coordinate, index and atlas buffers simultaneously.
+        mesh.vertices.add(h*w);mesh.vertices.foreach_set('co',mesh_coordinates(grid,record['grid_origin']))
+        mesh.loops.add(count*4);mesh.loops.foreach_set('vertex_index',mesh_corner_indices(grid.shape))
+        mesh.polygons.add(count);mesh.polygons.foreach_set('loop_start',np.arange(count,dtype=np.int32)*4);mesh.polygons.foreach_set('loop_total',np.full(count,4,dtype=np.int32));mesh.polygons.foreach_set('use_smooth',np.ones(count,dtype=np.bool_));mesh.update(calc_edges=True)
         require(not mesh.validate(),'Invalid generated landscape mesh')
         obj=bpy.data.objects.new(record['actor'],mesh);collection.objects.link(obj);apply_fields(obj,record['fields']);obj['UE_actor']=record['actor'];obj['UE_source_actor_package']=record['source'];obj['UE_geometry_status']='reconstructed';obj['UE_landscape_record']=__import__('json').dumps(record);obj['UE_landscape_material_package']=record['material_package'];obj['UE_unresolved_material']=True
         if atlas is not None:
@@ -204,6 +232,7 @@ def build(collection,record,grid,atlas=None):
             uv,component=source_corner_uv(meta,grid.shape)
             layer=mesh.uv_layers.new(name='UE_SourceHeightmapAtlas',do_init=False);layer.data.foreach_set('uv',uv.ravel())
             attr=mesh.attributes.new('UE_landscape_component_index','INT','FACE');attr.data.foreach_set('value',component)
+            del uv,component
             png=png_bytes(meta['width'],meta['height'],atlas.tobytes())
             with tempfile.TemporaryDirectory() as d:
                 p=Path(d)/'source.png';p.write_bytes(png);image=bpy.data.images.load(str(p),check_existing=False);image.name=record['actor']+' — source heightmap RGBA';image.colorspace_settings.name='Non-Color';image.alpha_mode='CHANNEL_PACKED';image.pack();image.filepath='//'+image.name+'.png'

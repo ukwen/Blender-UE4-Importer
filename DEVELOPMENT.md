@@ -197,3 +197,7 @@ See [landscape source atlas](docs/0.10.88-landscape-atlas.md). Original 64 embed
 ## 0.10.90-dev
 
 [Source recovery, cancellation and memory](docs/0.10.90-source-recovery.md). Explicit read-only recovery plan and non-overwriting verified copies, restored source geometry under original level collections, between-map transaction close rollback, adjustable package cache budget and measured process peak RSS.
+
+## 0.10.91-dev
+
+See [landscape memory and whole-project acceptance](docs/0.10.91-landscape-memory.md). Lower temporary allocation with exact old/candidate terrain digests; map redirector detection; six-world and three commercial-map regressions.

@@ -6,7 +6,7 @@ import bpy
 from bpy.props import StringProperty, BoolProperty, IntProperty, FloatProperty, CollectionProperty, PointerProperty, EnumProperty
 
 
-def discover_maps(descriptor):
+def discover_maps(descriptor,redirectors=None):
     path = Path(descriptor).expanduser().resolve()
     if path.suffix.lower() != '.uproject' or not path.is_file():
         raise ValueError('Select an existing .uproject file')
@@ -25,6 +25,11 @@ def discover_maps(descriptor):
             continue
         relative = entry.relative_to(root)
         if any(part in ('__ExternalActors__', '__ExternalObjects__') for part in relative.parts):
+            continue
+        from saved_project_levels import map_redirector
+        target=map_redirector(entry)
+        if target:
+            if redirectors is not None:redirectors.append(dict(source=relative.as_posix(),destination=target))
             continue
         maps.append((relative.as_posix(), str(entry.resolve())))
     return str(path), str(metadata.get('EngineAssociation') or 'Unknown'), sorted(maps)
@@ -55,6 +60,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     project_path: StringProperty(name='Project', subtype='FILE_PATH')
     scanned_project: StringProperty(options={'HIDDEN'})
     engine: StringProperty(options={'HIDDEN'})
+    map_redirectors: StringProperty(options={'HIDDEN'})
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
     cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static and skeletal LOD0')],default='4.27')
@@ -94,11 +100,13 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
         state.maps.clear()
         state.scanned_project = ''
         state.engine = ''
+        state.map_redirectors = ''
         state.active = 0
         state.scene_summary = state.scene_summary_source = state.scene_action_report = ''
         state.source_recovery_plan = state.source_recovery_status = ''
         try:
-            project, engine, maps = discover_maps(bpy.path.abspath(state.project_path))
+            redirectors=[]
+            project, engine, maps = discover_maps(bpy.path.abspath(state.project_path),redirectors)
         except (OSError, ValueError) as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
@@ -106,7 +114,8 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
         for name, filepath in maps:
             item = state.maps.add()
             item.name, item.filepath = name, filepath
-        self.report({'INFO'}, f'Found {len(maps)} maps')
+        state.map_redirectors=json.dumps(redirectors) if redirectors else ''
+        self.report({'INFO'}, f'Found {len(maps)} maps; {len(redirectors)} redirectors excluded')
         return {'FINISHED'}
 
 
@@ -762,6 +771,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
         if state.scanned_project:
             layout.label(text=f'Engine: {state.engine}')
             layout.label(text=f'Maps: {len(state.maps)}')
+            if state.map_redirectors:layout.label(text=f'{len(json.loads(state.map_redirectors))} map redirector(s) excluded',icon='INFO')
             layout.template_list('UEIMPORT_UL_maps', 'unreal_maps', state, 'maps', state, 'active', rows=5)
             layout.prop(state,'partial_materials',text='Allow partial material previews')
             layout.operator('ueimport.scene_dependencies',icon='VIEWZOOM')
