@@ -96,6 +96,11 @@ def build_instances(collection, parent, mesh, component_name, package, records):
 
 def reconstruct_foliage(filepath, collection, resolver):
     """Decode map-owned foliage components, retaining failures in a separate report."""
+    from package_inspector import inspect_package
+    meta = inspect_package(filepath)
+    if meta.get('ue4') == 508 and meta.get('ue5') is None:
+        from classic_foliage import reconstruct_classic_foliage
+        return reconstruct_classic_foliage(filepath, collection, resolver)
     import bpy
     import uasset
     from umap import Transform

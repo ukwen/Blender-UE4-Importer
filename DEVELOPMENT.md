@@ -237,3 +237,7 @@ UE4.27 editor skeletal, reference-skeleton and PhysicsAsset readers now use type
 ## 0.10.100-dev — classic static geometry migration
 
 Typed UE4 object version 508 package tables, soft dependencies and static geometry boundary. See docs/INDEPENDENCE.md and docs/TEST_REPORT.md.
+
+## 0.10.101-dev — classic actor and foliage reconstruction boundary
+
+Typed actor placement and foliage source records, legacy-free supported geometry-only map import, original two-map parity and reopening. See docs/TEST_REPORT.md and docs/INDEPENDENCE.md.

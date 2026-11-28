@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from collections import Counter
 import bpy
-import umesh
 import map_layout
 
 

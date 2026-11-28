@@ -59,3 +59,5 @@ Use development as the sole active branch. Continue ordinary feature, performanc
 0.10.99: typed UE4.27 editor skeletal/USkeleton/PhysicsAsset readers, geometry root classification across supported typed tables, explicit unsupported modern static refusal. Original ten-record exact parity, five posed meshes, 205 collision/joint overlays and reopen. Next: migrate remaining UE4 static and legacy geometry routing, Blueprint property readers and material/scene integration while advancing importer features and fidelity.
 
 0.10.100: typed 508 tables, classic FString soft references and native FRawMesh package boundary; 325 static meshes exact decoded parity and 452 preflight reports; legacy Western Frontier map placement and modern level-set regression. Next: remaining classic static/Blueprint property paths and material/scene integration.
+
+0.10.101: legacy-free supported classic 508 static and foliage map reconstruction; all 2318 placements and 462 foliage instances validated. Next: typed Blueprint defaults and component extension, other legacy static profiles, material translation, and full integrated commercial and modern project acceptance.
