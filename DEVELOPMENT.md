@@ -181,3 +181,7 @@ See [saved level sets and partition ownership](docs/0.10.85-level-sets.md). Atom
 ## 0.10.86-dev
 
 [Native saved brush operands](docs/0.10.86-brush-operands.md): exact bounded inline UE5.6 Polys geometry, 53 original operands, explicit CSG roles and non-rendering collection. Compiled BSP and volume reconstruction remain outstanding.
+
+## 0.10.87-dev
+
+See [compiled BSP and volume bounds](docs/0.10.87-compiled-bsp.md). Original compiled render buffers (26 components) and 12 non-rendering volume guides; native BSP materials remain absent or unspecified in fixtures.

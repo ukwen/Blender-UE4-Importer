@@ -6,7 +6,7 @@ Blender addon to import Unreal Engine 4 asset files. [Download the latest releas
 
 ## Development branch
 
-Current development candidate: **0.10.86-dev**. Objective: direct native UE4/UE5 saved-scene transfer into Blender 4.2.4, with explicit supported profiles and no FBX/USD conversion. Stable branch: `master`; active branch: `development`. [Handoff](docs/HANDOFF.md) · [Project state](docs/PROJECT_STATE.json) · [Roadmap](docs/ROADMAP.md) · [Tests](docs/TEST_REPORT.md) · [Dependencies and installation](docs/DEPENDENCIES.md).
+Current development candidate: **0.10.87-dev**. Objective: direct native UE4/UE5 saved-scene transfer into Blender 4.2.4, with explicit supported profiles and no FBX/USD conversion. Stable branch: `master`; active branch: `development`. [Handoff](docs/HANDOFF.md) · [Project state](docs/PROJECT_STATE.json) · [Roadmap](docs/ROADMAP.md) · [Tests](docs/TEST_REPORT.md) · [Dependencies and installation](docs/DEPENDENCIES.md).
 
 For verified native UE4/UE5 reconstruction profiles, limitations and setup, see [DEVELOPMENT.md](DEVELOPMENT.md). The original upstream feature table below is historical. UE5.6 saved lighting/marker import is an approximate preview, not Unreal rendering parity.
 
@@ -162,3 +162,5 @@ Bounded function expansion, shared global parameter overrides and guarded number
 For 0.10.85-dev, check map rows and use **Import Checked Levels (Separate)** to transfer independent levels atomically. **Show Selected Imported Level** switches visibility within the imported set. The per-level report includes saved partition ownership; this does not evaluate Unreal streaming or level-instance transforms. See [details](docs/0.10.85-level-sets.md).
 
 For 0.10.86-dev, unified UE5.6 saved-level transfer preserves supported inline additive/subtractive BSP brush operands in a separate non-rendering wire collection. The source polygon vertices, saved transforms and CSG roles are editable; they are not the compiled BSP result and are excluded from reconstructed scene mesh counts. See [details](docs/0.10.86-brush-operands.md).
+
+0.10.87-dev imports supported saved compiled BSP polygon buffers with original surface/lightmap UVs and source render normals, plus non-rendering editable original volume bounds. [Details](docs/0.10.87-compiled-bsp.md).

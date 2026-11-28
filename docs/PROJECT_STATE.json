@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.86-dev",
-  "previous_verified_commit": "efde4eb9e155a6a81b647577db01d894e242804e",
-  "previous_verified_tree": "441d7a686aae5c9835c2db71a6612fe4519581c4",
-  "current_commit_resolution": "Match immutable 0.10.86 Library checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "Native saved brush operands (not compiled BSP) in unified scene transfer",
+  "application_version": "0.10.87-dev",
+  "previous_verified_commit": "94697af2c5e63443c8a44c754fba1747e6d118d5",
+  "previous_verified_tree": "67284c479044c62b41094a8cfe37eb97e5adccb9",
+  "current_commit_resolution": "Match immutable 0.10.87 Library checkpoint and published development commit/tree to archive hashes.",
+  "milestone": "Original saved compiled BSP render geometry and non-rendering volume bounds",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.86_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.86-local.zip",
-    "install_archive": "install-086.zip",
+    "checkpoint": "Unreal_Importer_0.10.87_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.87-local.zip",
+    "install_archive": "install-087.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,86 +30,197 @@
   },
   "tests": {
     "baseline": {
-      "passed": 91,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 95,
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Existing recovered source tree matches published 0.10.85, source/installer and four original dependency archive hashes verified; reused restored Blender and decoder",
-    "brush_original": {
+    "current": {
+      "passed": 99,
+      "skipped": 23,
+      "failed": 0
+    },
+    "environment_reverified": "Exact baseline Git tree, source and installer hashes, four dependency hashes; reused Blender 4.2.4 and decoder",
+    "compiled_bsp": {
       "main": {
-        "skipped": [],
-        "untyped_brushes": [
-          "Brush_10"
+        "status": "reconstructed",
+        "components": 17,
+        "models": [
+          {
+            "export": 3246,
+            "points": 1239,
+            "nodes": 917,
+            "surfaces": 267,
+            "render_vertices": 4091,
+            "polys": 3379,
+            "tail_sha256": "57072ff7c75aa07994a4438dd96a8edafe3549aa65699204e3503a2f1aed287a",
+            "sha256": "fb369eda7a1e301fa59c43ccf022e73128d3466b8fd4acb09c6895b1747752e3"
+          }
         ],
-        "compiled_model_components": 17,
-        "scope": "Inline explicit CSG operands only; compiled BSP, volumes, external brushes and material projection not reconstructed",
-        "operands": 45,
-        "roles": {
-          "Brush_Add": 45
+        "skipped": [],
+        "vertices": 1431,
+        "faces": 917,
+        "corners": 4091,
+        "material_report": {
+          "/Game/StarterBundle/ModularScifiProps/Materials/MI_Base_Dark": {
+            "status": "unresolved",
+            "detail": "ValueError: Missing material package /Game/StarterBundle/ModularScifiProps/Materials/MI_Base_Dark"
+          },
+          "/Engine/EngineMaterials/WorldGridMaterial": {
+            "status": "unresolved",
+            "detail": "ValueError: Material dependency is outside project: /Engine/EngineMaterials/WorldGridMaterial"
+          },
+          "/Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Floor_F_Scr": {
+            "status": "unresolved",
+            "detail": "ValueError: Missing material package /Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Floor_F_Scr"
+          },
+          "/Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Floor_E_Scr": {
+            "status": "unresolved",
+            "detail": "ValueError: Missing material package /Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Floor_E_Scr"
+          },
+          "/Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Trims_A": {
+            "status": "unresolved",
+            "detail": "ValueError: Missing material package /Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Trims_A"
+          },
+          "/Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Ceiling_A": {
+            "status": "unresolved",
+            "detail": "ValueError: Missing material package /Game/StarterBundle/ModularSciFiMats/Materials/Instances/MI_Ceiling_A"
+          }
         },
-        "vertices": 360,
-        "faces": 271,
-        "rendered_bsp": false
+        "unspecified_material_faces": 0,
+        "scope": "Original saved compiled BSP render polygons and UVs; material dependencies may be absent; no runtime CSG, collision, lightmap baking or Unreal renderer parity"
       },
       "test": {
-        "skipped": [],
-        "untyped_brushes": [
-          "Brush_1"
+        "status": "reconstructed",
+        "components": 9,
+        "models": [
+          {
+            "export": 71,
+            "points": 141,
+            "nodes": 86,
+            "surfaces": 41,
+            "render_vertices": 304,
+            "polys": 94,
+            "tail_sha256": "8fa591c2d0450ffeb4b99838246aba3eda75e4a4d27cf45435d7bdf443016198",
+            "sha256": "502627f1735732552ea98f9b38bf06d425163e481353c7a6c4be97fad574ae3b"
+          }
         ],
-        "compiled_model_components": 9,
-        "scope": "Inline explicit CSG operands only; compiled BSP, volumes, external brushes and material projection not reconstructed",
-        "operands": 8,
-        "roles": {
-          "Brush_Add": 4,
-          "Brush_Subtract": 4
-        },
-        "vertices": 64,
-        "faces": 48,
-        "rendered_bsp": false
+        "skipped": [],
+        "vertices": 177,
+        "faces": 76,
+        "corners": 304,
+        "material_report": {},
+        "unspecified_material_faces": 76,
+        "scope": "Original saved compiled BSP render polygons and UVs; material dependencies may be absent; no runtime CSG, collision, lightmap baking or Unreal renderer parity"
       },
-      "counts": {
-        "MainLevel": 45,
-        "TestLevel": 8
+      "volumes": {
+        "MainLevel": {
+          "volumes": 3,
+          "kinds": {
+            "LightmassImportanceVolume": 1,
+            "NavMeshBoundsVolume": 1,
+            "PostProcessVolume": 1
+          },
+          "vertices": 24,
+          "faces": 18,
+          "skipped": [],
+          "scope": "Non-rendering editable saved brush bounds and raw tagged metadata; no runtime collision/navigation/lightmass or postprocess equivalence"
+        },
+        "TestLevel": {
+          "volumes": 1,
+          "kinds": {
+            "NavMeshBoundsVolume": 1
+          },
+          "vertices": 8,
+          "faces": 6,
+          "skipped": [],
+          "scope": "Non-rendering editable saved brush bounds and raw tagged metadata; no runtime collision/navigation/lightmass or postprocess equivalence"
+        },
+        "Lvl_ThirdPerson": {
+          "volumes": 1,
+          "kinds": {
+            "PostProcessVolume": 1
+          },
+          "vertices": 8,
+          "faces": 6,
+          "skipped": [],
+          "scope": "Non-rendering editable saved brush bounds and raw tagged metadata; no runtime collision/navigation/lightmass or postprocess equivalence"
+        },
+        "Lvl_Combat": {
+          "volumes": 2,
+          "kinds": {
+            "PostProcessVolume": 1,
+            "NavMeshBoundsVolume": 1
+          },
+          "vertices": 16,
+          "faces": 12,
+          "skipped": [],
+          "scope": "Non-rendering editable saved brush bounds and raw tagged metadata; no runtime collision/navigation/lightmass or postprocess equivalence"
+        },
+        "Lvl_Platforming": {
+          "volumes": 1,
+          "kinds": {
+            "PostProcessVolume": 1
+          },
+          "vertices": 8,
+          "faces": 6,
+          "skipped": [],
+          "scope": "Non-rendering editable saved brush bounds and raw tagged metadata; no runtime collision/navigation/lightmass or postprocess equivalence"
+        },
+        "Lvl_SideScrolling": {
+          "volumes": 4,
+          "kinds": {
+            "BlockingVolume": 2,
+            "PostProcessVolume": 1,
+            "NavMeshBoundsVolume": 1
+          },
+          "vertices": 32,
+          "faces": 24,
+          "skipped": [],
+          "scope": "Non-rendering editable saved brush bounds and raw tagged metadata; no runtime collision/navigation/lightmass or postprocess equivalence"
+        }
       },
       "pre": {
-        "max_local_vertex_error_m": 0.0,
-        "max_normal_error": 1.3244769213095208e-07,
-        "max_translation_error_m": 3.662109378410605e-06,
-        "max_scale_error": 0.0,
-        "max_world_vertex_error_m": 3.932099938981686e-06,
-        "max_rotation_matrix_error": 2.384185791015625e-07,
-        "source_face_corners": 1274
+        "corners": 4395,
+        "faces": 993,
+        "position_error_m": 0.0,
+        "uv_error": 0.0,
+        "lightmap_uv_error": 0.0,
+        "source_normal_error": 0.0,
+        "normal_error": 0.0003310833445237174,
+        "geometric_normal_error": 0.0012927254607477804,
+        "volume_world_error_m": 0.0
       },
       "post": {
-        "max_local_vertex_error_m": 0.0,
-        "max_normal_error": 1.3244769213095208e-07,
-        "max_translation_error_m": 3.662109378410605e-06,
-        "max_scale_error": 0.0,
-        "max_world_vertex_error_m": 3.932099938981686e-06,
-        "max_rotation_matrix_error": 2.384185791015625e-07,
-        "source_face_corners": 1274
+        "corners": 4395,
+        "faces": 993,
+        "position_error_m": 0.0,
+        "uv_error": 0.0,
+        "lightmap_uv_error": 0.0,
+        "source_normal_error": 0.0,
+        "normal_error": 0.0003310833445237174,
+        "geometric_normal_error": 0.0012927254607477804,
+        "volume_world_error_m": 0.0
       },
       "reopen": true,
-      "max_reopen_matrix_error": 0,
-      "scope": "Source brush operands only, not compiled BSP or rendered geometry; MainLevel brush-only stage, TestLevel full scene"
+      "exact_reopen_matrices": true,
+      "cpu_visibility_probe_rgb": [
+        0.20000000298023224,
+        0.4000000059604645,
+        0.6000000238418579
+      ],
+      "scope": "Original saved BSP render polygons and UVs, non-rendering original volume bounds; diagnostic emission only, missing materials and runtime effects unresolved"
     },
     "single_level_regression": true,
     "level_set_regression": true,
+    "brush_operand_regression": true,
     "legacy_and_goblin": "Previously verified, not rerun",
-    "isolated_install": {
-      "scope": "See immutable milestone checkpoint for final archive acceptance"
-    }
+    "isolated_install": "See final immutable checkpoint"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Compiled BSP Model/ModelComponent visible surfaces with original format evidence, then landscape layers, rendered decal projection where source assets permit, modern instancing and professional usability/performance. No new downloads.",
+  "next_priority": "Landscape weight/material layers and actual decal projection with positive source evidence, then professional usability and performance. Native modern instancing/streaming only with evidence. No new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -129,6 +240,6 @@
     "Legacy sky, actual UE fog scattering/capture/radiance equivalence, missing fog defaults/unsupported fields and EEVEE not validated.",
     "Active base-property flags without serialized values (MI_GlowNT BlendMode and ShadingModel), float4 alpha, arbitrary vector widths and missing material functions remain unresolved.",
     "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition.",
-    "Compiled BSP and volume Model profiles not decoded; explicit source brush operands are non-rendering, not final CSG surfaces."
+    "BSP geometry supported for original zero-flag inline compiled profile only. Six explicit material packages unavailable and 76 faces have null source material; lightmap baking, other BSP/volume profiles and runtime CSG/physics/navigation/postprocess not validated."
   ]
 }

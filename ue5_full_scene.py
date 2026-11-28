@@ -37,6 +37,7 @@ def coverage(inventory,objects):
         key=(obj.get('UE_source_actor_package'),obj.get('UE_actor'))
         if not all(key):continue
         if obj.get('UE_brush_operand'):kind='brush_operand_guide'
+        elif obj.get('UE_volume_guide'):kind='volume_guide'
         elif obj.type in ('MESH','ARMATURE'):kind='geometry'
         elif obj.type=='LIGHT':kind='light_preview'
         elif obj.type=='CAMERA':kind='camera_preview'
@@ -84,6 +85,10 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
         stages['decals']=extend_decals(content,path,root);counts['decal_objects']=stages['decals']['projector_anchors']+stages['decals']['size_guides']
         from ue5_editor_brushes import extend_brushes
         stages['brushes']=extend_brushes(content,path,root);counts['brush_operand_objects']=stages['brushes']['operands']
+        from ue5_editor_bsp import extend_bsp
+        stages['compiled_bsp']=extend_bsp(content,path,root,partial=partial);counts['compiled_bsp_objects']=stages['compiled_bsp']['components']
+        from ue5_editor_volumes import extend_volumes
+        stages['volumes']=extend_volumes(content,path,root);counts['volume_guide_objects']=stages['volumes']['volumes']
         for name,data,build in [('lighting',light_data,lambda:lighting(str(path),preview_scale)),('cameras',camera_data,lambda:camera(str(path)))]:
             if not data['records']:
                 stages[name]=dict(data,status='no_supported_records');counts[name+'_objects']=0;continue
@@ -106,7 +111,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
         require(scene.camera==old_camera,'Unexpected active camera change')
         objects=list(root.all_objects);require(objects,'No supported scene objects reconstructed')
         material_counts=Counter(v['status'] for v in gr.get('material_report',{}).values())
-        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' and not o.get('UE_brush_operand') for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,level_layout=layout,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset and non-rendering decal guides and CSG brush operands; no compiled BSP; opt-in analytical sky where supported; opt-in finite fog preview separately available; no Unreal fog equivalence, runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
+        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' and not o.get('UE_brush_operand') and not o.get('UE_volume_guide') for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,level_layout=layout,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset and non-rendering decal guides and CSG brush operands; saved compiled BSP render polygon subset and non-rendering volume guides; opt-in analytical sky where supported; opt-in finite fog preview separately available; no Unreal fog equivalence, runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
         text=bpy.data.texts.new(root.name+' - scene transfer.json');text.write(json.dumps(report,indent=2));root['UE_report']=text.name;root['UE_full_scene_source']=str(path);root['UE_preview_only']=True
         return root,report
     except Exception:

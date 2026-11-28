@@ -17,7 +17,7 @@ root=bpy.data.collections.new('MainLevel source operands');scene.collection.chil
 main=extend_brushes(content,a,root);testroot,full=reconstruct(str(b),partial=True);test=full['stages']['brushes']
 assert main['operands']==45 and test['operands']==8
 assert full['coverage']['representation_counts']['brush_operand_guide']==8
-assert full['counts']['brush_operand_objects']==8 and full['counts']['meshes']==1,full['counts']
+assert full['counts']['brush_operand_objects']==8 and full['counts']['meshes']==10,full['counts']
 source={};counts={}
 for p,c in [(a,root),(b,testroot)]:
     meta,raw,_,exports,ref,_=read_tables(p);brushes={e['name']:e for e in exports if e['kind']=='Brush'}
