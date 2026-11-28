@@ -275,3 +275,7 @@ Bounded UE4.27 default layers, detached snapshot GUID and link-state records; co
 ## 0.10.109-dev — typed scoped material parameters
 
 Independent scoped parameter decoding and native texture identity; controlled four-kind layer replay and malformed-record refusal. See docs/INDEPENDENCE.md and docs/TEST_REPORT.md.
+
+## 0.10.110-dev — typed layer-function compiler
+
+Bounded classic bundle function parser and editable Blender compiler. Three controlled function groups and three CPU render checks passed. See docs/TEST_REPORT.md and docs/INDEPENDENCE.md.

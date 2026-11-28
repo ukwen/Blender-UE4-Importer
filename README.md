@@ -1,6 +1,6 @@
 # Unreal Project Importer — independent component migration
 
-Internal development candidate **0.10.109-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
+Internal development candidate **0.10.110-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
 
 Active development takes place directly on `development`; independent component replacement and feature advancement are parallel engineering priorities. The former migration branch is a historical rollback checkpoint only. This candidate replaces the inherited registration helper and binary shader library and removes the bundled external texture executable. Native supported editor texture profiles are used; cooked textures retain their explicit-profile operator. This is not yet a complete independent implementation.
 
@@ -23,3 +23,5 @@ Classic Western particle materials use typed source graph records and editable, 
 Classic UE4.27 material layer topology and detached snapshots now have a bounded independent typed decoder, used by the compatibility graph bridge on the supported package profile. Controlled Blender composition and snapshot replay pass without inherited imports; actual original layer-stack packages and complete independent function graph translation remain unverified.
 
 The UE4.27 native layer bridge now reads bounded typed scalar, vector, texture and static-switch parameter records. Two original global instance packages match the existing independent reader; scoped replay is controlled acceptance only. The general layer-function graph translator remains a compatibility dependency.
+
+The controlled UE4.27 layer-function compiler supports a bounded bundle graph subset (scalar values, bundle inputs/outputs, make/blend). Unsupported expressions retain the compatibility backend; original layer-package validation is still pending.

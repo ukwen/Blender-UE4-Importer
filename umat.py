@@ -271,7 +271,14 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
                 graph_data.native_layer_topology=True
                 def loader(ref,mesh,stack):
                     if not isinstance(ref,str): return ImportMaterialFunction(ref,mesh,stack)
-                    group, graph=ImportNodeGraph(owner.ToProjectPath(ref),owner.uproject,mesh=mesh,_stack=stack)
+                    from layer_function_graph import load_function
+                    function_path=owner.ToProjectPath(ref)
+                    try:
+                        return load_function(function_path)
+                    except NotImplementedError:
+                        # Unsupported graph profiles retain the explicit compatibility backend.
+                        pass
+                    group, graph=ImportNodeGraph(function_path,owner.uproject,mesh=mesh,_stack=stack)
                     if not isinstance(group,bpy.types.ShaderNodeTree): raise ValueError('Referenced package is not a material function')
                     return group,graph
         node=build(node_tree,node_data,graph_data,loader,mesh,records=records)
