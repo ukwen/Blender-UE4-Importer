@@ -1,0 +1,15 @@
+{
+  "source": "Existing Library Goblin War Camp; do not distribute original assets",
+  "sha256": {
+    "PHYS_Chr_Ranger_01.uasset": "2ff0a529fd0623e8d4cea23496b00f87bada60fa58876a7b753e42f0e88da84e",
+    "PHYS_Chr_Shaman_01.uasset": "605bc859245fcd1f8e2f5e9430e21f713f45f7f23224be4f95bd2447dae59139",
+    "PHYS_Chr_Warrior_Male_01.uasset": "5ddf7d7f19fce4e3192427bb54a892df089086721793014d365a641b1e3e4db4",
+    "PHYS_Chr_Wizard_01.uasset": "0ecc93dd354699c124570234e9c58392e69a624df1bfa155923538bd088659c3",
+    "SK_Chr_Ranger_01.uasset": "b608c3e01223fb7fbd8d81cc8565318dc5a9bc2b5bbaf06f592354222d0c4e54",
+    "SK_Chr_Shaman_01.uasset": "f1cbe0f517f1c9c321a5ee1d1e6810f8dc6d1e84e57e38f26610b77c234dedce",
+    "SK_Chr_Warrior_Male_01.uasset": "2b1eb75ee76f44e544ae01aa7422714c945058eabaa26d5f7b3f0ec804a18372",
+    "SK_Chr_Wizard_01.uasset": "4034395b6d94e1ebd80fb088ac1a5942e7bac9f9dced3004fe608b80c8c430e0",
+    "SK_Veh_War_Balloon_01.uasset": "e7aa410c5bae022c000b6aedf49ff2d539de8aaff36440bad9c2f6226892182d",
+    "UE4_Mannequin_Skeleton.uasset": "6244f21a093d4d05d4a208ffe165dc079b30255825a08af4175ad0f29df4163f"
+  }
+}

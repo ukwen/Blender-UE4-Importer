@@ -160,3 +160,32 @@ def soft_references_522(meta, raw, records):
         check(name.startswith('/') and all(p and p not in ('.','..') and not any(c in p for c in '.\\:\0') for p in name[1:].split('/')), 'Invalid soft package path')
         refs.add(name)
     return sorted(refs)
+
+
+def read_editor522(path, limit=MAX_PACKAGE):
+    """Read only the classic monolithic UE4.27 editor profile."""
+    check(Path(path).stat().st_size <= limit, 'Editor package size limit')
+    meta, raw, table = read_package(path)
+    check(meta['legacy'] == -7 and meta['ue4'] == 522 and meta['ue5'] is None,
+          'Expected UE4.27 editor package')
+    return meta, raw, table
+
+
+def root_export(table, kind):
+    matches = [e for e in table.exports if not e.outer and e.kind == kind]
+    check(len(matches) == 1, 'Expected one root ' + kind)
+    return matches[0]
+
+
+def classic_custom_versions(raw):
+    """Versioned UE4 -7 optimized GUID table (GUID bytes remain in file order)."""
+    check(len(raw) >= 24 and struct.unpack_from('<i', raw, 4)[0] == -7,
+          'Unsupported classic custom version layout')
+    count = struct.unpack_from('<i', raw, 20)[0]
+    check(0 <= count <= 10000 and 24 + 20 * count <= len(raw), 'Invalid custom version extent')
+    result = {}
+    for pos in range(24, 24 + 20 * count, 20):
+        guid = bytes(raw[pos:pos+16])
+        check(guid not in result, 'Duplicate custom version GUID')
+        result[guid] = struct.unpack_from('<i', raw, pos+16)[0]
+    return result

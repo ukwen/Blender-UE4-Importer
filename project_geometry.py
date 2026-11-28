@@ -50,9 +50,12 @@ def load_static(path,project,profile):
         from cooked_static import read_static,build_static
         return build_static(read_static(path,profile))
     from package_inspector import inspect_package
-    if inspect_package(path).get('ue5') in (1016,1017):
+    meta=inspect_package(path)
+    if meta.get('ue5') in (1016,1017):
         from ue5_editor_mesh import read_static,build_static
         return build_static(read_static(path))
+    if meta.get('ue5') is not None:
+        raise NotImplementedError('UE5 editor static geometry profile not supported')
     import uasset,umesh
     asset=uasset.UAsset(str(path),False,project)
     try:
@@ -66,16 +69,20 @@ def load_static(path,project,profile):
 def root_class(path,project):
     if path.with_suffix('.uexp').is_file(): return split_root_class(path)
     from package_inspector import inspect_package
-    import uasset
     meta=inspect_package(path)
-    if meta.get('status')=='tables_inspected' and meta.get('ue5') in (1016,1017):
-        from ue5_blueprint import read_tables
-        _,_,_,exports,_,_=read_tables(path)
-        kinds=[e['kind'] for e in exports if not e['outer'] and e['kind'] not in ('MetaData','SkeletalMeshEditorData')]
-        if len(kinds)==1:return kinds[0]
+    if (meta.get('status')=='tables_inspected' and meta.get('ue4')==522 and
+        (meta.get('ue5') is None or meta['ue5']==1004 or 1012<=meta['ue5']<=1018)):
+        from package_records import read_package
+        _,_,table=read_package(path)
+        roots=[e for e in table.exports if not e.outer and e.kind!='MetaData']
+        primary=[e for e in roots if e.kind=='SkeletalMesh']
+        if len(primary)==1:
+            roots=[e for e in roots if not (e.kind=='SkeletalMeshEditorData' and e.name==primary[0].name+'_USkeletalMeshEditorData')]
+        if len(roots)==1:return roots[0].kind
         raise NotImplementedError('Expected one root editor asset')
     if meta.get('status')!='tables_inspected' or meta.get('legacy')!=-7:
         raise NotImplementedError('Unsupported editor package: '+meta.get('status','unknown'))
+    import uasset
     asset=uasset.UAsset(str(path),False,project)
     try:
         asset.Read(False)

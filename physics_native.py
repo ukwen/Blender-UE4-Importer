@@ -56,8 +56,8 @@ def value(tag,names,kind,default=None):
     else: raise ValueError('Unsupported value type')
     require(not isinstance(out,(float,tuple)) or all(math.isfinite(x) for x in (out if isinstance(out,tuple) else [out])),'Nonfinite physics value');return out
 
-def export_tags(a,e):
-    require(0<e.serial_desc.count<=64*1024*1024,'Invalid export size');a.f.Seek(e.serial_desc.offset);r=Tags(a.f.ReadBytes(e.serial_desc.count),a.names);return r.tags(),bytes(r.data[r.pos:])
+def export_tags(raw,table,e):
+    require(0<e.size<=64*1024*1024,'Invalid export size');r=Tags(raw[e.offset:e.offset+e.size],table.names);return r.tags(),bytes(r.data[r.pos:])
 
 def references(tag,names,kind):
     require(tag and tag[:2]==('ArrayProperty',kind),'Missing reference array');r=Tags(tag[2],names);n=r.i();require(0<=n<=10000 and len(r.data)==4+4*n,'Invalid reference array');return [r.i() for _ in range(n)]
@@ -76,49 +76,49 @@ def convex_record(tags,names):
 
 
 def read_physics(path):
-    import uasset
-    from package_inspector import inspect_package
-    p=Path(path);m=inspect_package(p);require(m.get('status')=='tables_inspected' and m['ue4']==522 and m['ue5'] is None and not m['sidecars'] and not m['flags']&0x80002000,'Only versioned UE4.27 editor physics supported')
-    with uasset.UAsset(str(p)) as a:
-        assets=[e for e in a.exports if e.export_class_type=='PhysicsAsset'];require(len(assets)==1,'Expected one physics export');e=assets[0];t,tail=export_tags(a,e)
-        preview=get(t,'PreviewSkeletalMesh');require(preview and preview[0]=='SoftObjectProperty' and len(preview[2])==12,'Unsupported preview reference');r=Tags(preview[2],a.names);mesh=r.name();require(r.i()==0 and mesh.startswith('/Game/'),'Unsupported preview subpath')
-        mesh=mesh.split('.')[0];bodies=[];joints=[]
-        def refs(field,cls):
-            ids=references(get(t,field),a.names,'ObjectProperty');require(len(set(ids))==len(ids) and all(0<i<=len(a.exports) for i in ids),'Invalid physics export references');out=[a.GetExport(i) for i in ids];require(all(x.export_class_type==cls for x in out),'Unexpected referenced export class');return out
-        for b in refs('SkeletalBodySetups','SkeletalBodySetup'):
-            bt,extra=export_tags(a,b);bone=value(get(bt,'BoneName'),a.names,'NameProperty');require(bone and bone!='None','Missing physics bone');shapes=[]
-            for k,v in sub_tags(get(bt,'AggGeom'),a.names,'KAggregateGeom').items():
-                typ,entries=struct_array(v,a.names);require((k,typ) in ((('SphylElems',0),'KSphylElem'),(('ConvexElems',0),'KConvexElem')),'Unsupported collision shape '+typ)
-                for s in entries:
-                    val=lambda key,kind,default=None:value(get(s,key),a.names,kind,default)
-                    if typ=='KSphylElem':
-                        radius=val('Radius','FloatProperty');length=val('Length','FloatProperty');require(radius is not None and length is not None and 0<radius<=100000 and 0<=length<=100000,'Invalid capsule dimensions')
-                        shape=dict(kind='capsule',center_cm=val('Center','Vector',(0,0,0)),rotation_pyr=val('Rotation','Rotator',(0,0,0)),radius_cm=radius,length_cm=length)
-                    else: shape=convex_record(s,a.names)
-                    shape.update(name=val('Name','NameProperty','None'),collision=val('CollisionEnabled','ByteProperty'),rest_offset_cm=val('RestOffset','FloatProperty',0),generated=val('bIsGenerated','BoolProperty'),mass=val('bContributeToMass','BoolProperty'));shapes.append(shape)
-            bodies.append(dict(bone=bone,shapes=shapes,export=b.object_name,trace= value(get(bt,'CollisionTraceFlag'),a.names,'ByteProperty'),native_tail_bytes=len(extra)))
-        names={b['bone'] for b in bodies};require(len(names)==len(bodies),'Duplicate physics body bones')
-        for j in refs('ConstraintSetup','PhysicsConstraintTemplate'):
-            jt,extra=export_tags(a,j);st=sub_tags(get(jt,'DefaultInstance'),a.names,'ConstraintInstance');val=lambda key,kind,default=None:value(get(st,key),a.names,kind,default)
-            b1,b2=val('ConstraintBone1','NameProperty'),val('ConstraintBone2','NameProperty');require(b1 in names and b2 in names and b1!=b2,'Invalid joint bones')
-            frames=[]
-            for i in (1,2):
-                pos=val('Pos'+str(i),'Vector',(0,0,0));x=val('PriAxis'+str(i),'Vector',(1,0,0));y=val('SecAxis'+str(i),'Vector',(0,1,0));require(abs(sum(v*v for v in x)-1)<.001 and abs(sum(v*v for v in y)-1)<.001 and abs(sum(v*w for v,w in zip(x,y)))<.001,'Invalid joint axes');frames.append(dict(position_cm=pos,primary=x,secondary=y))
-            profile={};pr=get(st,'ProfileInstance')
-            if pr:
-                for (key,idx),v in sub_tags(pr,a.names).items():
-                    require(idx==0 and v[0]=='StructProperty','Unsupported joint profile');record={}
-                    for (field,ix),w in sub_tags(v,a.names).items():
-                        require(ix==0,'Unsupported profile index');record[field]=value(w,a.names,w[0]) if w[0] in ('ByteProperty','FloatProperty','BoolProperty','NameProperty') else dict(type=w[0],subtype=w[1],raw_hex=w[2].hex())
-                    profile[key]=record
-            joints.append(dict(name=val('JointName','NameProperty'),bones=[b1,b2],frames=frames,profile=profile,native_tail_bytes=len(extra)))
-        return dict(name=e.object_name,source=str(p),preview_mesh=mesh,bodies=bodies,joints=joints,native_tail_bytes=len(tail))
+    from package_records import read_editor522, root_export
+    p=Path(path); _,raw,table=read_editor522(p)
+    e=root_export(table,'PhysicsAsset');t,tail=export_tags(raw,table,e)
+    preview=get(t,'PreviewSkeletalMesh');require(preview and preview[0]=='SoftObjectProperty' and len(preview[2])==12,'Unsupported preview reference');r=Tags(preview[2],table.names);mesh=r.name();require(r.i()==0 and mesh.startswith('/Game/'),'Unsupported preview subpath')
+    mesh=mesh.split('.')[0];bodies=[];joints=[]
+    def refs(field,cls):
+        ids=references(get(t,field),table.names,'ObjectProperty');require(len(set(ids))==len(ids) and all(0<i<=len(table.exports) for i in ids),'Invalid physics export references');out=[table.reference(i) for i in ids];require(all(x.kind==cls for x in out),'Unexpected referenced export class');return out
+    for b in refs('SkeletalBodySetups','SkeletalBodySetup'):
+        bt,extra=export_tags(raw,table,b);bone=value(get(bt,'BoneName'),table.names,'NameProperty');require(bone and bone!='None','Missing physics bone');shapes=[]
+        for k,v in sub_tags(get(bt,'AggGeom'),table.names,'KAggregateGeom').items():
+            typ,entries=struct_array(v,table.names);require((k,typ) in ((('SphylElems',0),'KSphylElem'),(('ConvexElems',0),'KConvexElem')),'Unsupported collision shape '+typ)
+            for s in entries:
+                val=lambda key,kind,default=None:value(get(s,key),table.names,kind,default)
+                if typ=='KSphylElem':
+                    radius=val('Radius','FloatProperty');length=val('Length','FloatProperty');require(radius is not None and length is not None and 0<radius<=100000 and 0<=length<=100000,'Invalid capsule dimensions')
+                    shape=dict(kind='capsule',center_cm=val('Center','Vector',(0,0,0)),rotation_pyr=val('Rotation','Rotator',(0,0,0)),radius_cm=radius,length_cm=length)
+                else: shape=convex_record(s,table.names)
+                shape.update(name=val('Name','NameProperty','None'),collision=val('CollisionEnabled','ByteProperty'),rest_offset_cm=val('RestOffset','FloatProperty',0),generated=val('bIsGenerated','BoolProperty'),mass=val('bContributeToMass','BoolProperty'));shapes.append(shape)
+        bodies.append(dict(bone=bone,shapes=shapes,export=b.name,trace= value(get(bt,'CollisionTraceFlag'),table.names,'ByteProperty'),native_tail_bytes=len(extra)))
+    names={b['bone'] for b in bodies};require(len(names)==len(bodies),'Duplicate physics body bones')
+    for j in refs('ConstraintSetup','PhysicsConstraintTemplate'):
+        jt,extra=export_tags(raw,table,j);st=sub_tags(get(jt,'DefaultInstance'),table.names,'ConstraintInstance');val=lambda key,kind,default=None:value(get(st,key),table.names,kind,default)
+        b1,b2=val('ConstraintBone1','NameProperty'),val('ConstraintBone2','NameProperty');require(b1 in names and b2 in names and b1!=b2,'Invalid joint bones')
+        frames=[]
+        for i in (1,2):
+            pos=val('Pos'+str(i),'Vector',(0,0,0));x=val('PriAxis'+str(i),'Vector',(1,0,0));y=val('SecAxis'+str(i),'Vector',(0,1,0));require(abs(sum(v*v for v in x)-1)<.001 and abs(sum(v*v for v in y)-1)<.001 and abs(sum(v*w for v,w in zip(x,y)))<.001,'Invalid joint axes');frames.append(dict(position_cm=pos,primary=x,secondary=y))
+        profile={};pr=get(st,'ProfileInstance')
+        if pr:
+            for (key,idx),v in sub_tags(pr,table.names).items():
+                require(idx==0 and v[0]=='StructProperty','Unsupported joint profile');record={}
+                for (field,ix),w in sub_tags(v,table.names).items():
+                    require(ix==0,'Unsupported profile index');record[field]=value(w,table.names,w[0]) if w[0] in ('ByteProperty','FloatProperty','BoolProperty','NameProperty') else dict(type=w[0],subtype=w[1],raw_hex=w[2].hex())
+                profile[key]=record
+        joints.append(dict(name=val('JointName','NameProperty'),bones=[b1,b2],frames=frames,profile=profile,native_tail_bytes=len(extra)))
+    return dict(name=e.name,source=str(p),preview_mesh=mesh,bodies=bodies,joints=joints,native_tail_bytes=len(tail))
 
 def mesh_physics_reference(path):
-    import uasset
-    from blueprint_placement import package4
-    with uasset.UAsset(str(path)) as a:
-        ex=[e for e in a.exports if e.export_class_type=='SkeletalMesh'];require(len(ex)==1,'Expected one skeletal mesh');t,_=export_tags(a,ex[0]);tag=get(t,'PhysicsAsset');require(tag and tag[0]=='ObjectProperty' and len(tag[2])==4,'Missing physics reference');i=struct.unpack('<i',tag[2])[0];require(i<0,'Unsupported local physics reference');ref=package4(a,i);require(ref.startswith('/Game/'),'Unresolved physics package');return ref
+    from package_records import read_editor522, root_export
+    _,raw,table=read_editor522(path)
+    e=root_export(table,'SkeletalMesh');t,_=export_tags(raw,table,e)
+    tag=get(t,'PhysicsAsset');require(tag and tag[0]=='ObjectProperty' and len(tag[2])==4,'Missing physics reference')
+    i=struct.unpack('<i',tag[2])[0];require(i<0 and table.reference(i).kind=='PhysicsAsset','Invalid physics reference')
+    ref=table.package(i);require(ref.startswith('/Game/'),'Unresolved physics package');return ref
 
 def capsule_geometry(radius,length,segments=24,hemi=8):
     # Capsule along source Z; length is the cylindrical segment, not full height.

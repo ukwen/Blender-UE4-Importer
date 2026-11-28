@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.98-dev",
-  "previous_verified_commit": "af3ffc87e967b19483034076a7844a25b7340045",
-  "previous_verified_tree": "93d7f94bb174049b985a60b2ebacc61f7e08fb76",
-  "current_commit_resolution": "Match latest development head and immutable 0.10.98 checkpoint/tree; prior 0.10.96 Library archive plus Git changes can restore source if upload quota intervenes.",
-  "milestone": "Independent project paths and bounded classic property records; host-independent map inventory and UE4 animation boundary migration",
+  "application_version": "0.10.99-dev",
+  "previous_verified_commit": "5a3a92014adbd76377bd708ee764f1701ba06af8",
+  "previous_verified_tree": "9c9631260e91f17a5ac5c3b51a72568164eb2852",
+  "current_commit_resolution": "Match development head and immutable 0.10.99 checkpoint; recover 0.10.96 archive plus exact Git blobs if Library throttles.",
+  "milestone": "UE4.27 editor skeletal, skeleton and PhysicsAsset package readers migrated to typed records; geometry classification broadened with unsupported UE5 static profiles explicitly refused.",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.98_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.98-local.zip",
-    "install_archive": "install-098.zip",
+    "checkpoint": "Unreal_Importer_0.10.99_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.99-local.zip",
+    "install_archive": "install-099.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,38 +30,37 @@
   },
   "tests": {
     "python": {
-      "passed": 137,
+      "passed": 140,
       "skipped": 10,
       "failed": 0
     },
-    "project_paths": {
-      "passed": 11
-    },
-    "classic_tags": {
-      "passed": 4,
-      "original_roots": 3,
-      "controlled_animation_boundary": true
-    },
-    "headless_inventory": {
-      "levels": 6,
-      "excluded_redirectors": 1
+    "editor522": {
+      "decoded_records_identical": 10,
+      "meshes": 5,
+      "physics_assets": 4,
+      "reference_skeletons": 1,
+      "vertices": 99811,
+      "triangles": 34803,
+      "physics_overlays": 205,
+      "reference_skeleton_bones": 72,
+      "reference_skeleton_sockets_decoded": 20,
+      "max_deformation_error_m": 6.198271436262273e-07,
+      "legacy_import_blocked": true,
+      "reopen": true
     },
     "level_set": {
       "objects": 94,
       "max_reopen_matrix_error": 0,
       "rollback": true
     },
-    "isolated_install": {
-      "imported": 3,
-      "reopen_reuse": true
-    },
-    "previously_verified": "0.10.97 original 872-package table corpus; 0.10.96 shader/texture acceptance; not rerun as whole corpus in this milestone"
+    "isolated_install": "See immutable checkpoint; final installer tested separately.",
+    "previously_verified": "0.10.98 project inventory, 0.10.97 corpus, 0.10.96 generated shader tests not repeated in full."
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Migrate remaining UE4 property consumers and native skeleton/geometry readers to typed records; preserve legacy acceptance and continue importer feature, fidelity and performance work on development. Original UE4 animation parity and missing source profiles remain evidence-gated.",
+  "next_priority": "Migrate remaining inherited UE4 static geometry, Blueprint property consumers, material and map readers while improving import fidelity and performance; obtain evidence for remaining profiles and Windows.",
   "restrictions": [
     "CPU only",
     "preserve master",
