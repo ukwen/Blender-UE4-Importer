@@ -10,7 +10,7 @@ from pathlib import Path
 MAGIC = 0x9E2A83C1
 
 
-def inspect_package(path):
+def inspect_package(path, *, include_bulk_522=False):
     path = Path(path)
     result = {'file': path.name, 'size': path.stat().st_size,
               'sidecars': [ext for ext in ('.uexp', '.ubulk', '.uptnl') if path.with_suffix(ext).is_file()]}
@@ -85,8 +85,9 @@ def inspect_package(path):
                 extra.update(depends_offset=i32(), soft_package_count=i32(), soft_package_offset=i32())
                 if ue4 == 522: extra['searchable_offset'] = i32()
                 extra['thumbnail_offset'] = i32()
-                if ue4 == 508:
+                if ue4 == 508 or (ue4 == 522 and include_bulk_522 and not flags & 0x80000000):
                     read(16)  # package GUID
+                    if ue4 == 522: read(16)  # persistent editor package GUID
                     generations = i32()
                     if not 0 <= generations <= 10000: raise ValueError('invalid generation count')
                     read(generations * 8)

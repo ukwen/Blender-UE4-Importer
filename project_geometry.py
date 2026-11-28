@@ -59,6 +59,14 @@ def load_static(path,project,profile):
     if meta.get('ue4') == 508:
         from legacy_static import read_legacy_static_path,build_legacy_static
         return build_legacy_static(read_legacy_static_path(path))
+    if meta.get('ue4') == 522:
+        from editor_static522 import read_static, build_static, UnsupportedProfile
+        try:
+            data=read_static(path)
+        except UnsupportedProfile:
+            pass  # explicitly different source profile; retain compatibility route
+        else:
+            return build_static(data)
     import uasset,umesh
     asset=uasset.UAsset(str(path),False,project)
     try:

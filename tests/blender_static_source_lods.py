@@ -75,12 +75,13 @@ with uasset.UAsset(str(path),False) as asset:
     bpy.data.meshes.remove(primary_only); bpy.data.meshes.remove(primary)
 print('CONTROLLED_MULTI_LOD_PASS')
 # Actual file browser multi-select, one missing path between two valid assets.
-umesh.register()
+import asset_entrypoints
+asset_entrypoints.register()
 try:
     before=len(bpy.data.objects)
     result=getattr(bpy.ops,"import").umesh(directory=str(root)+os.sep, files=[{'name':'SM_Prop_Rope_01.uasset'},{'name':'not_present.uasset'},{'name':'SM_Chr_Attach_Straw_01.uasset'}],materials=False,all_lods=True)
     assert result=={'FINISHED'} and len(bpy.data.objects)==before+2
-finally: umesh.unregister()
+finally: asset_entrypoints.unregister()
 print('BATCH_CONTINUES_AFTER_MISSING_PASS')
 # Remove controlled and duplicate objects before saving genuine outputs.
 keep={o.as_pointer() for o in objects}

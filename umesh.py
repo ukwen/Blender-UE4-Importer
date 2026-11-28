@@ -1,12 +1,10 @@
-import os, io, sys, math, uuid, bpy, bmesh, importlib, time, struct, zlib
+import os, io, sys, math, uuid, bpy, bmesh, time, struct, zlib
 from ctypes import *
 from mathutils import Vector, Matrix
-from bpy.props import *
-from bpy_extras.io_utils import ImportHelper
 
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path: sys.path.append(cur_dir)
-import uasset, umat, addon_lifecycle
+import uasset, umat
 from mesh_description import decode_mesh_description
 from uasset import UAsset, Export, FStripDataFlags, FVector, FVector4, FVector2D, FColor, Euler, PrintableStruct
 from umat import TryGetUMaterialImport
@@ -580,64 +578,3 @@ def ImportUMeshAsObject(filepath:str, uproject=None, materials=True, all_lods=Fa
             obj.hide_set(True); obj.hide_render=True
         objects.append(obj)
     return objects
-
-def menu_import_umesh(self, context): self.layout.operator(ImportUMesh.bl_idname, text="UE Mesh (.uasset)")
-class ImportUMesh(bpy.types.Operator, ImportHelper):
-    """Import Unreal Engine Mesh File"""
-    bl_idname    = "import.umesh"
-    bl_label     = "Import"
-    filename_ext = ".uasset"
-    filter_glob: StringProperty(default="*.uasset", options={'HIDDEN'}, maxlen=255)
-    files:       CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN','SKIP_SAVE'})
-    directory:   StringProperty(options={'HIDDEN'})
-
-    materials:   BoolProperty(name="Materials", default=True, description="Import Mesh Materials (this is usually the slowest part).")
-
-    all_lods: BoolProperty(name="All static source LODs", default=False, description="Import explicitly stored editor LOD meshes; lower-detail objects are hidden initially")
-
-    def execute(self, context):
-        paths = [os.path.join(self.directory,f.name) for f in self.files if f.name] or [self.filepath]
-        successes, failures = 0, []
-        for path in paths:
-            try:
-                ImportUMeshAsObject(path, materials=self.materials, all_lods=self.all_lods)
-                successes += 1
-            except Exception as exc:
-                failures.append(f"{os.path.basename(path)}: {type(exc).__name__}: {exc}")
-        for failure in failures: print(failure)
-        self.report({'WARNING'} if failures else {'INFO'}, f"Imported {successes}/{len(paths)} mesh packages; {len(failures)} failed (see console)")
-        return {'FINISHED'} if successes else {'CANCELLED'}
-
-reg_classes = ( ImportUMesh, )
-
-def register():
-    addon_lifecycle.register(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umesh)
-def unregister():
-    addon_lifecycle.unregister(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umesh)
-
-if __name__ != "umesh":
-    importlib.reload(uasset)
-    importlib.reload(umat)
-    unregister()
-    register()
-
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Meshes\SM_Door_Small_A.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\VehicleVarietyPack\Meshes\SM_Truck_Box.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\VehicleVarietyPack\Meshes\SM_Hatchback.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\VehicleVarietyPack\Meshes\SM_Pickup.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\VehicleVarietyPack\Meshes\SM_SUV.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\VehicleVarietyPack\Meshes\SM_SportsCar.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\ModSci_Engineer\Meshes\SM_Door_Small_A.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\VehicleVarietyPack\Meshes\SM_Truck_Box.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\ConstructionMachines\WheelLoader\SM_WheelLoader.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\FPS_Weapon_Bundle\Weapons\Meshes\Accessories\SM_Scope_25x56_X.uasset"
-    filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\FPS_Weapon_Bundle\Weapons\Meshes\KA74U\SK_KA74U_X.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\FPS_Weapon_Bundle\Weapons\Meshes\KA74U\SK_KA74U_X.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\FPS_Weapon_Bundle\Weapons\Meshes\SMG11\SK_SMG11_Nostock_Y.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\StarterBundle/ModularSci_Comm/Meshes/SM_Windows_A_Glass.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\Military_VOL5_Devices\Meshes\SM_Generator_01d.uasset"
-    #filepath = r"C:/Users/jdeacutis/Documents/Unreal Projects/Assets/Content/Military_VOL3_Checkpoint/Meshes/SM_Sandbags_02a.uasset"
-
-    ImportUMeshAsObject(filepath)
-
-    print("Done")

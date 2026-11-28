@@ -1,13 +1,11 @@
-import bpy, os, sys, math, importlib, time, zlib
+import bpy, os, sys, math, time, zlib
 from dataclasses import dataclass
 from mathutils import *
-from bpy.props import *
-from bpy_extras.io_utils import ImportHelper
 
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path: sys.path.append(cur_dir)
 
-import uasset, umat, umesh, addon_lifecycle
+import uasset, umat, umesh
 from uasset import UAsset, Import, Export, FVector, FColor
 from umat import TryGetUMaterialImport
 from umesh import ImportMeshUAsset
@@ -263,64 +261,3 @@ def LoadUMap(filepath, cfg=UMapImportSettings()):
     print(f"Imported {asset}: {(time.time() - t0) * 1000:.2f}ms")
     print(f"{len(bpy.data.objects) - obj_count} Objects, {len(bpy.data.meshes) - mesh_count} Meshes, {len(bpy.data.materials) - mat_count} Materials, {len(bpy.data.lights) - light_count} Lights")
     if len(bpy.data.lights) > 128: print(f"Warning, Exceeded Eevee's 128 Light Limit! ({len(bpy.data.lights)})")
-
-def menu_import_umap(self, context): self.layout.operator(ImportUMap.bl_idname, text="UE Map (.umap)")
-class ImportUMap(bpy.types.Operator, ImportHelper):
-    """Import Unreal Engine umap File"""
-    bl_idname    = "import.umap"
-    bl_label     = "Import"
-    filename_ext = ".umap"
-    filter_glob: StringProperty(default="*.umap", options={'HIDDEN'}, maxlen=255)
-    files:       CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN','SKIP_SAVE'})
-    directory:   StringProperty(options={'HIDDEN'})
-
-    folders:          BoolProperty(name="Collections",        default=True, description="Object heirarchy folders.")
-    meshes:           BoolProperty(name="Meshes",             default=True, description="Static and Skeletal Meshes.")
-    materials:        BoolProperty(name="Materials",          default=True, description="Mesh Materials (slowest part).")
-    cameras:          BoolProperty(name="Cameras",            default=True)
-    lights_point:     BoolProperty(name="Point Lights",       default=False)
-    lights_spot:      BoolProperty(name="Spot Lights",        default=True)
-    lights_dir:       BoolProperty(name="Directional Lights", default=True)
-    cubemaps:         BoolProperty(name="Cubemaps",           default=True, description="Box Reflection Volumes")
-    lightprobes:      BoolProperty(name="Irradance Volumes",  default=True, description="Add Light Probe Volumes inside Box Reflection Volumes.")
-    force_shadows:    BoolProperty(name="Force Shadows",      default=False, description="Force all lights to cast shadows.")
-    light_intensity:  FloatProperty(name="Light Brightness",  default=1, min=0, description="Optional multiplier for light intensity.")
-    light_angle_coef: FloatProperty(name="Light Angle",       default=1, min=0, description="Optional multiplier for spotlight angle.")
-
-    def execute(self, context):
-        for file in self.files:
-            if file.name != "":
-                cfg = UMapImportSettings(self.folders, self.meshes, self.materials, self.cameras, self.lights_point, self.lights_spot, self.lights_dir, 
-                                         self.cubemaps, self.lightprobes, self.force_shadows, self.light_intensity, self.light_angle_coef)
-                LoadUMap(self.directory + file.name, cfg)
-        return {'FINISHED'}
-
-reg_classes = ( ImportUMap, )
-
-def register():
-    addon_lifecycle.register(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umap)
-def unregister():
-    addon_lifecycle.unregister(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umap)
-
-if __name__ != "umap":
-    importlib.reload(uasset)
-    importlib.reload(umat)
-    importlib.reload(umesh)
-    unregister()
-    register()
-
-    #sys.settrace(None) # Disable debugging for faster runtime
-
-    #LoadUMap(r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Maps\Example_Stationary.umap")
-    #LoadUMap(r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Maps\Overview.umap")
-    #LoadUMap(r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Maps\Example_Stationary_2.umap")
-    LoadUMap(r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\ModSci_Engineer\Maps\Example_Stationary.umap")
-    #LoadUMap(r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\ModSci_Engineer\Maps\Example_Stationary_427.umap")
-    #LoadUMap(r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\FPS_Weapon_Bundle\Maps\Weapons_Showcase.umap")
-    #LoadUMap(r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\StarterBundle\ModularScifiProps\Maps\Promo.umap")
-    #LoadUMap(r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\StarterBundle\ModularScifiProps\Maps\Overview_Props.umap")
-    #LoadUMap(r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\StarterBundle\CollectionMaps\Map1.umap")
-    #LoadUMap(r"C:/Users/jdeacutis/Documents/Unreal Projects/Assets/Content/Military_VOL3_Checkpoint/Maps/Demonstration.umap")
-    
-    #print(dict(sorted(uasset.struct_counts.items(), key=lambda item: item[1])))
-    print("Done")

@@ -597,16 +597,3 @@ class UAsset:
         self.Read(self.read_all)
         return self
     def __exit__(self, *args): self.Close()
-
-if __name__ != "uasset":
-    #asset = UAsset(r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Materials\M_Base_Trim.uasset")
-    #asset = UAsset(r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Maps\Example_Stationary.umap")
-    #asset = UAsset(r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Meshes\SM_Door_Small_A.uasset")
-    #asset = UAsset(r"C:\Users\jdeacutis\Desktop\fSpy\New folder\Blender-UE4-Importer\Samples\SM_Door_Small_A.uasset")
-    #asset.Read(False)
-    #LoadUAssetScene(filepath)
-
-    #sm = asset.exports[5]
-    #sm.ReadProperties()
-
-    print("Done")

@@ -1,13 +1,11 @@
 from __future__ import annotations
-import bpy, sys, time, os, pathlib, importlib
+import bpy, sys, time, os, pathlib
 from struct import *
 from mathutils import *
-from bpy.props import *
-from bpy_extras.io_utils import ImportHelper
 
 cur_dir = os.path.dirname(__file__)
 if cur_dir not in sys.path: sys.path.append(cur_dir)
-import uasset, addon_lifecycle
+import uasset
 from uasset import UAsset, Import, Export, Properties, UProperty
 
 mute_ior = True
@@ -712,49 +710,3 @@ def TryGetUMaterialImport(mat_imp:Import, mesh=None):
         try: mat, graph_data = ImportNodeGraph(umat_path, mat_imp.asset.uproject, mesh=mesh)
         except Exception as e: print(f"Failed to Import {mat_imp.object_name}: {e}")
     return mat
-
-def menu_import_umat(self, context): self.layout.operator(ImportUMat.bl_idname, text="UE Material (.uasset)")
-class ImportUMat(bpy.types.Operator, ImportHelper):
-    """Import Unreal Engine Material File"""
-    bl_idname    = "import.umat"
-    bl_label     = "Import"
-    filename_ext = ".uasset"
-    filter_glob: StringProperty(default="*.uasset", options={'HIDDEN'}, maxlen=255)
-    files:       CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN','SKIP_SAVE'})
-    directory:   StringProperty(options={'HIDDEN'})
-
-    def execute(self, context):
-        for file in self.files:
-            if file.name != "": ImportNodeGraph(self.directory + file.name)
-        return {'FINISHED'}
-
-ImportUMat.__annotations__ = {name: eval(value, globals()) if isinstance(value, str) else value
-                              for name, value in ImportUMat.__annotations__.items()}
-reg_classes = ( ImportUMat, )
-
-def register():
-    addon_lifecycle.register(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umat)
-def unregister():
-    addon_lifecycle.unregister(reg_classes, bpy.types.TOPBAR_MT_file_import, menu_import_umat)
-
-if __name__ != "umat":
-    importlib.reload(uasset)
-    unregister()
-    register()
-
-    for mat in bpy.data.materials: bpy.data.materials.remove(mat)
-    for group in bpy.data.node_groups: bpy.data.node_groups.remove(group)
-
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Materials\M_Base_Trim.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\ModSci_Engineer\Materials\MI_Trim_A_Red2.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\NewMaterial.uasset"
-    #filepath = r"F:\Projects\Unreal Projects\Assets\Content\Test1434.uasset"
-    #filepath = r"C:\Program Files\Epic Games\UE_4.27\Engine\Content\EngineMaterials\DefaultMaterial.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\StarterBundle\ModularScifiProps\Materials\MI_Laptop_Mail.uasset"
-    #filepath = r"C:/Users/jdeacutis/Documents/Unreal Projects/Assets/Content/StarterBundle/UE4_Assets/Environment_B/Materials/M_BigSnow.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\Military_VOL5_Devices\Materials\MI_Mortar_02a.uasset"
-    #filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\Military_VOL3_Checkpoint\Materials\MI_Sandbags_02a.uasset"
-    #filepath = r"C:/Users/jdeacutis/Documents/Unreal Projects/Assets/Content/Military_VOL3_Checkpoint/Materials/MI_Barbed_Wire_Stop_01a.uasset"
-    filepath = r"C:\Users\jdeacutis\Documents\Unreal Projects\Assets\Content\FPS_Weapon_Bundle\Weapons\Materials\Master_Material\M_RDS_Master.uasset"
-    ImportNodeGraph(filepath)
-    print("Done")

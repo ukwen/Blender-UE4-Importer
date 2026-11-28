@@ -1,6 +1,6 @@
 # Unreal Project Importer — independent component migration
 
-Internal development candidate **0.10.103-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
+Internal development candidate **0.10.104-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
 
 Active development takes place directly on `development`; independent component replacement and feature advancement are parallel engineering priorities. The former migration branch is a historical rollback checkpoint only. This candidate replaces the inherited registration helper and binary shader library and removes the bundled external texture executable. Native supported editor texture profiles are used; cooked textures retain their explicit-profile operator. This is not yet a complete independent implementation.
 
@@ -11,3 +11,5 @@ The Python-only inventory command `python tools/inspect_saved_project.py /path/t
 Classic UE4 object-version 508 geometry-only maps now reconstruct supported static actors and foliage using typed records, without invoking the inherited importer modules. Other legacy profiles and optional material/skeletal-component extensions retain existing paths.
 
 Supported UE4.27 Blueprint defaults and character body templates now use the typed package/property reader; the original mixed-version component integration and full Western Frontier skeletal/foliage regression pass.
+
+Add-on registration and supported standalone mesh/material entry points no longer need the inherited modules at startup. UE4.27 single-source-LOD MeshDescription uses typed bounded records; older/advanced compatibility operations remain explicitly on demand. Directly imported supported basic materials are retained across save/reopen.
