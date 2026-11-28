@@ -2,11 +2,13 @@
 References are recovered separately from placement; construction scripts are never run.
 """
 from pathlib import Path
-import uasset
-from material_stage import package_reference
+def package_reference(ref):
+    from material_stage import package_reference as resolve
+    return resolve(ref)
 
 
 def checked_props(e):
+    import uasset
     f=e.asset.f
     f.Seek(e.serial_desc.offset)
     p=uasset.Properties().Read(e.asset,read_children=False)
@@ -20,6 +22,7 @@ def value(p,key,default=None):
 
 
 def read_bindings(asset,class_name,read=checked_props):
+    import uasset
     classes=[(i,e) for i,e in enumerate(asset.exports,1) if e.outer_index==0 and e.export_class_type=='BlueprintGeneratedClass' and e.object_name==class_name]
     if len(classes)!=1: raise ValueError('Generated class not unique')
     ci,cls=classes[0]
@@ -84,6 +87,12 @@ class BlueprintResolver:
                         bindings[name]['class']=c['kind']
                     self.cache[key]={'package':package,'class':key[1],'status':'inspected','bindings':bindings,'ue5':result['version'],'parent_blueprint':result['parent_blueprint'],'parent_class':result['parent_class'],'mesh_dependencies':result['mesh_dependencies']}
                     return self.cache[key]
+                if meta.get('ue4') == 522:
+                    from classic_blueprint import BlueprintRecords
+                    reader = BlueprintRecords(path,key[1]); parent_package,parent_class = reader.parent()
+                    self.cache[key] = dict(package=package, **{'class':key[1]}, status='inspected', bindings=reader.bindings(), parent_blueprint=parent_package,parent_class=parent_class)
+                    return self.cache[key]
+                import uasset
                 a=uasset.UAsset(str(path),False,self.project); a.Read(False)
                 if not 516<=a.summary.version_ue4<=522: raise NotImplementedError('Unsupported Blueprint package version')
                 bindings=read_bindings(a,key[1])

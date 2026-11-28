@@ -3,7 +3,7 @@ bl_info = {
     "author" : "Waffle1434",
     "description" : "Reconstruct supported saved Unreal levels, geometry and materials in Blender.",
     "blender" : (4, 2, 0),
-    "version" : (0, 10, 101),
+    "version" : (0, 10, 102),
     "location" : "",
     "warning" : "",
     "category" : "Import-Export",

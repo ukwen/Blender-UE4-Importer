@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.101-dev",
-  "previous_verified_commit": "d025b253b3a0f29aebb6a25ebc78f8d5d80e2d27",
-  "previous_verified_tree": "a44773ce5b468c6efa1c3b13b7223c805dd0bb8a",
+  "application_version": "0.10.102-dev",
+  "previous_verified_commit": "b6f53b421a5edfcfd51ed5fd41692c8451622c0f",
+  "previous_verified_tree": "5fb2e8300631b7b09f51d5c312e5692245d845d3",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Typed classic 508 static actor and foliage geometry-only scene route",
+  "milestone": "Typed UE4.27 Blueprint local defaults and body templates; original mixed level and Western integrated acceptance",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.101_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.101-local.zip",
-    "install_archive": "install-101.zip",
+    "checkpoint": "Unreal_Importer_0.10.102_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.102-local.zip",
+    "install_archive": "install-102.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,34 +30,37 @@
   },
   "tests": {
     "python": {
-      "passed": 146,
+      "passed": 149,
       "failed": 0,
       "skipped": 10
     },
-    "classic_layout": {
-      "Demonstration": {
-        "placements": 1995,
-        "geometry": 1994,
-        "missing": [
-          "/Engine/BasicShapes/Cube"
-        ],
-        "max_baseline_matrix_error": 3.814697265625e-06,
-        "decode_attempts": 224,
-        "foliage_instances": 462,
-        "max_foliage_local_point_error_m": 1.5377651809513707e-05
-      },
-      "Overview": {
-        "placements": 323,
-        "geometry": 322,
-        "missing": [
-          "/Engine/BasicShapes/Cube"
-        ],
-        "max_baseline_matrix_error": 4.547473508864641e-13,
-        "decode_attempts": 322,
-        "foliage_instances": 0,
-        "max_foliage_local_point_error_m": 0.0
-      },
+    "blueprint_parity": {
+      "packages": 17,
+      "ue4": 6,
+      "ue5": 11,
+      "bindings": 86,
+      "body_templates": 5,
+      "exact": true,
+      "inherited_imports_blocked": true
+    },
+    "mixed_goblin": {
+      "objects": 646,
+      "components": 84,
+      "bindings": 52,
+      "inspected": 16,
+      "missing_blueprints": 1,
+      "exact_report": true,
       "reopen": true
+    },
+    "integrated_western": {
+      "static_resolved": 2316,
+      "foliage": 462,
+      "rigs": 36,
+      "vertices": 208021,
+      "triangles": 105329,
+      "bones": 1275,
+      "reopen": true,
+      "max_foliage_error_m": 1.5377651809513707e-05
     },
     "modern_level_set": {
       "objects": 94,
@@ -65,14 +68,13 @@
       "reopen": true,
       "rollback": true
     },
-    "integrated_western": "Timed out; not accepted",
     "isolated_install": "See external checkpoint"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Migrate Blueprint default and component readers; remaining legacy static profiles and material/scene integration; finish integrated commercial regression and continue feature improvements.",
+  "next_priority": "Migrate map-owned component property and transform readers, legacy skeletal package boundary, and remaining material/scene integration alongside feature and performance development. Preserve evidence-gated profiles and provenance.",
   "restrictions": [
     "CPU only",
     "preserve master",

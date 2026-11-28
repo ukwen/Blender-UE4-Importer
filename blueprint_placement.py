@@ -10,13 +10,6 @@ ABSOLUTE=('bAbsoluteLocation','bAbsoluteRotation','bAbsoluteScale')
 def check(ok,message):
     if not ok: raise ValueError(message)
 
-def ue4_props(e):
-    import uasset
-    f=e.asset.f; f.Seek(e.serial_desc.offset)
-    p=uasset.Properties().Read(e.asset,read_children=False)
-    check(f.Position()<=e.serial_desc.offset+e.serial_desc.count,'Property extent exceeded')
-    return p
-
 def transform4(p):
     out={}
     for k,kind in FIELDS.items():
@@ -78,15 +71,8 @@ def template(path,class_name):
         mp,rp=props5(raw,m,names),props5(raw,root,names); check(mp.get('AttachParent')==ri and 'AttachParent' not in rp and 'AttachSocketName' not in mp,'Unsupported CDO attachment')
         si=cls['super_index']; check(si<0,'Unsupported parent class'); parent=ref(si)['name']; parent_package=pkg(si)
         return dict(mesh=m['name'],root=root['name'],parent_class=parent,parent_package=parent_package,mesh_fields={k:mp[k] for k in FIELDS if k in mp},root_fields={k:rp[k] for k in FIELDS if k in rp})
-    import uasset
-    with uasset.UAsset(str(path)) as a:
-        ci,cls=unique([(i,e) for i,e in enumerate(a.exports,1) if e.outer_index==0 and e.export_class_type=='BlueprintGeneratedClass' and e.object_name==class_name])
-        di,cdo=unique([(i,e) for i,e in enumerate(a.exports,1) if e.class_index==ci and e.outer_index==0 and e.object_name=='Default__'+class_name])
-        p=ue4_props(cdo); m=p.TryGetValue('Mesh'); root=p.TryGetValue('RootComponent')
-        check(isinstance(m,uasset.Export) and isinstance(root,uasset.Export) and p.TryGetValue('CapsuleComponent') is root and m.outer_index==root.outer_index==di and m.export_class_type=='SkeletalMeshComponent' and root.export_class_type=='CapsuleComponent','Invalid CDO associations')
-        mp,rp=ue4_props(m),ue4_props(root); check(mp.TryGetValue('AttachParent') is root and not rp.TryGetValue('AttachParent') and mp.TryGetValue('AttachSocketName','None')=='None','Unsupported CDO attachment')
-        si=cls.super_index; check(si<0,'Unsupported parent class'); parent=a.GetImport(si).object_name
-        return dict(mesh=m.object_name,root=root.object_name,parent_class=parent,parent_package=package4(a,si),mesh_fields=transform4(mp),root_fields=transform4(rp))
+    from classic_blueprint import BlueprintRecords
+    return BlueprintRecords(path,class_name).body_template()
 
 def unique(items):
     check(len(items)==1,'Expected one explicit class or CDO'); return items[0]

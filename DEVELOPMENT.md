@@ -241,3 +241,7 @@ Typed UE4 object version 508 package tables, soft dependencies and static geomet
 ## 0.10.101-dev — classic actor and foliage reconstruction boundary
 
 Typed actor placement and foliage source records, legacy-free supported geometry-only map import, original two-map parity and reopening. See docs/TEST_REPORT.md and docs/INDEPENDENCE.md.
+
+## 0.10.102-dev — typed Blueprint defaults and body template migration
+
+See docs/INDEPENDENCE.md and docs/TEST_REPORT.md. Supported UE4 522 Blueprint CDO/SCS and Character body templates are host independent. Integrated Western Frontier and Goblin regressions passed.
