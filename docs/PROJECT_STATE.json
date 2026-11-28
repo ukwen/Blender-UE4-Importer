@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.114-dev",
-  "previous_verified_commit": "c8c75117d83f638955b95ee78e1e8ee742aef2c6",
-  "previous_verified_tree": "9c07c996534b76b07e2584e273b4547afb8c2589",
+  "application_version": "0.10.115-dev",
+  "previous_verified_commit": "9cdb83a4c8dbbdd8a897c2a6542bf85c4d6e6a53",
+  "previous_verified_tree": "30da12478e25170b893cbe20d8a75ffcf52eedf5",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Native versioned UE4.25 package inventory and unified dependency audit",
+  "milestone": "Native geometry and catalog boundary",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.114_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.114-local.zip",
-    "install_archive": "install-114.zip",
+    "checkpoint": "Unreal_Importer_0.10.115_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.115-local.zip",
+    "install_archive": "install-115.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,7 +31,7 @@
   },
   "tests": {
     "python": {
-      "passed": 185,
+      "passed": 189,
       "skipped": 11,
       "failed": 0
     },
@@ -64,7 +64,7 @@
       "installed": true,
       "imported": 3,
       "reopen_reuse": true,
-      "archive_sha256": "ede201fa5854302c71d9ce2dcb01bacce56bbbfc69995e387bc64df07027ae39",
+      "archive_sha256": "d14b146e3ae33a35a90b4dd06f5e7a3ea12e3c5f7ffa64d6b1a0c5539e1c1ca7",
       "launcher_platform": "linux"
     },
     "versioned_split518": {
@@ -87,20 +87,42 @@
       "inherited_import_attempts": []
     },
     "evidence_files": [
-      "python114.log",
-      "split-audit114.log",
-      "cooked-menu114.log",
-      "native-level114.log",
-      "native-level114.json",
-      "inherited-audit114.json",
-      "install114.json"
-    ]
+      "python115.log",
+      "native-geometry115.log",
+      "cooked-menu115.log",
+      "native-level115.log",
+      "native-level115.json",
+      "west115.log",
+      "west115.json",
+      "inherited-audit115.json",
+      "install115.json"
+    ],
+    "native_geometry_boundary": {
+      "reconstructed": 3,
+      "skipped_non_geometry": 2,
+      "controlled_unsupported": 1,
+      "vertices": 1298,
+      "triangles": 1176,
+      "bones": 6,
+      "reopen": true,
+      "explicit_legacy_route": true,
+      "native_inherited_import_attempts": []
+    },
+    "western_full_regression": {
+      "mesh_object_bindings": 2814,
+      "rigs": 36,
+      "source_textures": 14,
+      "packed_images": 5,
+      "materials": 10,
+      "reopen": true,
+      "inherited_import_attempts": []
+    }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace remaining older monolithic package and geometry/map callers using original fixture evidence; preserve supported functionality and report unknown formats explicitly. Commercial clearance remains open.",
+  "next_priority": "Replace remaining source-backed Blueprint, map, foliage, texture and geometry compatibility dependencies; independently validate unsupported older monolithic profiles before removing explicit legacy routes; preserve master and provenance.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -128,7 +150,8 @@
     "Typed layer topology, detached snapshots, scoped values and bounded function compiler validated with controlled serialized records; original layer stack asset absent. General unsupported layer expressions retain inherited fallback; four inherited files and 29 literal import sites remain.",
     "0.10.111 extends typed layer function subset with RGB/vector, scalar arithmetic and default UV color textures; arbitrary vector math, normal/explicit UV/indexed or masked samples, selected attributes, nested calls and genuine layer package remain pending.",
     "0.10.112 native saved-level menu requires original project descriptor; old menu options remain as explicitly labeled compatibility; complete inherited removal still pending.",
-    "0.10.114: four inherited files and 28 literal import sites remain; versioned split 518 inventory tested on one original animation Blueprint, no execution or payload translation. Unclassified material formats now report unsupported dependency inventory; no blanket legacy parity."
+    "0.10.114: four inherited files and 28 literal import sites remain; versioned split 518 inventory tested on one original animation Blueprint, no execution or payload translation. Unclassified material formats now report unsupported dependency inventory; no blanket legacy parity.",
+    "0.10.115: four inherited files and 25 literal sites remain. Unsupported older monolithic mesh/table profiles have no independently validated decoder; native gallery/static resolver and preflight now report these explicitly rather than trying legacy automatically. Standalone explicit compatibility remains. Native material fallback and remaining map-related legacy consumers still present."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

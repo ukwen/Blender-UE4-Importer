@@ -55,7 +55,7 @@ def split_root_class(path):
 
 
 def load_static(path,project,profile):
-    """Keep editor routing intact; route split static assets to the native decoder."""
+    """Native static geometry only; unsupported profiles never enter legacy backends."""
     path=Path(path)
     if path.with_suffix('.uexp').is_file():
         from cooked_static import read_static,build_static
@@ -71,51 +71,39 @@ def load_static(path,project,profile):
         from legacy_static import read_legacy_static_path,build_legacy_static
         return build_legacy_static(read_legacy_static_path(path))
     if meta.get('ue4') == 522:
-        from editor_static522 import read_static, build_static, UnsupportedProfile
-        try:
-            data=read_static(path)
-        except UnsupportedProfile:
-            pass  # explicitly different source profile; retain compatibility route
-        else:
-            return build_static(data)
-    import uasset,umesh
-    asset=uasset.UAsset(str(path),False,project)
-    try:
-        asset.Read(False)
-        exports=[e for e in asset.exports if e.export_class_type=='StaticMesh']
-        if len(exports)!=1: raise NotImplementedError('Expected one StaticMesh export')
-        return umesh.ImportStaticMesh(exports[0],import_materials=False,log=False)
-    finally: asset.Close()
+        from editor_static522 import read_static, build_static
+        return build_static(read_static(path))
+    raise NotImplementedError('Native editor static geometry profile unsupported; use explicit Legacy mesh compatibility if needed')
 
 
 def root_class(path,project):
-    if path.with_suffix('.uexp').is_file(): return split_root_class(path)
+    path=Path(path)
     from package_inspector import inspect_package
     meta=inspect_package(path)
+    if path.with_suffix('.uexp').is_file():
+        if meta.get('ue4') == 518 and meta.get('ue5') is None:
+            from package_records import read_split518
+            _,_,table=read_split518(path)
+            return classify_geometry_roots(table)
+        return split_root_class(path)
     if (meta.get('status')=='tables_inspected' and meta.get('ue4') in (508,522) and
         (meta.get('ue5') is None or meta['ue5']==1004 or 1012<=meta['ue5']<=1018)):
         from package_records import read_package
         _,_,table=read_package(path)
-        roots=[e for e in table.exports if not e.outer and e.kind!='MetaData']
-        primary=[e for e in roots if e.kind=='SkeletalMesh']
-        if len(primary)==1:
-            roots=[e for e in roots if not (e.kind=='SkeletalMeshEditorData' and e.name==primary[0].name+'_USkeletalMeshEditorData')]
-        if len(roots)==1:return roots[0].kind
-        raise NotImplementedError('Expected one root editor asset')
-    if meta.get('status')!='tables_inspected' or meta.get('legacy')!=-7:
-        raise NotImplementedError('Unsupported editor package: '+meta.get('status','unknown'))
-    import uasset
-    asset=uasset.UAsset(str(path),False,project)
-    try:
-        asset.Read(False)
-        roots=[e for e in asset.exports if e.outer_index==0 and e.export_class_type!='MetaData']
-        primary=[e for e in roots if e.export_class_type=='SkeletalMesh']
-        if len(primary)==1:
-            roots=[e for e in roots if not (e.export_class_type=='SkeletalMeshEditorData' and e.object_name==primary[0].object_name+'_USkeletalMeshEditorData')]
-        roots=[e.export_class_type for e in roots]
-        if len(roots)!=1: raise NotImplementedError('Expected one root editor asset')
-        return roots[0]
-    finally: asset.Close()
+        return classify_geometry_roots(table)
+    raise NotImplementedError('Native editor package class profile unsupported: '+meta.get('status','unknown'))
+
+
+def classify_geometry_roots(table):
+    """A known non-geometry multi-root package is not a failed mesh import."""
+    roots=[e for e in table.exports if not e.outer and e.kind!='MetaData']
+    primary=[e for e in roots if e.kind=='SkeletalMesh']
+    if len(primary)==1:
+        roots=[e for e in roots if not (e.kind=='SkeletalMeshEditorData' and e.name==primary[0].name+'_USkeletalMeshEditorData')]
+    if len(roots)==1:return roots[0].kind
+    if roots and all(e.kind and e.kind not in ('StaticMesh','SkeletalMesh') for e in roots):
+        return 'NonGeometry'
+    raise NotImplementedError('Expected one root geometry asset')
 
 
 class _NonGeometry(Exception): pass

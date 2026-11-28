@@ -14,32 +14,6 @@ def package_id(path,content):
     return '/Game/'+Path(path).relative_to(content).with_suffix('').as_posix()
 
 
-def soft_refs_ue4(asset):
-    """Bounded package-summary soft reference table, for tested object versions."""
-    s=asset.summary; desc=s.soft_pkg_refs_desc; n,o=desc.count,desc.offset
-    if not n: return []
-    if not 0<n<=100000 or not 0<o<s.header_size: raise ValueError('Invalid soft reference table')
-    if s.version_ue4 not in (508,522): raise NotImplementedError('Unverified soft reference serialization')
-    asset.f.Seek(o); refs=[]
-    for _ in range(n):
-        if s.version_ue4==508:
-            if asset.f.Position()+4>s.header_size: raise ValueError('Truncated soft reference')
-            length=asset.f.ReadInt32(); size=length if length>=0 else -2*length
-            if not 0<size<=65536 or asset.f.Position()+size>s.header_size: raise ValueError('Invalid soft reference string')
-            raw=asset.f.ReadBytes(size); term=b'\0' if length>0 else b'\0\0'
-            if not raw.endswith(term): raise ValueError('Unterminated soft reference')
-            ref=raw[:-len(term)].decode('utf-8' if length>0 else 'utf-16-le')
-        else:
-            if asset.f.Position()+8>s.header_size: raise ValueError('Truncated soft reference name')
-            idx,number=asset.f.ReadStruct('ii',8)
-            if not 0<=idx<len(asset.names) or number!=0: raise ValueError('Invalid soft reference name')
-            ref=asset.names[idx]
-        if ref=='None': continue
-        if not ref.startswith('/') or '.' in ref or '\\' in ref: raise ValueError('Unsupported soft package path: '+ref)
-        refs.append(ref)
-    return sorted(set(refs))
-
-
 def read_record(path,project):
     from package_inspector import inspect_package
     meta=inspect_package(path)
@@ -83,13 +57,9 @@ def read_record(path,project):
             refs={i.name for i in tables.imports if i.kind=='Package' and i.name.startswith('/') and not i.name.startswith('/Script/')}
             try: record.update(soft_references=(soft_references_508 if meta['ue4']==508 else soft_references_522)(summary,raw,tables),soft_coverage='summary_table')
             except ValueError as exc: record['soft_detail']=str(exc)
-        elif meta['ue5'] is None and meta['legacy']==-7:
-            from uasset import UAsset
-            with UAsset(str(path),False,project) as a:
-                classes={e.export_class_type for e in a.exports if not e.outer_index}
-                refs={i.object_name for i in a.imports if i.class_name=='Package' and i.object_name.startswith('/') and not i.object_name.startswith('/Script/')}
-                try: record.update(soft_references=soft_refs_ue4(a),soft_coverage='summary_table')
-                except Exception as exc: record['soft_detail']=str(exc)
+        elif meta['ue5'] is None:
+            record['detail']='Unsupported native monolithic UE4 object-table profile; dependency coverage unknown'
+            return record
         elif meta['ue5']==1004:
             from ue5_legacy_editor import read_tables
             _,_,imports,exports,_,_=read_tables(path)

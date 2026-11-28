@@ -32,7 +32,7 @@ def run_files(operator, action):
 
 
 def import_mesh(path, materials, all_lods, cooked_profile='NONE'):
-    """Use native mesh routes; split compatibility is explicit, not a silent fallback."""
+    """Use native mesh routes only, unless legacy compatibility is explicitly selected."""
     import json
     from package_inspector import inspect_package
     from package_records import read_package
@@ -41,11 +41,14 @@ def import_mesh(path, materials, all_lods, cooked_profile='NONE'):
     path=Path(path).resolve(); meta=inspect_package(path)
     before=set(new_ids()); meshes=[]
     try:
-        if path.with_suffix('.uexp').is_file() and cooked_profile!='LEGACY':
-            from project_geometry import split_root_class, load_static
+        if cooked_profile=='LEGACY':
+            from umesh import ImportUMeshAsObject
+            return ImportUMeshAsObject(str(path),materials=materials,all_lods=all_lods)
+        if path.with_suffix('.uexp').is_file():
+            from project_geometry import root_class, load_static
             if cooked_profile=='NONE':
                 raise ValueError('Select the cooked asset profile explicitly for split packages')
-            kind=split_root_class(path)
+            kind=root_class(path,ProjectPaths(path))
             if kind=='StaticMesh':
                 if all_lods: raise NotImplementedError('All cooked static LODs are not supported')
                 mesh=load_static(path,ProjectPaths(path),cooked_profile)
@@ -76,10 +79,9 @@ def import_mesh(path, materials, all_lods, cooked_profile='NONE'):
                     from legacy_static import read_legacy_static_path,build_legacy_static
                     meshes=[build_legacy_static(read_legacy_static_path(path))]
                 else:
-                    from editor_static522 import read_static_lods,build_static,UnsupportedProfile
-                    try: data=read_static_lods(path)
-                    except UnsupportedProfile: pass
-                    else: meshes=[build_static(d) for d in (data if all_lods else data[:1])]
+                    from editor_static522 import read_static_lods,build_static
+                    data=read_static_lods(path)
+                    meshes=[build_static(d) for d in (data if all_lods else data[:1])]
             elif any(e.kind=='SkeletalMesh' and not e.outer for e in table.exports):
                 if all_lods:
                     raise NotImplementedError('All source LODs currently supported for static meshes only')
@@ -114,9 +116,7 @@ def import_mesh(path, materials, all_lods, cooked_profile='NONE'):
             return objects
     except Exception:
         rollback_new(before);raise
-    # Non-migrated mesh profiles retain their compatibility entrypoint.
-    from umesh import ImportUMeshAsObject
-    return ImportUMeshAsObject(str(path),materials=materials,all_lods=all_lods)
+    raise NotImplementedError('Native mesh profile unsupported or package is not a mesh; select Legacy compatibility explicitly if required')
 
 
 class ImportMesh(bpy.types.Operator, ImportHelper):
@@ -128,7 +128,7 @@ class ImportMesh(bpy.types.Operator, ImportHelper):
     directory: StringProperty(options={'HIDDEN'})
     materials: BoolProperty(name='Materials',default=True)
     all_lods: BoolProperty(name='All supported source LODs',default=False)
-    cooked_profile: EnumProperty(name='Cooked asset profile',items=[('NONE','Select if cooked','Required for split packages'),('LEGACY','Legacy compatibility','Retain the inherited split import path explicitly'),('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded cooked geometry'),('5.4','UE5.4','Bounded cooked static'),('5.5','UE5.5','Bounded cooked static'),('5.6','UE5.6','Bounded cooked geometry')],default='NONE')
+    cooked_profile: EnumProperty(name='Mesh import profile',items=[('NONE','Native editor (select profile if cooked)','Required for split packages'),('LEGACY','Legacy compatibility (editor or cooked)','Explicitly use the historical mesh importer for unsupported packages'),('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded cooked geometry'),('5.4','UE5.4','Bounded cooked static'),('5.5','UE5.5','Bounded cooked static'),('5.6','UE5.6','Bounded cooked geometry')],default='NONE')
 
     def execute(self,context):
         return run_files(self,lambda path:import_mesh(path,self.materials,self.all_lods,self.cooked_profile))
