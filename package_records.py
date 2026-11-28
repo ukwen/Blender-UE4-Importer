@@ -1,4 +1,4 @@
-"""Immutable, bounded object-table reader for versioned monolithic editor packages.
+"""Immutable, bounded object-table reader for versioned editor and UE4.25 split packages.
 
 Format reference: MIT-licensed UAssetAPI Import.cs, ExportTypes/Export.cs,
 UnrealTypes/ObjectVersion.cs; see third_party/UAssetAPI-LICENSE.txt.
@@ -70,11 +70,19 @@ class PackageRecords:
         return ''
 
 
-def decode_records(meta, raw):
+def decode_records(meta, raw, *, split518=False):
     """Decode exact supported fixed-stride maps; never infer layout by engine label."""
     version = meta.get('ue5')
     classic = version is None and meta.get('ue4') == 508
-    check(meta.get('status') == 'tables_inspected' and (classic or meta['ue4'] == 522) and
+    classic518 = version is None and meta.get('ue4') == 518
+    if split518:
+        check(classic518 and meta.get('legacy') == -7 and meta.get('licensee') == 0 and
+              meta.get('status') == 'tables_inspected' and meta['flags'] & 0x80000000 and not meta['flags'] & 0x2000 and
+              meta['sidecars'] == ['.uexp'] and meta['header_end'] == meta['size'] and
+              meta['size'] < len(raw) <= MAX_PACKAGE and raw[-4:] == bytes.fromhex('c1832a9e'),
+              'Unsupported versioned UE4 split 518 profile')
+    else:
+        check(meta.get('status') == 'tables_inspected' and (classic or meta['ue4'] == 522) and
           (version is None or version == 1004 or 1012 <= version <= 1018) and
           not meta['sidecars'] and not meta['flags'] & 0x80002000 and
           len(raw) == meta['size'] <= MAX_PACKAGE, 'Unsupported monolithic editor table profile')
@@ -82,7 +90,7 @@ def decode_records(meta, raw):
     names = tuple(meta['names']); ni, ne = meta['import_count'], meta['export_count']
     io, eo, header = meta['import_offset'], meta['export_offset'], meta['header_end']
     modern = version is not None and version >= 1012
-    import_stride = 28 if classic else 36 if version is None else 40
+    import_stride = 28 if classic or split518 else 36 if version is None else 40
     export_stride = 96 if classic else 104 if version is None else 112 if modern else 108
     check(0 < ni <= MAX_RECORDS and 0 < ne <= MAX_RECORDS and
           0 < io < eo < header <= len(raw) and io + ni * import_stride == eo and
@@ -90,6 +98,8 @@ def decode_records(meta, raw):
     # Known following table, where present, must not be consumed as object data.
     following = [meta[k] for k in ('depends_offset','soft_package_offset','searchable_offset','thumbnail_offset','metadata_offset','import_hierarchy_offset') if meta.get(k, 0) > eo]
     check(not following or eo + ne * export_stride <= min(following), 'Object table overlaps following table')
+    if split518:
+        check(meta.get('depends_offset') == eo + ne * export_stride, 'Unexpected split export table extent')
 
     def fname(at):
         index, number = struct.unpack_from('<ii', raw, at)
@@ -104,7 +114,7 @@ def decode_records(meta, raw):
         outer = struct.unpack_from('<i', raw, at + 16)[0]
         optional = struct.unpack_from('<i', raw, at + 36)[0] if version is not None else 0
         check(index_ok(outer) and optional in (0, 1), 'Invalid import record')
-        imports.append(ImportRecord(fname(at), fname(at+8), outer, fname(at+20), '' if classic else fname(at+28), bool(optional)))
+        imports.append(ImportRecord(fname(at), fname(at+8), outer, fname(at+20), '' if classic or split518 else fname(at+28), bool(optional)))
     exports = []
     for at in range(eo, eo + ne * export_stride, export_stride):
         cls, base, template, outer = struct.unpack_from('<4i', raw, at)
@@ -114,7 +124,8 @@ def decode_records(meta, raw):
         inherited = struct.unpack_from('<i', raw, at+56)[0] if modern else 0
         more = struct.unpack_from('<3i' if version is not None else '<2i', raw, at+(68 if classic else 64 if modern else 76))
         check(all(x in (0, 1) for x in (*switches, inherited, *more)), 'Invalid export flags')
-        check(header <= offset <= len(raw) and 0 <= size <= len(raw)-offset, 'Invalid export extent')
+        limit = len(raw) - 4 if split518 else len(raw)
+        check(header <= offset <= limit and 0 <= size <= limit-offset, 'Invalid export extent')
         start, end = struct.unpack_from('<qq', raw, at+96) if modern else (None, None)
         check(not modern or 0 <= start <= end <= size, 'Invalid script extent')
         exports.append(ExportRecord(fname(at+16), cls, base, template, outer, offset, size, start, end, bool(inherited)))
@@ -131,6 +142,25 @@ def read_package(path):
     with path.open('rb') as stream:
         raw = stream.read(MAX_PACKAGE + 1)
     return meta, raw, decode_records(meta, raw)
+
+
+
+def read_split518(path):
+    """Original versioned UE4.25 tagged split object maps; no payload interpretation."""
+    path = Path(path)
+    check(path.stat().st_size <= MAX_PACKAGE, 'Header size limit')
+    meta = inspect_package(path)
+    check(meta.get('ue4') == 518 and meta.get('ue5') is None and meta['sidecars'] == ['.uexp'], 'Expected versioned UE4.25 split package')
+    sidecar = path.with_suffix('.uexp')
+    check(path.stat().st_size + sidecar.stat().st_size <= MAX_PACKAGE, 'Package size limit')
+    with path.open('rb') as stream:
+        header = stream.read(MAX_PACKAGE + 1)
+    check(len(header) == meta['size'], 'Header changed during inspection')
+    with sidecar.open('rb') as stream:
+        payload = stream.read(MAX_PACKAGE - len(header) + 1)
+    raw = header + payload
+    table = decode_records(meta, raw, split518=True)
+    return meta, raw, table
 
 
 def compatibility_tables(path):

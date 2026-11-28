@@ -81,9 +81,9 @@ def inspect_package(path, *, include_bulk_522=False):
                 if ue5==1018:
                     hierarchy_count,hierarchy_offset=i32(),i32()
                     extra.update(import_hierarchy_count=hierarchy_count,import_hierarchy_offset=hierarchy_offset)
-            if ue5 is None and ue4 in (508, 522):
+            if ue5 is None and ue4 in (508, 518, 522):
                 extra.update(depends_offset=i32(), soft_package_count=i32(), soft_package_offset=i32())
-                if ue4 == 522: extra['searchable_offset'] = i32()
+                if ue4 >= 518: extra['searchable_offset'] = i32()
                 extra['thumbnail_offset'] = i32()
                 if ue4 == 508 or (ue4 == 522 and include_bulk_522 and not flags & 0x80000000):
                     read(16)  # package GUID

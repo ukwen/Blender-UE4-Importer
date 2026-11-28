@@ -65,7 +65,16 @@ def read_record(path,project):
                 record.update(classes=[cls],references=sorted(refs),coverage='ue5_modern_cooked_import_table',format='unversioned_ue5_modern_split_profile',source_package=source)
             except (ValueError,OSError,NotImplementedError) as modern_exc: record['detail']=str(modern_exc)
         return record
-    if meta.get('status')!='tables_inspected' or meta['sidecars']: return record
+    if meta.get('ue4') == 518 and meta.get('ue5') is None and '.uexp' in meta['sidecars']:
+        try:
+            from package_records import read_split518
+            _,_,tables=read_split518(path)
+            record.update(classes=sorted({e.kind for e in tables.exports if not e.outer}),
+                          references=sorted({i.name for i in tables.imports if i.kind=='Package' and i.name.startswith('/') and not i.name.startswith('/Script/')}),
+                          coverage='ue4_versioned_split_import_table')
+        except (ValueError,OSError,NotImplementedError) as exc: record['detail']=str(exc)
+        return record
+    if meta.get('status')!='tables_inspected' or meta['sidecars'] or meta.get('flags',0)&0x80002000: return record
     try:
         if meta['ue5'] is None and meta['ue4'] in (508,522) and meta['legacy']==-7:
             from package_records import read_package, soft_references_508, soft_references_522

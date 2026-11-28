@@ -54,7 +54,6 @@ class MaterialResolver:
                 errors[ref] = 'Dependency limit reached'
                 return
             visited.add(ref)
-            asset = None
             try:
                 path = Path(self.project.resolve_package(ref))
                 if not path.is_file():
@@ -67,18 +66,17 @@ class MaterialResolver:
                     _,_,table=read_package(path)
                     refs=[i.name for i in table.imports if i.kind=='Package']
                 else:
-                    from uasset import UAsset
-                    asset=UAsset(str(path),False,self.project);asset.Read(False)
-                    refs=[i.object_name for i in asset.imports if i.class_name=='Package']
+                    from project_preflight import read_record
+                    record=read_record(path,self.project)
+                    if record['coverage']=='unknown':
+                        raise NotImplementedError('Unsupported dependency inventory: '+record.get('detail','unknown profile'))
+                    refs=record['references']
                 for name in refs:
                     if name.startswith(('/Game/','/Engine/')): visit(name)
             except FileNotFoundError:
                 missing.add(ref)
             except Exception as exc:
                 errors[ref] = f'{type(exc).__name__}: {exc}'
-            finally:
-                if asset is not None:
-                    asset.Close()
         if package:
             visit(package)
         return {'packages': sorted(visited), 'missing': sorted(missing), 'errors': errors}
