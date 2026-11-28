@@ -134,13 +134,21 @@ class ImportMesh(bpy.types.Operator, ImportHelper):
         return run_files(self,lambda path:import_mesh(path,self.materials,self.all_lods,self.cooked_profile))
 
 
-def import_material(path, allow_partial=False):
+def import_material(path, allow_partial=False, profile='NONE'):
     from package_inspector import inspect_package
     from project_paths import ProjectPaths
     from project_session import new_ids, rollback_new
     path=Path(path).resolve();meta=inspect_package(path)
     before=set(new_ids())
     try:
+        if profile=='LEGACY':
+            from umat import ImportNodeGraph
+            return ImportNodeGraph(str(path))
+        if profile!='NONE':
+            from cooked_material_catalog import import_cooked_material
+            return import_cooked_material(path,profile)
+        if meta.get('sidecars'):
+            raise NotImplementedError('Select an explicit cooked material profile')
         if meta.get('ue5') in (1004,1012,1013,1014,1015,1016,1017,1018) and not meta['sidecars'] and not meta.get('flags',0)&0x80002000:
             from ue5_editor_material import build_material
             project=ProjectPaths(path);content=(Path(project.dir)/'Content').resolve()
@@ -181,8 +189,7 @@ def import_material(path, allow_partial=False):
                 mat=build_material(ProjectPaths(path),path,data)
                 mat.use_fake_user=True
                 return mat
-        from umat import ImportNodeGraph
-        return ImportNodeGraph(str(path))
+        raise NotImplementedError('Native material graph profile unsupported; select Legacy compatibility explicitly if needed')
     except Exception:
         rollback_new(before)
         raise
@@ -198,8 +205,10 @@ class ImportMaterial(bpy.types.Operator, ImportHelper):
 
     allow_partial: BoolProperty(name='Allow partial material preview',description='Preview supported branches; unresolved source expressions remain reported',default=False)
 
+    profile: EnumProperty(name='Material import profile',items=[('NONE','Native editor','Editable supported source graph'),('4.18','UE4.18 cooked dependencies','Raw texture dependencies, shader unresolved'),('4.27','UE4.27 cooked dependencies','Raw texture dependencies, shader unresolved'),('5.0','UE5.0 cooked dependencies','Raw texture dependencies, shader unresolved'),('LEGACY','Legacy compatibility','Explicit historical graph importer')],default='NONE')
+
     def execute(self,context):
-        return run_files(self,lambda path:import_material(path,self.allow_partial))
+        return run_files(self,lambda path:import_material(path,self.allow_partial,self.profile))
 
 
 def import_saved_levels(paths, partial=False, strict=False, preview_scale=1., profile='4.27'):

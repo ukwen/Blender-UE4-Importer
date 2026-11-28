@@ -5,7 +5,6 @@ is deliberately not supported here.
 """
 import struct
 import zlib
-from pathlib import Path
 from native_texture import MAX_BYTES, png_bytes
 
 PNG = b'\x89PNG\r\n\x1a\n'
@@ -76,68 +75,4 @@ def read_editor_texture(filepath, project=None):
     if meta.get('ue4') in (508,522) and meta.get('ue5') is None:
         from classic_texture import read_source
         return read_source(filepath)
-    import uasset
-    from source_compression import decompress_chunks
-    path=Path(filepath); size=path.stat().st_size
-    if size>MAX_BYTES: raise ValueError('Editor package size limit')
-    if any(path.with_suffix(ext).exists() for ext in ('.uexp','.ubulk','.uptnl')):
-        raise NotImplementedError('Split editor source packages unsupported')
-    asset=uasset.UAsset(str(path), False, project)
-    try:
-        asset.Read(False); s=asset.summary; f=asset.f
-        if s.version_legacy != -7 or not (s.version_ue4 == 508 or 513 <= s.version_ue4 <= 522) or s.version_ue4_licensee or s.package_flags & (0x8|0x2000):
-            raise NotImplementedError('Unsupported UE4 editor source package profile')
-        exports=[e for e in asset.exports if e.export_class_type=='Texture2D']
-        if len(exports)!=1: raise ValueError('Expected one Texture2D export')
-        e=exports[0]; start=e.serial_desc.offset; end=start+e.serial_desc.count
-        if not s.header_size <= start < end <= size: raise ValueError('Invalid texture export range')
-        f.Seek(start)
-        props=uasset.Properties().Read(asset,read_children=False)
-        src=props.TryGetValue('Source')
-        if not isinstance(src,uasset.Properties): raise ValueError('Missing decoded TextureSource properties')
-        source_prop=props['Source']
-        if getattr(source_prop,'raw',None) is not None: raise ValueError('Source property length mismatch')
-        get=src.TryGetValue
-        w,h,mips=get('SizeX'),get('SizeY'),get('NumMips')
-        fmt=get('Format')
-        if get('NumSlices')!=1 or not all(type(x) is int for x in (w,h,mips)):
-            raise NotImplementedError('Unsupported source dimensions/slices')
-        if not 1<=w<=8192 or not 1<=h<=8192 or w*h*4>MAX_BYTES:
-            raise ValueError('Source texture size limit')
-        compression=get('CompressionFormat')
-        if compression not in (None,'TSCF_None','TSCF_PNG'): raise NotImplementedError('Unsupported source compression')
-        compressed=bool(get('bPNGCompressed',False) or compression=='TSCF_PNG')
-        if f.Position()+30>end: raise ValueError('Truncated texture native header')
-        guid=f.ReadInt32()
-        if guid not in (0,1): raise ValueError('Invalid object GUID marker')
-        if guid: f.ReadGuid()
-        strip=f.ReadBytes(2)
-        if len(strip)!=2 or strip[0]&1: raise NotImplementedError('Editor source stripped')
-        flags,count,packed,offset=f.ReadStruct('<IIIq',20)
-        if flags & ~(1|2|8|0x40|0x10000) or not 0<count<=MAX_BYTES or not 0<packed<=MAX_BYTES:
-            raise NotImplementedError('Unsupported source bulk flags or size')
-        inline=bool(flags&0x40); external=bool(flags&1)
-        if inline==external: raise NotImplementedError('Unknown source bulk placement')
-        here=f.Position()
-        if not flags&0x10000: offset+=s.bulk_data_offset
-        if inline:
-            if offset!=here or here+packed+6!=end: raise ValueError('Invalid inline source range')
-            data=f.ReadBytes(packed)
-        else:
-            if not max(end,s.bulk_data_offset)<=offset or offset+packed>size-4:
-                raise ValueError('Invalid external source range')
-            f.Seek(offset); data=f.ReadBytes(packed); f.Seek(here)
-        if len(data)!=packed or f.Position()+6!=end: raise ValueError('Source export length mismatch')
-        f.ReadBytes(2)
-        if f.ReadInt32()!=0: raise NotImplementedError('Cooked Texture2D is not editor source')
-        if flags&2:
-            try: data=decompress_chunks(data,count)
-            except zlib.error as exc: raise ValueError('Invalid compressed editor source') from exc
-        elif len(data)!=count: raise ValueError('Source bulk size mismatch')
-        png=source_png(data,w,h,fmt,mips,compressed)
-        return png, {'width':w,'height':h,'format':fmt,'mips':mips,'source_png':compressed,
-                     'srgb':props.TryGetValue('SRGB',True),'flip_y':props.TryGetValue('bFlipGreenChannel',False),
-                     'address_x':props.TryGetValue('AddressX','TA_Wrap'),'address_y':props.TryGetValue('AddressY','TA_Wrap'),
-                     'clamp':props.TryGetValue('AddressX','TA_Wrap')=='TA_Clamp' and props.TryGetValue('AddressY','TA_Wrap')=='TA_Clamp',
-                     'nearest':props.TryGetValue('Filter')=='TF_Nearest'}
-    finally: asset.Close()
+    raise NotImplementedError('Unsupported native UE4 editor source texture profile')

@@ -23,6 +23,16 @@ def split_package_inventory(path):
             except (ValueError,NotImplementedError): pass
         kind,_,_,imports,_,_=modern_package(path)
         return kind,split_import_paths(imports)
+    cls,_,_,imports,_=read_ue4_split_tables(path)
+    return cls,split_import_paths(imports)
+
+
+def read_ue4_split_tables(path):
+    """Validate tagged split UE4 tables and exact export coverage, not payload schemas."""
+    path=Path(path); side=path.with_suffix('.uexp')
+    if path.stat().st_size>16*1024*1024 or side.stat().st_size>128*1024*1024:
+        raise ValueError('Split package size limit')
+    raw=path.read_bytes(); payload=side.read_bytes(); r=Reader(raw)
     if r.take(4)!=MAGIC or r.unpack('5i')!=(-7,0,0,0,0):
         raise NotImplementedError('Unsupported split package header')
     if r.i()!=len(raw) or r.string()!='None': raise ValueError('Invalid split header')
@@ -35,15 +45,22 @@ def split_package_inventory(path):
     for _ in range(n): names.append(r.string()); r.take(4)
     if r.pos!=io: raise ValueError('Invalid name table extent')
     imports=[(r.name(names),r.name(names),r.i(),r.name(names)) for _ in range(ic)]
-    classes=[]
+    if any(not -ic<=imp[2]<=ec for imp in imports): raise ValueError('Invalid import outer')
+    roots=[]; spans=[]; exports=[]
     for i in range(ec):
-        r.pos=eo+104*i; ci,si,ti,outer=r.unpack('4i')
-        if outer: continue
-        if not -ic<=ci<0 or imports[-ci-1][:2]!=('/Script/CoreUObject','Class'):
-            raise NotImplementedError('Unsupported root class reference')
-        classes.append(imports[-ci-1][3])
-    if len(classes)!=1: raise NotImplementedError('Expected one root asset class')
-    return classes[0],split_import_paths(imports)
+        r.pos=eo+104*i; ci,si,ti,outer=r.unpack('4i'); name=r.name(names); r.take(4); size,offset=r.unpack('qq')
+        start=offset-len(raw)
+        if not (-ic<=ci<0 and all(-ic<=x<=ec for x in (si,ti,outer)) and 0<=start and 0<size<=len(payload)-4-start):
+            raise ValueError('Invalid split export record')
+        if any(start<b and start+size>a for a,b in spans): raise ValueError('Overlapping split export extents')
+        spans.append((start,start+size))
+        cls=imports[-ci-1]
+        if cls[:2]!=('/Script/CoreUObject','Class'): raise NotImplementedError('Unsupported export class reference')
+        exports.append((cls[3],name,outer,start,size))
+        if not outer: roots.append((cls[3],name))
+    if len(roots)!=1 or payload[-4:]!=MAGIC or sum(b-a for a,b in spans)!=len(payload)-4:
+        raise ValueError('Invalid split root or sidecar coverage')
+    return roots[0][0],roots[0][1],names,imports,exports
 
 
 def split_import_paths(imports):

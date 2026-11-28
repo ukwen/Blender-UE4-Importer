@@ -114,9 +114,7 @@ class MaterialResolver:
                     from ue5_editor_material import build_material
                     mat=build_material(Path(self.project.dir)/'Content',package,self.allow_partial)
                 else:
-                    import umat
-                    umat.TryAppendNodeGroups()
-                    mat,_=umat.ImportNodeGraph(path,self.project)
+                    raise NotImplementedError('Native material graph profile unsupported')
                 if not isinstance(mat, bpy.types.Material) or not mat.node_tree:
                     raise ValueError('Not a material graph')
                 if mat.get('UE_editor_material_status')=='metadata_only':

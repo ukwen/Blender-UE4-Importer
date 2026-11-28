@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.117-dev",
-  "previous_verified_commit": "1401996efdadc35728a58079f4ec02c489573dfd",
-  "previous_verified_tree": "bd0649569ce9fc5ecdf1c00d6d4f11ad71bafb9b",
+  "application_version": "0.10.118-dev",
+  "previous_verified_commit": "b191b5a2bbc81e60e29fc785f148c3354c8b037c",
+  "previous_verified_tree": "48094fe74ada9f43953a7a638292ef7ab6edb650",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Native map/component/Blueprint boundary and preview transaction",
+  "milestone": "Cooked material source catalog and native material boundary",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.117_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.117-local.zip",
-    "install_archive": "install-117.zip",
+    "checkpoint": "Unreal_Importer_0.10.118_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.118-local.zip",
+    "install_archive": "install-118.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,7 +31,7 @@
   },
   "tests": {
     "python": {
-      "passed": 193,
+      "passed": 197,
       "skipped": 11,
       "failed": 0
     },
@@ -64,7 +64,7 @@
       "installed": true,
       "imported": 3,
       "reopen_reuse": true,
-      "archive_sha256": "bd86582196fd1973dc4ee1724c33060aa2c74eba67ae6faf9255141b494e6f8b",
+      "archive_sha256": "e9f65ae1f01621d3ec8c7f960d1ae8bd5a33695cd094bead34d9d07173a241ae",
       "launcher_platform": "linux"
     },
     "versioned_split518": {
@@ -87,14 +87,18 @@
       "inherited_import_attempts": []
     },
     "evidence_files": [
-      "python117.log",
-      "preview117.log",
-      "native-level117.log",
-      "native-level117.json",
-      "west117.log",
-      "west117.json",
-      "inherited-audit117.json",
-      "install117.json"
+      "python118-final.log",
+      "material118.log",
+      "material118.json",
+      "editor-material118.log",
+      "editor-material118.json",
+      "cooked-mesh118.log",
+      "native-level118.log",
+      "native-level118.json",
+      "west118.log",
+      "west118.json",
+      "inherited-audit118.json",
+      "install118.json"
     ],
     "native_geometry_boundary": {
       "reconstructed": 3,
@@ -141,13 +145,80 @@
       "inherited_import_attempts": [],
       "original_blueprint_scs": true,
       "controlled_typed_binding": true
+    },
+    "cooked_material_menu": {
+      "materials": {
+        "M_Worm \u2014 cooked dependencies": "4.18",
+        "M_Worm \u2014 cooked dependencies.003": "4.27",
+        "M_Worm \u2014 cooked dependencies.006": "5.0"
+      },
+      "packed_images": {
+        "T_Worm_A": "ff9859114767d889e3d6aac8fecfd39d15453792d35623b32e33d29482f76333",
+        "T_Worm_D": "b677357332aa338d10811f779368e67067741adcddc4591345bef4d256f6987b",
+        "T_Worm_N": "9793e518d97cf3a6fd0c139ab62d123be181dce4f197799683bd2faf323baa64",
+        "T_Worm_A.001": "44fbbb00519bceb85bdf2095513a618a60946b5a4a7636b0a671912eace29ad4",
+        "T_Worm_D.001": "5a72c4d6b20fed4a47f8bf917d7cd7a47da8294e15674be9abcd07f9852b3d84",
+        "T_Worm_N.001": "f61a319621002b4fc25a156c31e63ec91a7acc3013a699d6d1727d7ac1610659",
+        "T_Worm_A.002": "44fbbb00519bceb85bdf2095513a618a60946b5a4a7636b0a671912eace29ad4",
+        "T_Worm_D.002": "e4db2d50be6eaf83e2a92bfa9e288735630b43d390cebe8aece86dd29d3810a0",
+        "T_Worm_N.002": "1da99ff0aae89e0628e465f7673f17b8a20b98496ae80d8d4cc764893567bfb1"
+      },
+      "source_graph_418": {
+        "blend": "BLEND_Translucent",
+        "edges": {
+          "BaseColor": {
+            "expression": "MaterialExpressionTextureSample_1",
+            "mask": [
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "output": 0,
+            "sampler": "SAMPLERTYPE_Color",
+            "texture": "/Game/T_Worm_D"
+          },
+          "Normal": {
+            "expression": "MaterialExpressionTextureSample_2",
+            "mask": [
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "output": 0,
+            "sampler": "SAMPLERTYPE_Normal",
+            "texture": "/Game/T_Worm_N"
+          },
+          "Opacity": {
+            "expression": "MaterialExpressionTextureSample_0",
+            "mask": [
+              1,
+              1,
+              1,
+              1,
+              0
+            ],
+            "output": 0,
+            "sampler": "SAMPLERTYPE_Color",
+            "texture": "/Game/T_Worm_A"
+          }
+        },
+        "shader_status": "source_edges_only"
+      },
+      "reopen": true,
+      "missing_dependency": true,
+      "rollback": true,
+      "inherited_import_attempts": []
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace remaining editor texture compatibility, shared package reference identity and inherited material/mesh/map translators, using original source evidence; preserve supported workflows and validate Windows before commercial distribution.",
+  "next_priority": "Translate genuine UE4.18 filtered source links with verified sampler/channel semantics; replace shared package identity and remaining explicit legacy backends, preserve original feature parity and legal provenance; Windows acceptance.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -178,7 +249,8 @@
     "0.10.114: four inherited files and 28 literal import sites remain; versioned split 518 inventory tested on one original animation Blueprint, no execution or payload translation. Unclassified material formats now report unsupported dependency inventory; no blanket legacy parity.",
     "0.10.115: four inherited files and 25 literal sites remain. Unsupported older monolithic mesh/table profiles have no independently validated decoder; native gallery/static resolver and preflight now report these explicitly rather than trying legacy automatically. Standalone explicit compatibility remains. Native material fallback and remaining map-related legacy consumers still present.",
     "0.10.116: four inherited files, 22 literal production sites. Historical foliage reader retained only for test comparison. Native texture menu refuses unvalidated profiles; older material compatibility reader remains.",
-    "0.10.117: four inherited files and 16 literal production references remain. Older unverified classic map/component and Blueprint default profiles are explicitly unsupported/unresolved in native preview; legacy map menu remains. Rollback is for newly allocated IDs only."
+    "0.10.117: four inherited files and 16 literal production references remain. Older unverified classic map/component and Blueprint default profiles are explicitly unsupported/unresolved in native preview; legacy map menu remains. Rollback is for newly allocated IDs only.",
+    "0.10.118: four inherited files and 14 literal import sites remain. Cooked material catalog preserves raw channels and three UE4.18 exact source edges, not a rendered shader. Unsupported intermediate editor texture compatibility removed; general legacy graph, map, geometry and material formats remain unsupported or explicit legacy. No commercial clearance."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

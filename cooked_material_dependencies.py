@@ -7,7 +7,11 @@ from skeletal_mesh_native import require
 
 
 def inspect_asset(path,profile,expected):
-    if profile=='5.0':
+    if profile in ('4.18','4.27'):
+        from project_geometry import read_ue4_split_tables
+        cls,name,names,imports,_=read_ue4_split_tables(path)
+        require(name==expected.rsplit('/',1)[-1] and expected in names,'UE4 root name/package evidence mismatch')
+    elif profile=='5.0':
         from ue5_cooked_geometry import package
         cls,name,names,imports,_=package(path)
         require(name==expected.rsplit('/',1)[-1] and expected in names,'UE5.0 root name/package evidence mismatch')
@@ -37,7 +41,7 @@ def pack_texture(project,source,profile):
     path=Path(project.resolve_package(source))
     if not path.is_file(): raise FileNotFoundError('Texture source package unavailable')
     cls,_=inspect_asset(path,profile,source);require(cls=='Texture2D','Referenced package is not a Texture2D')
-    if profile not in ('5.0','5.5'): raise NotImplementedError('Texture decoder unavailable for this cooked profile')
+    if profile not in ('4.18','4.27','5.0','5.5'): raise NotImplementedError('Texture decoder unavailable for this cooked profile')
     files=[path]+[path.with_suffix(e) for e in ('.uexp','.ubulk','.uptnl') if path.with_suffix(e).is_file()]
     require(all(p.stat().st_size<=128*1024*1024 for p in files),'Texture source exceeds size limit')
     key=digest([profile,source,[(str(p),hash_file(p)) for p in files]])
