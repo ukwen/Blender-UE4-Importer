@@ -8,6 +8,10 @@ from ue5_full_scene import reconstruct
 p=Path(os.environ['UE56_EDITOR_PROJECT']);out=Path(os.environ['UE56_EDITOR_OUTPUT']);content=p.parent/'Content';level=content/'MyStuff/Maps/MainLevel.umap'
 bpy.ops.wm.read_factory_settings(use_empty=True);surface={};plans,skips=records(content,level,surface_data=surface);assert len(plans)==1 and not skips
 rec,grid=plans[0];atlas=surface[rec['source'],rec['actor']];meta=rec['source_atlas'];root,report=reconstruct(str(level),partial=True);terrain=report['stages']['geometry']['landscape_report'];assert terrain['actors']==1 and not terrain['skipped'],terrain
+gaps=report['material_diagnostics']['materials'];decal_gaps=[r for r in gaps if 'decal_projector' in r['uses']];terrain_gaps=[r for r in gaps if 'landscape_surface' in r['uses']]
+assert len(decal_gaps)==103 and all(r['missing_hard_closure'].get(r['package'])=='missing_game' for r in decal_gaps)
+assert len(terrain_gaps)==1 and terrain_gaps[0]['missing_hard_closure'].get(terrain_gaps[0]['package'])=='missing_game'
+print('MATERIAL_GAPS_PASS',len(decal_gaps),len(terrain_gaps),flush=True)
 assert atlas.shape==(1024,1024,4);assert len(meta['tiles'])==64
 assert all(c['material_bindings']['instances'][0]['chain'][0]['texture_parameters'][0]['value']['name']==c['texture'] for c in rec['components'])
 assert all(c['material_bindings']['instances'][0]['chain'][0]['texture_parameters'][0]['name']=='Heightmap' for c in rec['components'])

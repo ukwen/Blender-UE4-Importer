@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.94-dev",
-  "previous_verified_commit": "b5672f6d0210e589d688733c022b679bef12a229",
-  "previous_verified_tree": "ffa9524d520ffcfa68bfb21d8397bf90a1443f80",
-  "current_commit_resolution": "Match immutable 0.10.94 checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "Scoped recovery review, confirmation binding, original asset repair and desktop regression",
+  "application_version": "0.10.95-dev",
+  "previous_verified_commit": "a977335b7a90ac25d6419d897e9c7226be57e2fc",
+  "previous_verified_tree": "4f9de194697b0916e59404aa2f01f914c6ff5bc4",
+  "current_commit_resolution": "Match immutable 0.10.95 checkpoint and published development commit/tree to archive hashes.",
+  "milestone": "Safe in-map stage cancellation, material source gaps, expanded UE5.7 audit and platform-local installer launcher",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.94_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.94-local.zip",
-    "install_archive": "install-094.zip",
+    "checkpoint": "Unreal_Importer_0.10.95_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.95-local.zip",
+    "install_archive": "install-095.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,41 +30,48 @@
   },
   "tests": {
     "baseline": {
-      "passed": 109,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 110,
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Live 0.10.93 head and exact source tree, four dependencies verified; reused Blender 4.2.4 and native decoder",
-    "source_recovery": {
-      "restored": 2,
-      "repaired_anchors": 36,
-      "unique_meshes": 2,
-      "max_world_matrix_error": 0,
-      "selection_folder_guard": true,
-      "zero_ready_guard": true,
-      "tampered_plan_refused": true,
-      "stale_confirmation_refused": true,
+    "expanded_current": {
+      "passed": 125,
+      "skipped": 10,
+      "failed": 0
+    },
+    "midmap": {
+      "static_actors_before_cancel": 32,
+      "static_actor_total": 1976,
+      "single_and_set_exact_rollback": true,
+      "desktop_escape": true,
+      "retry_objects": 62,
       "reopen": true
     },
-    "linux_x11_desktop": {
-      "actual_confirmation": true,
-      "cancelled_without_writes": true,
-      "original_package_restored": true,
-      "source_unchanged": true
+    "full_scene": {
+      "objects": 94,
+      "late_failure_rollback": true,
+      "reopen": true
     },
-    "previously_verified": "0.10.93 report navigation; 0.10.91 whole-project/commercial acceptance not repeated",
+    "landscape": {
+      "corner_uvs": 4064256,
+      "missing_decal_packages": 103,
+      "missing_terrain_packages": 1,
+      "weight_layers_status": "not_serialized_in_supported_profile"
+    },
+    "ue57": {
+      "editor_blueprints": 5,
+      "anchors": 8,
+      "metadata_only": 2,
+      "cooked_unversioned_packages": 70,
+      "reopen": true
+    },
     "isolated_install": "See immutable checkpoint for final archive acceptance"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Safe large-map stage cancellation and source-driven missing material diagnostics; Windows acceptance when available. No new assets without approval.",
+  "next_priority": "Bound long synchronous native/terrain/dependency stages and verify Windows installer/desktop on native Windows; broader formats require original positive source evidence.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -86,7 +93,7 @@
     "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition.",
     "BSP geometry supported for original zero-flag inline compiled profile only. Six explicit material packages unavailable and 76 faces have null source material; lightmap baking, other BSP/volume profiles and runtime CSG/physics/navigation/postprocess not validated.",
     "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
-    "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. No mid-map interruption. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
+    "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. Safe UE5.6 in-map stage cancellation verified; individual synchronous/native calls and legacy maps remain indivisible. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
     "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported."
   ]
 }

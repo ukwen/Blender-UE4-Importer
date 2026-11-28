@@ -102,6 +102,9 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
     bl_idname = 'ueimport.scan_project'
     bl_label = 'Scan Unreal Project'
 
+    @classmethod
+    def poll(cls,context):return not UEIMPORT_OT_level_set._active and not UEIMPORT_OT_batch._active
+
     def execute(self, context):
         state = context.scene.ueimport_project
         state.maps.clear()
@@ -192,7 +195,7 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
         return {'FINISHED'}
 
 
-def publish_scene_actions(state, selected, dependencies, performance=None):
+def publish_scene_actions(state, selected, dependencies, performance=None, material_diagnostics=None):
     from import_workflow import dependency_actions
     actions=dependencies.get('actions') or dependency_actions(dependencies)
     lines=[str(selected), 'Source availability (not visual completeness)',
@@ -201,6 +204,14 @@ def publish_scene_actions(state, selected, dependencies, performance=None):
         lines.append(f"{r['package']} | {r['status']} | hard: {r['hard_references']}, soft: {r['soft_references']} | {r['action']}")
     if actions['unknown_tables']:
         lines.append('Unknown package tables:');lines.extend(actions['unknown_tables'])
+    if material_diagnostics:
+        lines.append('Material diagnostics (known hard closure, not visible shading completeness):')
+        for r in material_diagnostics['materials']:
+            lines.append(f"{r['package']} | {r['status']} | {', '.join(r['uses'])} | {r['action']}")
+            lines.extend(f"  {p}: {status}" for p,status in r['missing_hard_closure'].items())
+            lines.extend(f"  Unknown table: {p}" for p in r['unknown_tables'])
+            if r['detail']:lines.append('  '+r['detail'])
+            lines.extend('  '+str(issue) for issue in r['issues'])
     if performance:
         lines.append(f"Import: {performance['elapsed_seconds']:.2f}s; {performance['table_reads']} table reads; {performance['table_hits']} cache hits")
         lines.extend(f"{name}: {seconds:.3f}s" for name,seconds in performance['stage_seconds'].items())
@@ -404,6 +415,55 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
     def poll(cls, context):
         return UEIMPORT_OT_import_map.poll(context)
 
+    def invoke(self,context,event):
+        state=context.scene.ueimport_project
+        try:
+            project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
+            if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+            from package_inspector import inspect_package
+            from legacy_full_scene import supported
+            if supported(inspect_package(selected)):return self.execute(context)
+            from ue5_full_scene import iter_reconstruct
+            self.state=state;self.selected=selected;self.wm=context.window_manager;self.timer=None;self.next_tick=0.;self.finished=False
+            self.iterator=iter_reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies,cache_budget=state.scene_cache_mib*1024*1024)
+            UEIMPORT_OT_level_set._active=True
+            state.batch_status='Preparing selected level; Esc cancels'
+            self.timer=self.wm.event_timer_add(.05,window=context.window);self.wm.modal_handler_add(self)
+        except Exception as exc:
+            if hasattr(self,'iterator'):return self._finish('failed',str(exc))
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        return {'RUNNING_MODAL'}
+
+    def _finish(self,status,error=''):
+        if self.finished:return {'CANCELLED'}
+        self.finished=True
+        try:
+            self.iterator.close()
+            self.state.batch_status='Selected level imported' if status=='completed' else f'Selected level {status}; staged data rolled back'
+            self.report({'INFO'} if status=='completed' else {'WARNING'} if status=='cancelled' else {'ERROR'},error or self.state.batch_status)
+        finally:
+            if self.timer:self.wm.event_timer_remove(self.timer)
+            UEIMPORT_OT_level_set._active=False
+        return {'FINISHED'} if status=='completed' else {'CANCELLED'}
+
+    def modal(self,context,event):
+        if event.type=='ESC' and event.value=='PRESS':return self._finish('cancelled')
+        if event.type=='TIMER' and time.monotonic()>=self.next_tick:
+            try:
+                stage=next(self.iterator);self.state.batch_status=f'{stage}; Esc cancels'
+                self.next_tick=time.monotonic()+.10
+                if context.area:context.area.tag_redraw()
+            except StopIteration as done:
+                collection,report=done.value;self.state.batch_report=collection['UE_report']
+                try:publish_scene_actions(self.state,self.selected,report['source_dependencies'],report.get('performance'),report.get('material_diagnostics'))
+                except Exception as exc:self.report({'WARNING'},f'Level imported; source action summary unavailable: {exc}')
+                return self._finish('completed')
+            except Exception as exc:return self._finish('failed',str(exc))
+        return {'RUNNING_MODAL'}
+
+    def cancel(self,context):
+        if hasattr(self,'iterator'):self._finish('cancelled')
+
     def execute(self, context):
         state=context.scene.ueimport_project
         try:
@@ -431,7 +491,7 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
         state.batch_report=collection['UE_report'];counts=report['counts']
         if 'source_dependencies' in report:
-            try:publish_scene_actions(state,selected,report['source_dependencies'],report.get('performance'))
+            try:publish_scene_actions(state,selected,report['source_dependencies'],report.get('performance'),report.get('material_diagnostics'))
             except Exception as exc:self.report({'WARNING'},f'Level imported; source action summary unavailable: {exc}')
         self.report({'INFO'},f"Saved level preview: {counts['meshes']} meshes, {counts['armatures']} rigs, {counts['lights']} lights, {counts['cameras']} cameras. Inspect scene transfer report for gaps.")
         return {'FINISHED'}
@@ -456,7 +516,7 @@ class UEIMPORT_OT_check_maps(bpy.types.Operator):
 class UEIMPORT_OT_level_set(bpy.types.Operator):
     bl_idname='ueimport.level_set'
     bl_label='Import Checked Levels (Separate)'
-    bl_description='Atomic independent map transfer; Esc rolls back the entire set between levels. No inferred streaming placement.'
+    bl_description='Atomic independent map transfer; Esc rolls back the entire set at safe stage boundaries. No inferred streaming placement.'
     bl_options={'REGISTER','UNDO'}
     _active=False
     @classmethod
@@ -468,7 +528,7 @@ class UEIMPORT_OT_level_set(bpy.types.Operator):
         from saved_project_levels import validate_selection,iter_reconstruct
         validate_selection(project,paths)
         self.state=s;self.total=len(paths);self.done=0;self.timer=None;self.wm=context.window_manager;self.next_tick=0.;self.finished=False
-        self.iterator=iter_reconstruct(project,paths,s.partial_materials,s.light_preview_scale,s.strict_scene_dependencies,s.cooked_profile,cache_budget=s.scene_cache_mib*1024*1024)
+        self.iterator=iter_reconstruct(project,paths,s.partial_materials,s.light_preview_scale,s.strict_scene_dependencies,s.cooked_profile,cache_budget=s.scene_cache_mib*1024*1024,stage_steps=True)
         self.wm.progress_begin(0,self.total);type(self)._active=True
         s.batch_status=f'0/{self.total} levels (atomic transfer)'
     def step(self):
@@ -476,6 +536,8 @@ class UEIMPORT_OT_level_set(bpy.types.Operator):
         except StopIteration as done:
             c,r=done.value;self.state.batch_report=c['UE_report'];return self.finish('completed')
         self.done=row['completed'];self.wm.progress_update(self.done);self.state.batch_status=f'{self.done}/{self.total} levels staged; Esc rolls back set'
+        self.map_boundary=not row.get('stage')
+        if row.get('stage'):self.state.batch_status=f'{self.done}/{self.total}: {Path(row["source"]).stem} — {row["stage"]}; Esc cancels'
         return None
     def finish(self,status,error=''):
         if self.finished:return {'FINISHED'} if status=='completed' else {'CANCELLED'}
@@ -509,8 +571,8 @@ class UEIMPORT_OT_level_set(bpy.types.Operator):
             try:
                 result=self.step()
                 if result:return result
-                # Give queued desktop input a chance after a long synchronous map.
-                self.next_tick=time.monotonic()+.25
+                # Give queued desktop input a chance after each stage and completed map.
+                self.next_tick=time.monotonic()+(.25 if self.map_boundary else .05)
                 if context.area:context.area.tag_redraw()
             except Exception as exc:return self.finish('failed',str(exc))
         return {'RUNNING_MODAL'}
@@ -880,8 +942,8 @@ class UEIMPORT_PT_project(bpy.types.Panel):
                 for line in state.scene_summary.split('; '):actions.label(text=line)
                 draw_report_row(actions,context,'ACTIONS','Read Source Actions')
             imported=any(c.get('UE_full_scene_source')==selected for c in context.scene.collection.children_recursive)
-            row=layout.row();row.enabled=not imported;row.scale_y=1.3;row.operator('ueimport.full_scene',text='Import Selected Level',icon='SCENE_DATA')
-            row=layout.row();row.enabled=checked>0;row.operator('ueimport.level_set',text='Import Checked Levels',icon='SCENE_DATA')
+            row=layout.row();row.operator_context='INVOKE_DEFAULT';row.enabled=not imported;row.scale_y=1.3;row.operator('ueimport.full_scene',text='Import Selected Level',icon='SCENE_DATA')
+            row=layout.row();row.operator_context='INVOKE_DEFAULT';row.enabled=checked>0;row.operator('ueimport.level_set',text='Import Checked Levels',icon='SCENE_DATA')
             if imported:layout.label(text='Selected level already imported',icon='CHECKMARK')
             draw_report_row(layout,context,'LEVEL','Read Selected Level Report')
             draw_report_row(layout,context,'SET','Read Level Set Report')

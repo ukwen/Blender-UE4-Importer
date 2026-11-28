@@ -213,3 +213,7 @@ Selected-level, level-set, source-action and last-operation report navigation an
 ## 0.10.94-dev
 
 Scoped recovery plan review and confirmation, ignored-file diagnostics, zero-ready and stale-plan refusal. Original recovery, overlay and actual X11 confirmation regression. See [recovery review](docs/0.10.94-recovery-review.md).
+
+## 0.10.95-dev
+
+Cooperative UE5.6 full-scene and checked-level reconstruction with safe in-map actor/component/material checkpoints; exact rollback, actual X11 Escape, source-backed material closure diagnostics including decal/terrain, original UE5.7 fixture audit, and platform-local installer acceptance launcher. See [stage cancellation and evidence audit](docs/0.10.95-stage-cancellation.md).

@@ -74,14 +74,24 @@ def placement_records(content,map_path):
 
 
 def reconstruct(filepath,materials=False,components=False,partial=False):
+    iterator=iter_geometry(filepath,materials,components,partial)
+    try:
+        while True:next(iterator)
+    except StopIteration as done:return done.value
+    finally:iterator.close()
+
+
+def iter_geometry(filepath,materials=False,components=False,partial=False):
+    """Cooperative geometry stages; caller owns rollback on close/failure."""
     import bpy,uasset
     from static_scene import MeshResolver
     from blueprint_placement import apply_fields
     require(not any(c.get('UE_full_scene_source')==str(Path(filepath).resolve()) for c in bpy.context.scene.collection.children_recursive),'Level already imported as a full scene; remove the prior import explicitly before retrying')
     project=uasset.UProject(filepath);content=Path(project.dir)/'Content';data=placement_records(content,filepath)
+    yield 'Static placement records'
     resolver=MeshResolver(project,'5.6');collection=bpy.data.collections.new('UE5 editor — '+Path(filepath).stem);bpy.context.scene.collection.children.link(collection)
     override_cache={};counts=Counter();
-    for record in data['records']:
+    for i_record,record in enumerate(data['records'],1):
         mesh,status=resolver(record['package']);obj=bpy.data.objects.new(record['label'],mesh);collection.objects.link(obj)
         if mesh is None:obj.empty_display_type='ARROWS';obj.empty_display_size=.35
         obj['UE_actor']=record['actor'];obj['UE_source_actor_package']=record['source'];obj['UE_mesh_package']=record['package'];obj['UE_geometry_status']=status;obj['UE_preview_only']=mesh is None
@@ -94,11 +104,14 @@ def reconstruct(filepath,materials=False,components=False,partial=False):
                 if pkg not in override_cache:
                     mat=bpy.data.materials.new(pkg.rsplit('/',1)[-1]);mat['UE_material_package']=pkg;mat['UE_unresolved_material']=True;override_cache[pkg]=mat
                 obj.material_slots[i].link='OBJECT';obj.material_slots[i].material=override_cache[pkg]
+        if i_record%32==0:yield f'Static actors {i_record}/{len(data["records"])}'
+    yield 'Static actors complete'
     report=dict(level=data['level'],external_actor_packages=data['external_count'],static_actors=len(data['records']),actor_status=dict(counts),skipped=data['skipped'],nonroot_component_classes=data['nonroot_component_classes'],unique_reconstructed_meshes=len({o.data.as_pointer() for o in collection.objects if o.type=='MESH'}),decode_attempts=resolver.decode_attempts,dependencies={p:{'status':r['status'],'detail':r['detail']} for p,r in resolver.records.items()},materials_imported=False,material_graph_status='unresolved editor materials',components_status='root StaticMeshActor only; other components not reconstructed')
     if components:
         from ue5_editor_components import placements
         actors,skips=placements(content,filepath); component_counts=Counter(); component_objects=0
-        for actor in actors:
+        yield 'Component placement records'
+        for i_actor,actor in enumerate(actors,1):
             nodes={}
             for c in actor['components']:
                 mesh,status=resolver(c['package']) if c['package'] else (None,'anchor')
@@ -117,17 +130,24 @@ def reconstruct(filepath,materials=False,components=False,partial=False):
                                 mat=bpy.data.materials.new(pkg.rsplit('/',1)[-1]);mat['UE_material_package']=pkg;mat['UE_unresolved_material']=True;override_cache[pkg]=mat
                             obj.material_slots[i].link='OBJECT';obj.material_slots[i].material=override_cache[pkg]
                 component_objects+=1
+            if i_actor%16==0:yield f'Blueprint actors {i_actor}/{len(actors)}'
+        yield 'Blueprint components complete'
         report['component_report']=dict(actors=len(actors),objects=component_objects,status=dict(component_counts),skipped=skips,scope='saved static components with exact CDO/SCS defaults; native C++ defaults not independently verified')
         report['components_status']='bounded saved Blueprint static components; no runtime execution'
         report['decode_attempts']=resolver.decode_attempts;report['dependencies']={p:{'status':r['status'],'detail':r['detail']} for p,r in resolver.records.items()}
         from ue5_editor_characters import extend_characters
         report['character_report']=extend_characters(content,filepath,collection)
         report['components_status']='bounded saved Blueprint static and skeletal components; no runtime execution'
+        yield 'Characters complete'
     from ue5_editor_landscape import extend_landscapes
     report['landscape_report']=extend_landscapes(content,filepath,collection)
+    yield 'Landscape complete'
     if materials:
         from ue5_editor_material import bind_slots
-        report['material_report']=bind_slots(collection.objects,content,partial)
+        objects=list(collection.objects);cache={};report['material_report']={}
+        for start in range(0,len(objects),32):
+            report['material_report'].update(bind_slots(objects[start:start+32],content,partial,cache))
+            yield f'Material slots {min(start+32,len(objects))}/{len(objects)}'
         report['materials_imported']=any(x['status'] in ('partial','supported_pbr_subset') for x in report['material_report'].values())
         report['material_graph_status']='explicit supported PBR subset; partial graphs opt-in'
     collection['UE_source_map_path']=str(Path(filepath).resolve());collection['UE_geometry_only']=not report['materials_imported'];collection['UE_reconstructed_actors']=counts['reconstructed'];collection['UE_unresolved_actors']=sum(counts.values())-counts['reconstructed']+len(data['skipped'])

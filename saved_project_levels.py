@@ -46,10 +46,10 @@ def reconstruct(project, paths, partial=False, preview_scale=1., strict=False, p
     finally:iterator.close()
 
 
-def iter_reconstruct(project, paths, partial=False, preview_scale=1., strict=False, profile='4.27',cache_budget=None):
+def iter_reconstruct(project, paths, partial=False, preview_scale=1., strict=False, profile='4.27',cache_budget=None,stage_steps=False):
     """Yield after each completed map; closing before commit rolls back the entire set.
 
-    Native builders remain synchronous; cancellation is between maps, not mid-map.
+    Modern builders optionally yield at safe in-map stages; legacy builders remain synchronous.
     Caller must prevent other edits while the generator owns the scene.
     """
     import bpy
@@ -78,6 +78,15 @@ def iter_reconstruct(project, paths, partial=False, preview_scale=1., strict=Fal
         for p,builder in zip(paths,builders):
             args=(str(p),partial,preview_scale,strict)
             if builder is legacy:root,report=builder(*args,profile)
+            elif stage_steps:
+                from ue5_full_scene import iter_reconstruct as modern_steps
+                it=modern_steps(*args,cache_budget=cache_budget)
+                try:
+                    while True:
+                        try:stage=next(it)
+                        except StopIteration as done:root,report=done.value;break
+                        yield dict(completed=len(rows),total=len(paths),source=str(p),stage=stage)
+                finally:it.close()
             elif cache_budget is None:root,report=builder(*args)
             else:
                 from import_workflow import table_scope
