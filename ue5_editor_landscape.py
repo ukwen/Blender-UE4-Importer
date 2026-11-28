@@ -1,5 +1,6 @@
 """Saved UE5.6 monolithic Landscape heightfield, bounded local BGRA8 profile.
-No inferred heights, generated foliage, weight layers, holes or runtime LOD parity.
+Source atlas preserves all finest-mip channels and duplicate border texels.
+No inferred painted layers, holes or runtime LOD parity.
 """
 import struct, hashlib, math
 from pathlib import Path
@@ -70,7 +71,78 @@ def height_texture(raw,texture,names,trailer,side,decoder=None):
     return a,info['hash']
 
 
-def records(content,map_path,decoder=None):
+def source_atlas(tiles,q,s,n):
+    """Lossless RGBA tile atlas; rows follow serialized source order, not Blender V."""
+    import numpy as np
+    side=(s+1)*n
+    require(n in (1,2) and s>0 and q==s*n,'Invalid source atlas layout')
+    xs=sorted({x for x,y in tiles});ys=sorted({y for x,y in tiles})
+    require(xs and ys and xs==list(range(xs[0],xs[-1]+1,q)) and ys==list(range(ys[0],ys[-1]+1,q)) and len(tiles)==len(xs)*len(ys),'Invalid source atlas grid')
+    w,h=len(xs)*side,len(ys)*side
+    require(w*h<=16_000_000 and max(w,h)<=8192,'Oversized source atlas')
+    atlas=np.empty((h,w,4),dtype=np.uint8);rows=[]
+    for y in ys:
+        for x in xs:
+            a=tiles[x,y];require(a.dtype==np.uint8 and a.shape==(side,side,4),'Invalid source atlas tile')
+            u,v=(x-xs[0])//q*side,(y-ys[0])//q*side
+            rgba=a[:,:,[2,1,0,3]];atlas[v:v+side,u:u+side]=rgba
+            rows.append(dict(section=[x,y],atlas_offset=[u,v],rgba_sha256=hashlib.sha256(rgba.tobytes()).hexdigest()))
+    return atlas,dict(width=w,height=h,component_quads=q,subsection_quads=s,subsections=n,tiles=rows,rgba_sha256=hashlib.sha256(atlas.tobytes()).hexdigest(),scope='Exact finest source mip RGBA; auxiliary channels retained without assuming runtime normal decoding; no painted layer data')
+
+
+def source_corner_uv(meta,grid_shape):
+    """Derived atlas texel-center UVs: preserve BOTH copies of subsection borders."""
+    import numpy as np
+    q,s,n=(meta[k] for k in ('component_quads','subsection_quads','subsections'));side=(s+1)*n
+    h,w=grid_shape;require((w-1)%q==0 and (h-1)%q==0 and meta['width']==(w-1)//q*side and meta['height']==(h-1)//q*side,'Source UV grid mismatch')
+    yy,xx=np.indices((h-1,w-1),dtype=np.int32)
+    tx=xx//q;ty=yy//q;lx=xx%q;ly=yy%q
+    u=(tx*side+lx+lx//s).ravel();v=(ty*side+ly+ly//s).ravel()
+    uv=np.empty((len(u),4,2),dtype=np.float32)
+    for k,(dx,dy) in enumerate(((0,0),(0,1),(1,1),(1,0))):
+        uv[:,k,0]=(u+dx+.5)/meta['width'];uv[:,k,1]=1-(v+dy+.5)/meta['height']
+    return uv.reshape(-1,2),(ty*((w-1)//q)+tx).ravel()
+
+
+def texture_bindings(tags,actor,ref,pkg,names):
+    t=tags.get('TextureParameterValues')
+    if t is None:return []
+    require(t['type']==['ArrayProperty','StructProperty','TextureParameterValue','/Script/Engine'],'Invalid landscape texture parameter array')
+    r=Reader(t['data']);out=[]
+    for _ in range(r.count(4096)):
+        p=read_tag_stream(r,names);info=p['ParameterInfo'];require(info['type']==['StructProperty','MaterialParameterInfo','/Script/Engine'],'Invalid landscape parameter info');a=read_tags(info['data'],names)
+        name=a['Name'];association=a['Association'];require(name['type']==['NameProperty'] and len(name['data'])==8 and association['type']==['ByteProperty','EMaterialParameterAssociation','/Script/Engine'] and len(association['data'])==8,'Invalid landscape parameter identity')
+        nm=Reader(name['data']).name(names);assoc=Reader(association['data']).name(names);require(nm and assoc=='GlobalParameter' and integer(a,'Index')==-1,'Unsupported landscape parameter association')
+        idx=index_value(p,'ParameterValue');target=ref(idx) if idx else None;value=None
+        if idx>0:
+            require(target['kind']=='Texture2D' and target['outer']==actor,'Invalid embedded landscape texture binding');value=dict(export=idx,name=target['name'])
+        elif idx<0:
+            require(target['kind']=='Texture2D' and pkg(idx),'Invalid imported landscape texture binding');value=dict(package=pkg(idx))
+        out.append(dict(name=nm,association=assoc,value=value,guid=p.get('ExpressionGUID',{}).get('data',b'').hex()))
+    require(r.pos==len(r.data) and len({x['name'] for x in out})==len(out),'Invalid landscape texture parameter extent/duplicates');return out
+
+
+def material_bindings(tags,actor,ref,pkg,raw,names):
+    """Read exact component instance ancestry; not a material translator."""
+    from ue5_editor_components import array
+    bindings=[]
+    for idx in array(tags,'MaterialInstances'):
+        chain=[];seen=set();parent=idx
+        while parent>0:
+            require(parent not in seen and len(seen)<32,'Landscape material cycle/depth')
+            seen.add(parent);e=ref(parent);require(e['kind']=='LandscapeMaterialInstanceConstant' and e['outer']==actor,'Unexpected landscape material ownership')
+            t=export_tags(raw,e,names);chain.append(dict(export=parent,name=e['name'],tag_names=sorted(t),texture_parameters=texture_bindings(t,actor,ref,pkg,names),texture_parameter_sha256=hashlib.sha256(t['TextureParameterValues']['data']).hexdigest() if 'TextureParameterValues' in t else None));parent=index_value(t,'Parent')
+        require(parent<0 and ref(parent)['kind'] in ('Material','MaterialInstanceConstant') and pkg(parent),'Unresolved landscape material parent')
+        bindings.append(dict(chain=chain,parent_package=pkg(parent)))
+    lod=tags.get('LODIndexToMaterialIndex');lod_indices=None
+    if lod is not None:
+        require(lod['type']==['ArrayProperty','Int8Property'] and len(lod['data'])>=4,'Invalid landscape LOD material index array')
+        count=struct.unpack_from('<i',lod['data'])[0];require(0<=count<=256 and len(lod['data'])==4+count,'Invalid landscape LOD material index extent')
+        lod_indices=list(struct.unpack_from('<'+'b'*count,lod['data'],4));require(all(0<=i<len(bindings) for i in lod_indices),'Invalid landscape LOD material binding')
+    return dict(instances=bindings,lod_indices=lod_indices)
+
+
+def records(content,map_path,decoder=None,surface_data=None):
     content=Path(content).resolve();path=Path(map_path).resolve();level='/Game/'+path.relative_to(content).with_suffix('').as_posix();out=[];skips=[]
     # External LandscapeStreamingProxy uses a different association profile; inventory it but do not guess.
     for source in [path,*external_packages(content,path)]:
@@ -86,7 +158,7 @@ def records(content,map_path,decoder=None):
                     ri=index_value(at,'RootComponent');root=ref(ri);require(ri>0 and root['outer']==ai and root['kind']=='SceneComponent','Invalid landscape root');rt=export_tags(b,root,names);require(not index_value(rt,'AttachParent'),'Unsupported landscape root parent');f=fields(rt)
                     from ue5_editor_components import array
                     indices=array(at,'LandscapeComponents');require(indices and len(indices)==len(set(indices))<=1024,'Invalid landscape component list')
-                    trailer=read_trailer(b,max(e['offset']+e['size'] for e in ex));tiles={};sources=[];texids=set()
+                    trailer=read_trailer(b,max(e['offset']+e['size'] for e in ex));tiles={};sources=[];texids=set();pixels={}
                     for i in indices:
                         e=ref(i);require(i>0 and e['outer']==ai and e['kind']=='LandscapeComponent','Invalid landscape component ownership');t=export_tags(b,e,names)
                         require([integer(t,k) for k in ('ComponentSizeQuads','SubsectionSizeQuads','NumSubsections')]==[q,s,n] and index_value(t,'AttachParent')==ri,'Landscape component layout mismatch')
@@ -96,37 +168,63 @@ def records(content,map_path,decoder=None):
                         ti=index_value(t,'HeightmapTexture');texture=ref(ti);require(ti>0 and ti not in texids and texture['outer']==ai and texture['kind']=='Texture2D','Invalid heightmap identity');texids.add(ti)
                         aimg,digest=height_texture(b,texture,names,trailer,side,decoder);h=collapse_heightmap(aimg,s,n)
                         box=typed(t,'CachedLocalBox',['StructProperty','Box','/Script/CoreUObject'],'<6dB');require(box==(0.,0.,float(h.min())/128,q,q,float(h.max())/128,1),'Height bounds disagree with serialized component box')
-                        require((x,y) not in tiles,'Duplicate landscape tile');tiles[x,y]=h;sources.append(dict(component=e['name'],texture=texture['name'],section=[x,y],payload_hash=digest,local_box=box))
+                        require((x,y) not in tiles,'Duplicate landscape tile');tiles[x,y]=h;pixels[x,y]=aimg
+                        try:binding=material_bindings(t,ai,ref,pkg,b,names)
+                        except Exception as exc:binding=dict(status='unresolved',detail=str(exc))
+                        sources.append(dict(component=e['name'],texture=texture['name'],section=[x,y],payload_hash=digest,local_box=box,material_bindings=binding))
                     grid,origin,seams=weld_tiles(tiles,q);mi=index_value(at,'LandscapeMaterial');require(not mi or mi<0 and ref(mi)['kind'] in ('Material','MaterialInstanceConstant') and pkg(mi),'Invalid landscape material reference')
                     record=dict(source=rel,actor=a['name'],fields=f,components=sources,grid_origin=origin,grid_size=[grid.shape[1],grid.shape[0]],seams=seams,height_min=int(grid.min()),height_max=int(grid.max()),height_sha256=hashlib.sha256(grid.astype('<i4').tobytes()).hexdigest(),material_package=pkg(mi) if mi else '',status='geometry_only',scope='Welded LOD0 heightfield quads; layer material, holes, collision and runtime triangulation not reconstructed')
+                    record['weight_layers_status']='not_serialized_in_supported_profile'
+                    try:
+                        atlas,meta=source_atlas(pixels,q,s,n);record['source_atlas']=meta;record['source_atlas_status']='validated'
+                        if surface_data is not None:surface_data[rel,a['name']]=atlas
+                    except Exception as exc:
+                        record['source_atlas_status']='unresolved';record['source_atlas_detail']=str(exc)
                     out.append((record,grid))
                 except Exception as exc:skips.append(dict(source=rel,actor=a['name'],detail=str(exc)))
         except Exception as exc:skips.append(dict(source=rel,detail=str(exc)))
     return out,skips
 
 
-def build(collection,record,grid):
+def build(collection,record,grid,atlas=None):
     import bpy,numpy as np
     from blueprint_placement import apply_fields
     h,w=grid.shape;x,y=record['grid_origin'];yy,xx=np.indices((h,w),dtype=np.float32)
     co=np.stack(((yy+y)*.01,(xx+x)*.01,grid.astype(np.float32)/128*.01),axis=-1).reshape(-1,3)
     ids=np.arange(h*w,dtype=np.int32).reshape(h,w);a=ids[:-1,:-1].ravel();faces=np.stack((a,a+w,a+w+1,a+1),axis=1).ravel();count=len(a)
-    mesh=bpy.data.meshes.new(record['actor']+' heightfield');obj=None
+    mesh=bpy.data.meshes.new(record['actor']+' heightfield');obj=None;image=None
     try:
         mesh.vertices.add(h*w);mesh.vertices.foreach_set('co',co.ravel());mesh.loops.add(count*4);mesh.loops.foreach_set('vertex_index',faces);mesh.polygons.add(count);mesh.polygons.foreach_set('loop_start',np.arange(count,dtype=np.int32)*4);mesh.polygons.foreach_set('loop_total',np.full(count,4,dtype=np.int32));mesh.polygons.foreach_set('use_smooth',np.ones(count,dtype=np.bool_));mesh.update(calc_edges=True)
         require(not mesh.validate(),'Invalid generated landscape mesh')
         obj=bpy.data.objects.new(record['actor'],mesh);collection.objects.link(obj);apply_fields(obj,record['fields']);obj['UE_actor']=record['actor'];obj['UE_source_actor_package']=record['source'];obj['UE_geometry_status']='reconstructed';obj['UE_landscape_record']=__import__('json').dumps(record);obj['UE_landscape_material_package']=record['material_package'];obj['UE_unresolved_material']=True
+        if atlas is not None:
+            import tempfile
+            from native_texture import png_bytes
+            meta=record['source_atlas'];require(atlas.shape==(meta['height'],meta['width'],4) and hashlib.sha256(atlas.tobytes()).hexdigest()==meta['rgba_sha256'],'Invalid landscape atlas identity')
+            uv,component=source_corner_uv(meta,grid.shape)
+            layer=mesh.uv_layers.new(name='UE_SourceHeightmapAtlas',do_init=False);layer.data.foreach_set('uv',uv.ravel())
+            attr=mesh.attributes.new('UE_landscape_component_index','INT','FACE');attr.data.foreach_set('value',component)
+            png=png_bytes(meta['width'],meta['height'],atlas.tobytes())
+            with tempfile.TemporaryDirectory() as d:
+                p=Path(d)/'source.png';p.write_bytes(png);image=bpy.data.images.load(str(p),check_existing=False);image.name=record['actor']+' — source heightmap RGBA';image.colorspace_settings.name='Non-Color';image.alpha_mode='CHANNEL_PACKED';image.pack();image.filepath='//'+image.name+'.png'
+            image.use_fake_user=True;image['UE_landscape_source_atlas']=meta['rgba_sha256'];image['UE_source_actor_package']=record['source'];image['UE_source_png_sha256']=hashlib.sha256(png).hexdigest();obj['UE_landscape_source_atlas']=image.name;obj['UE_landscape_source_atlas_sha256']=meta['rgba_sha256'];obj['UE_landscape_source_uv']=layer.name
         return obj
     except Exception:
         if obj:bpy.data.objects.remove(obj,do_unlink=True)
         if mesh.users==0:bpy.data.meshes.remove(mesh)
+        if image is not None:bpy.data.images.remove(image)
         raise
 
 
 def extend_landscapes(content,path,collection):
-    plans,skipped=records(content,path);result=[]
+    pixels={};plans,skipped=records(content,path,surface_data=pixels);result=[]
     for r,h in plans:
         try:
-            obj=build(collection,r,h);result.append(dict(r,vertices=len(obj.data.vertices),quads=len(obj.data.polygons)))
+            atlas=pixels.get((r['source'],r['actor']))
+            try:obj=build(collection,r,h,atlas)
+            except Exception as exc:
+                if atlas is None:raise
+                r['source_atlas_status']='build_failed';r['source_atlas_detail']=str(exc);obj=build(collection,r,h)
+            result.append(dict(r,vertices=len(obj.data.vertices),quads=len(obj.data.polygons),source_atlas_image=obj.get('UE_landscape_source_atlas')))
         except Exception as exc:skipped.append(dict(source=r['source'],actor=r['actor'],detail=str(exc)))
-    return dict(records=result,skipped=skipped,actors=len(result),components=sum(len(r['components']) for r in result),vertices=sum(r['vertices'] for r in result),quads=sum(r['quads'] for r in result),scope='Saved landscape geometry only; unresolved surface material and runtime LOD')
+    return dict(records=result,skipped=skipped,actors=len(result),components=sum(len(r['components']) for r in result),vertices=sum(r['vertices'] for r in result),quads=sum(r['quads'] for r in result),scope='Saved landscape geometry and lossless source heightmap atlas; unresolved surface material, weight layers and runtime LOD')

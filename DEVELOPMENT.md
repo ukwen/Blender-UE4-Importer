@@ -185,3 +185,7 @@ See [saved level sets and partition ownership](docs/0.10.85-level-sets.md). Atom
 ## 0.10.87-dev
 
 See [compiled BSP and volume bounds](docs/0.10.87-compiled-bsp.md). Original compiled render buffers (26 components) and 12 non-rendering volume guides; native BSP materials remain absent or unspecified in fixtures.
+
+## 0.10.88-dev
+
+See [landscape source atlas](docs/0.10.88-landscape-atlas.md). Original 64 embedded finest-mip textures, exact lossless RGBA, 4,064,256 derived corner UVs, component material ancestry and Heightmap bindings. Painted layers and missing material graphs are not reconstructed.
