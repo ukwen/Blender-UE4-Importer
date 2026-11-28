@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.111-dev",
-  "previous_verified_commit": "2cdae2c4a87177fb19cf420baf1f3663060e4d7e",
-  "previous_verified_tree": "5067cfc2614df46c2a30b5c500c938bc145e127e",
+  "application_version": "0.10.112-dev",
+  "previous_verified_commit": "6ded6ad8391b4ef6064c68ca87ce5a4b38d49518",
+  "previous_verified_tree": "a62ce0fa64a099c983931d29f9904a4760e30b6e",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Bounded typed layer vector, arithmetic and texture graph compiler",
+  "milestone": "Native saved-level file menu and objective refocus",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.111_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.111-local.zip",
-    "install_archive": "install-111.zip",
+    "checkpoint": "Unreal_Importer_0.10.112_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.112-local.zip",
+    "install_archive": "install-112.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -30,97 +30,50 @@
     "setup": "bash tools/restore_development.sh ASSET_DIRECTORY NEW_WORK_DIRECTORY"
   },
   "tests": {
+    "native_level_menu": {
+      "levels": {
+        "/mnt/data/work108/runtime/ShooterSam/Content/MyStuff/Maps/TestLevel.umap": {
+          "geometry_objects": 5,
+          "decal_objects": 0,
+          "brush_operand_objects": 8,
+          "compiled_bsp_objects": 9,
+          "volume_guide_objects": 1,
+          "lighting_objects": 5,
+          "cameras_objects": 4,
+          "objects": 32,
+          "meshes": 10,
+          "armatures": 1,
+          "lights": 1,
+          "cameras": 1
+        },
+        "/mnt/data/west108/POLYGON - Western Frontier Pack 4.27/PolygonWestFrontier/Content/PolygonWesternFrontier/Maps/Overview.umap": {
+          "geometry_objects": 415,
+          "lighting_objects": 2,
+          "objects": 417,
+          "meshes": 352,
+          "armatures": 30,
+          "lights": 1,
+          "cameras": 0
+        }
+      },
+      "reopen": true,
+      "duplicate_refusal": true,
+      "mixed_project_refusal": true,
+      "inherited_import_attempts": [],
+      "world_camera_preserved": true
+    },
     "python": {
       "passed": 180,
       "skipped": 10,
       "failed": 0
     },
-    "controlled_native_layer_records": {
-      "renders": 3,
-      "max_error": 2.384185793236071e-08,
-      "inherited_imports": 0,
-      "rollback": true,
-      "reopen": true,
-      "scoped_kinds": 4,
-      "malformed_parameter_refusal": true
-    },
-    "controlled_layer_compatibility": {
-      "scripts_passed": 3
-    },
-    "western": {
-      "meshes": 2814,
-      "rigs": 36,
-      "reopen": true
-    },
-    "modern_level_set": {
-      "objects": 94,
-      "max_reopen_matrix_error": 0,
-      "rollback": true
-    },
-    "standalone_material_entrypoints": {
-      "materials": 5,
-      "packed_images": 4,
-      "reopen": true
-    },
-    "installer": "See external checkpoint for exact isolated acceptance",
-    "previously_verified": "0.10.107 full Goblin, native skeletal/static and particle tests not repeated in 0.10.111.",
-    "original_global_parameters": {
-      "instances": 2,
-      "records": 22,
-      "exact": true,
-      "note": "Previously verified 0.10.109; fixture-backed Python suite rerun."
-    },
-    "typed_layer_function": {
-      "controlled": true,
-      "errors": [
-        2.384185793236071e-08,
-        1.1920928966180355e-08,
-        1.1920928966180355e-08
-      ],
-      "max_error": 2.384185793236071e-08,
-      "functions": 3,
-      "legacy_imports": 0,
-      "reopen": true
-    },
-    "extended_layer_function": {
-      "vector_math": {
-        "controlled": true,
-        "errors": [
-          2.384185793236071e-08,
-          4.768371586472142e-08,
-          1.1920928966180355e-08,
-          1.1920928966180355e-08
-        ],
-        "max_error": 4.768371586472142e-08,
-        "renders": 4,
-        "legacy_imports": 0,
-        "alpha_preserved": true,
-        "reopen": true
-      },
-      "texture": {
-        "controlled_graph": true,
-        "original_texture_sha256": "cf5a1a4fbc01203d5317043f4f5343ddb02ca1d2220b1431b55b7477a509d7e8",
-        "original_texture_size": [
-          4096,
-          4096
-        ],
-        "errors": [
-          0.0,
-          0.0
-        ],
-        "rollback": true,
-        "reopen": true,
-        "menu": true,
-        "legacy_imports": 0,
-        "override_color_space_refusal": true
-      }
-    }
+    "previously_verified": "Prior 0.10.111 reports retained in historical checkpoint; full scene corpus and layer tests not repeated for this UI entrypoint change."
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Selected attributes and nested function calls, then remaining legacy package/mesh/map routes; remove inherited files only after feature parity. Genuine layer package and rights audit remain mandatory.",
+  "next_priority": "Prioritize elimination of remaining inherited production callers, source-backed older package/mesh/map compatibility and professional end-to-end workflows. Material graph work only where it blocks previously supported features or has original evidence. No commercial release until complete removal, original-project parity, platform and provenance gates.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -146,7 +99,8 @@
     "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported.",
     "Four inherited files and 29 literal sites remain; full legacy layer/graph, earlier profiles, original multi-LOD positive evidence and gallery support, map/mesh compatibility and rights audit open. Particle previews use manual neutral values; missing engine wind and runtime semantics not verified.",
     "Typed layer topology, detached snapshots, scoped values and bounded function compiler validated with controlled serialized records; original layer stack asset absent. General unsupported layer expressions retain inherited fallback; four inherited files and 29 literal import sites remain.",
-    "0.10.111 extends typed layer function subset with RGB/vector, scalar arithmetic and default UV color textures; arbitrary vector math, normal/explicit UV/indexed or masked samples, selected attributes, nested calls and genuine layer package remain pending."
+    "0.10.111 extends typed layer function subset with RGB/vector, scalar arithmetic and default UV color textures; arbitrary vector math, normal/explicit UV/indexed or masked samples, selected attributes, nested calls and genuine layer package remain pending.",
+    "0.10.112 native saved-level menu requires original project descriptor; old menu options remain as explicitly labeled compatibility; complete inherited removal still pending."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

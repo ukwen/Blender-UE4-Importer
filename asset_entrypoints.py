@@ -5,7 +5,7 @@ present for non-migrated operations; registration itself never imports them.
 """
 from pathlib import Path
 import bpy
-from bpy.props import StringProperty, BoolProperty, FloatProperty, CollectionProperty
+from bpy.props import StringProperty, BoolProperty, FloatProperty, CollectionProperty, EnumProperty
 from bpy_extras.io_utils import ImportHelper
 import addon_lifecycle
 
@@ -176,6 +176,47 @@ class ImportMaterial(bpy.types.Operator, ImportHelper):
         return run_files(self,lambda path:import_material(path,self.allow_partial))
 
 
+def import_saved_levels(paths, partial=False, strict=False, preview_scale=1., profile='4.27'):
+    """Use the same atomic native saved-project transaction as the project browser.
+
+    No fallback to the historical map operator. Require one original project;
+    independent levels are grouped without inventing runtime streaming transforms.
+    """
+    from project_paths import ProjectPaths
+    from saved_project_levels import reconstruct
+    paths=[Path(p).resolve() for p in paths]
+    if not paths:
+        raise ValueError('Select at least one saved level')
+    project=ProjectPaths(paths[0]).descriptor
+    if project is None or any(ProjectPaths(p).descriptor != project for p in paths):
+        raise ValueError('Select saved levels inside one original Unreal project with its .uproject')
+    return reconstruct(project,paths,partial,preview_scale,strict,profile)
+
+
+class ImportSavedLevel(bpy.types.Operator, ImportHelper):
+    bl_idname='import.ue_saved_level'
+    bl_label='Import Unreal Saved Level'
+    bl_description='Reconstruct saved levels into editable Blender scenes; retain unresolved dependencies in the scene report'
+    bl_options={'REGISTER','UNDO'}
+    filename_ext='.umap'
+    filter_glob: StringProperty(default='*.umap',options={'HIDDEN'},maxlen=255)
+    files: CollectionProperty(type=bpy.types.OperatorFileListElement,options={'HIDDEN','SKIP_SAVE'})
+    directory: StringProperty(options={'HIDDEN'})
+    allow_partial: BoolProperty(name='Keep incomplete surface previews',default=False)
+    strict_dependencies: BoolProperty(name='Require resolved source dependencies',default=False)
+    preview_scale: FloatProperty(name='Light preview multiplier',default=1.,min=.001,max=1000.)
+    cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded cooked geometry'),('5.4','UE5.4','Bounded cooked static'),('5.5','UE5.5','Bounded cooked static'),('5.6','UE5.6','Bounded cooked geometry')],default='4.27')
+
+    def execute(self,context):
+        try:
+            group,report=import_saved_levels(selected_paths(self),self.allow_partial,self.strict_dependencies,self.preview_scale,self.cooked_profile)
+        except Exception as exc:
+            self.report({'ERROR'},f'Saved level import failed: {exc}')
+            return {'CANCELLED'}
+        self.report({'INFO'},f"Imported {len(report['levels'])} saved level(s); see {group['UE_report']}")
+        return {'FINISHED'}
+
+
 class ImportLevel(bpy.types.Operator, ImportHelper):
     bl_idname='import.umap'
     bl_label='Import Unreal Level (compatibility)'
@@ -203,12 +244,13 @@ class ImportLevel(bpy.types.Operator, ImportHelper):
 
 
 def draw_menu(self,context):
-    self.layout.operator(ImportLevel.bl_idname,text='UE Map (.umap)')
+    self.layout.operator(ImportSavedLevel.bl_idname,text='UE Saved Level (.umap)')
+    self.layout.operator(ImportLevel.bl_idname,text='UE Map — Legacy Compatibility (.umap)')
     self.layout.operator(ImportMesh.bl_idname,text='UE Mesh (.uasset)')
     self.layout.operator(ImportMaterial.bl_idname,text='UE Material (.uasset)')
 
 
-CLASSES=(ImportMesh,ImportMaterial,ImportLevel)
+CLASSES=(ImportMesh,ImportMaterial,ImportSavedLevel,ImportLevel)
 def register():
     addon_lifecycle.register(CLASSES,bpy.types.TOPBAR_MT_file_import,draw_menu)
 def unregister():

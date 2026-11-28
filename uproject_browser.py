@@ -107,7 +107,7 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
 
 class UEIMPORT_OT_import_map(bpy.types.Operator):
     bl_idname = 'ueimport.import_selected_map'
-    bl_label = 'Import Selected Map'
+    bl_label = 'Import Selected Map (Legacy Compatibility)'
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
