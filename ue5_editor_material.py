@@ -13,6 +13,9 @@ EDITOR_MATERIAL_REVISION = "editor_material_085"
 def read_material(path):
     from package_inspector import inspect_package
     meta=inspect_package(path)
+    if meta.get('ue5') is None and meta.get('ue4')==508:
+        from classic_particle_material import read_graph
+        return read_graph(path)
     if meta.get('ue5') is None and meta.get('ue4')==522:
         from classic_material_graph import read_graph
         return read_graph(path)
@@ -512,6 +515,12 @@ def build_material(content,package,allow_partial=False):
         transparent=node('ShaderNodeBsdfTransparent','Unreal transparent preview');transparent.inputs['Color'].default_value=(1.,1.,1.,1.)
         alpha=mathop('ADD',surface_inputs['Opacity'],0.,'Preview opacity clamped to 0–1');alpha.node.use_clamp=True
         blend=node('ShaderNodeMixShader','Unlit translucent preview (not engine blend parity)');links.new(alpha,blend.inputs[0]);links.new(transparent.outputs[0],blend.inputs[1]);links.new(emission.outputs[0],blend.inputs[2]);out=next(n for n in nodes if n.type=='OUTPUT_MATERIAL');links.new(blend.outputs[0],out.inputs['Surface']);blend['UE_unlit_translucent_preview']=True;mat['UE_surface_preview']='unlit_translucent';issues.append('Unlit emission/transparent surface approximation; no Unreal depth, sorting or renderer equivalence')
+    if (allow_partial and data.get('source_profile')=='ue4_508_particle_graph'
+            and data['shading_model']=='MSM_DefaultLit' and data['blend']=='BLEND_Translucent'
+            and {'BaseColor','Opacity'}<=surface_inputs.keys()):
+        transparent=node('ShaderNodeBsdfTransparent','Classic dust transparency preview')
+        alpha=mathop('ADD',surface_inputs['Opacity'],0.,'Preview opacity clamped to 0–1');alpha.node.use_clamp=True
+        blend=node('ShaderNodeMixShader','Classic lit particle surface preview');links.new(alpha,blend.inputs[0]);links.new(transparent.outputs[0],blend.inputs[1]);links.new(bs.outputs[0],blend.inputs[2]);out=next(n for n in nodes if n.type=='OUTPUT_MATERIAL');links.new(blend.outputs[0],out.inputs['Surface']);mat['UE_surface_preview']='classic_lit_particle';issues.append('Lit particle transparency approximation; no Unreal particle, lighting or sorting parity')
     if allow_partial and masked_surface_profile(data) and 'OpacityMask' in surface_inputs:
         clip=data.get('opacity_mask_clip');source='serialized' if clip is not None else 'preview_default_not_serialized';clip=.3333 if clip is None else clip
         threshold=constant(clip,'Unreal mask clip threshold ('+source+')');threshold.node['UE_mask_clip_source']=source

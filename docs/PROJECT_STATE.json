@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.106-dev",
-  "previous_verified_commit": "219ed0ed7005cf0169519b13e6f1635ea8fcc54c",
-  "previous_verified_tree": "f781290216b8bfd7b11857db14206ae8d80fca52",
+  "application_version": "0.10.107-dev",
+  "previous_verified_commit": "07195b018e0f03b675b4a824d725a8a1b15ab842",
+  "previous_verified_tree": "c06c59727ca883dd515f0de6bddff4d01edc8d1b",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Native material-bearing static entrypoints and classic source-model LOD traversal",
+  "milestone": "Classic particle graph and native skeletal file-menu import",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.106_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.106-local.zip",
-    "install_archive": "install-106.zip",
+    "checkpoint": "Unreal_Importer_0.10.107_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.107-local.zip",
+    "install_archive": "install-107.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,49 +31,64 @@
   },
   "tests": {
     "python": {
-      "passed": 160,
-      "failed": 0,
-      "skipped": 10
+      "passed": 162,
+      "skipped": 10,
+      "failed": 0
+    },
+    "classic_particle": {
+      "original_graphs": 2,
+      "mesh_import": true,
+      "packed_texture": 1,
+      "strict_and_partial": true,
+      "reopen": true,
+      "inherited_import_attempts": 0
+    },
+    "native_skeletal_entrypoints": {
+      "original_assets": 3,
+      "vertices": 56973,
+      "bones": 137,
+      "max_pose_error_m": 2.8453965714946204e-07,
+      "rollback": true,
+      "reopen": true,
+      "inherited_import_attempts": 0
     },
     "native_static_entrypoints": {
       "original_assets": 3,
-      "packed_images": 4,
-      "inherited_import_attempts": 0,
       "reopen": true,
-      "rollback": true,
-      "controlled_lods": [
-        0,
-        2
-      ],
-      "missing_lods": [
-        1
-      ]
+      "rollback": true
     },
-    "original_static522_parity": 4,
-    "west_independent": {
+    "western": {
       "meshes": 2814,
       "rigs": 36,
-      "foliage": 462,
       "reopen": true
     },
+    "modern_level_set": {
+      "objects": 94,
+      "max_reopen_matrix_error": 0,
+      "rollback": true
+    },
+    "standalone_material_entrypoints": {
+      "materials": 5,
+      "packed_images": 4,
+      "reopen": true
+    },
+    "compatibility_level_menu": {
+      "objects": 354
+    },
+    "installer": "See external checkpoint",
     "goblin": {
       "objects": 1011,
       "meshes": 36,
       "rigs": 30,
       "reopen": true
     },
-    "level_set": {
-      "objects": 94,
-      "max_reopen_matrix_error": 0,
-      "rollback": true
-    },
-    "installer": "See external checkpoint"
+    "controlled_layer_replay": "passed; inherited engine remains"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace remaining inherited material graph/layer and earlier package profiles; migrate remaining mesh/map compatibility, original multi-LOD and gallery paths; require removal gate and provenance/rights audit.",
+  "next_priority": "Replace remaining inherited layer graph and earlier package profiles, legacy geometry and map compatibility; gallery and original multi-LOD evidence; removal gate and provenance review.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -97,7 +112,7 @@
     "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
     "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. Safe UE5.6 in-map stage cancellation verified; individual synchronous/native calls and legacy maps remain indivisible. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
     "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported.",
-    "Four inherited files and 29 literal sites remain; full legacy layer/graph, earlier profiles, original multi-LOD positive evidence and gallery support, map/mesh compatibility and rights audit open. Missing engine wind source and runtime primitive semantics not verified."
+    "Four inherited files and 29 literal sites remain; full legacy layer/graph, earlier profiles, original multi-LOD positive evidence and gallery support, map/mesh compatibility and rights audit open. Particle previews use manual neutral values; missing engine wind and runtime semantics not verified."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

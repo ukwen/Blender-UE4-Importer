@@ -55,6 +55,22 @@ def import_mesh(path, materials, all_lods):
                     try: data=read_static_lods(path)
                     except UnsupportedProfile: pass
                     else: meshes=[build_static(d) for d in (data if all_lods else data[:1])]
+            elif any(e.kind=='SkeletalMesh' and not e.outer for e in table.exports):
+                if all_lods:
+                    raise NotImplementedError('All source LODs currently supported for static meshes only')
+                if meta['ue5'] in (1016,1017):
+                    from ue5_editor_mesh import read_skeletal,build_skeletal
+                    obj,arm=build_skeletal(read_skeletal(path))
+                else:
+                    from skeletal_mesh_native import read_native_mesh,build_mesh
+                    obj,arm=build_mesh(read_native_mesh(path,'4.27'))
+                if materials:
+                    from material_stage import MaterialResolver,bind_native_mesh_slots
+                    resolver=MaterialResolver(ProjectPaths(path),allow_partial=True)
+                    bind_native_mesh_slots(obj.data,resolver)
+                    obj['UE_material_report']=json.dumps(resolver.records,sort_keys=True)
+                    obj['UE_unresolved_material']=any(r['status']!='graph_imported_unverified' for r in resolver.records.values())
+                return [obj]
         if meshes:
             objects=[]
             if materials:
@@ -113,16 +129,18 @@ def import_material(path, allow_partial=False):
             except NotImplementedError:
                 if meta['ue4']==522:
                     from classic_material_graph import read_graph
-                    try: graph=read_graph(path)
-                    except NotImplementedError: pass
-                    else:
-                        if graph['kind'] in ('material','instance'):
-                            from ue5_editor_material import build_material as build_graph
-                            project=ProjectPaths(path);content=(Path(project.dir)/'Content').resolve()
-                            if not path.is_relative_to(content):raise ValueError('Material outside project Content directory')
-                            mat=build_graph(content,'/Game/'+path.relative_to(content).with_suffix('').as_posix(),allow_partial=allow_partial)
-                            mat.use_fake_user=True
-                            return mat
+                else:
+                    from classic_particle_material import read_graph
+                try: graph=read_graph(path)
+                except NotImplementedError: pass
+                else:
+                    if graph['kind'] in ('material','instance'):
+                        from ue5_editor_material import build_material as build_graph
+                        project=ProjectPaths(path);content=(Path(project.dir)/'Content').resolve()
+                        if not path.is_relative_to(content):raise ValueError('Material outside project Content directory')
+                        mat=build_graph(content,'/Game/'+path.relative_to(content).with_suffix('').as_posix(),allow_partial=allow_partial)
+                        mat.use_fake_user=True
+                        return mat
             else:
                 mat=build_material(ProjectPaths(path),path,data)
                 mat.use_fake_user=True

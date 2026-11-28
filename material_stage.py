@@ -103,8 +103,10 @@ class MaterialResolver:
                     except NotImplementedError:
                         if meta['ue4']==522:
                             from classic_material_graph import read_graph
-                            try: graph=read_graph(path)['kind'] in ('material','instance')
-                            except NotImplementedError: pass
+                        else:
+                            from classic_particle_material import read_graph
+                        try: graph=read_graph(path)['kind'] in ('material','instance')
+                        except NotImplementedError: pass
                 elif meta.get('ue5') in (1004,1012,1013,1014,1015,1016,1017,1018) and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
                     graph=True
                 if classic is not None:
