@@ -279,3 +279,7 @@ Independent scoped parameter decoding and native texture identity; controlled fo
 ## 0.10.110-dev — typed layer-function compiler
 
 Bounded classic bundle function parser and editable Blender compiler. Three controlled function groups and three CPU render checks passed. See docs/TEST_REPORT.md and docs/INDEPENDENCE.md.
+
+## 0.10.111-dev — typed vector, arithmetic and texture layer functions
+
+Independent layer compiler extension: RGB/vector constants and editable RGBA parameters, five explicit scalar operations (Add, Subtract, Multiply, OneMinus, LinearInterpolate), bounded default-UV color/linear-color texture sampling and parameter nodes. Arithmetic requires serialized defaults for unlinked operands. Native standalone layer-function menu route for the supported 522 subset; packed image/color-space validation and rollback for typed texture overrides. Original Goblin 4096x4096 texture packed byte-identical to reference, controlled graph and override renders exact, vector/math max error 4.768371586472142e-8. Seven additional Python tests; 180 pass, ten skips. Original layer package unavailable; arbitrary vector math, normal sampler, masked/indexed edges, explicit UV, attribute selection, nested calls remain unsupported. Four inherited files/29 literal references remain.

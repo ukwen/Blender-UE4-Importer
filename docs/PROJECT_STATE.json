@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.110-dev",
-  "previous_verified_commit": "1b46e1838d7068c36c705a5c04eef050bc9b0570",
-  "previous_verified_tree": "7cb3d1c8e12620a58ef30aa1dfd8314bfbcd6735",
+  "application_version": "0.10.111-dev",
+  "previous_verified_commit": "2cdae2c4a87177fb19cf420baf1f3663060e4d7e",
+  "previous_verified_tree": "5067cfc2614df46c2a30b5c500c938bc145e127e",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Bounded typed classic layer-function and blend graph compiler",
+  "milestone": "Bounded typed layer vector, arithmetic and texture graph compiler",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.110_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.110-local.zip",
-    "install_archive": "install-110.zip",
+    "checkpoint": "Unreal_Importer_0.10.111_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.111-local.zip",
+    "install_archive": "install-111.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,7 +31,7 @@
   },
   "tests": {
     "python": {
-      "passed": 173,
+      "passed": 180,
       "skipped": 10,
       "failed": 0
     },
@@ -63,11 +63,12 @@
       "reopen": true
     },
     "installer": "See external checkpoint for exact isolated acceptance",
-    "previously_verified": "0.10.107 full Goblin, native skeletal/static and particle tests not repeated in 0.10.110.",
+    "previously_verified": "0.10.107 full Goblin, native skeletal/static and particle tests not repeated in 0.10.111.",
     "original_global_parameters": {
       "instances": 2,
       "records": 22,
-      "exact": true
+      "exact": true,
+      "note": "Previously verified 0.10.109; fixture-backed Python suite rerun."
     },
     "typed_layer_function": {
       "controlled": true,
@@ -80,13 +81,46 @@
       "functions": 3,
       "legacy_imports": 0,
       "reopen": true
+    },
+    "extended_layer_function": {
+      "vector_math": {
+        "controlled": true,
+        "errors": [
+          2.384185793236071e-08,
+          4.768371586472142e-08,
+          1.1920928966180355e-08,
+          1.1920928966180355e-08
+        ],
+        "max_error": 4.768371586472142e-08,
+        "renders": 4,
+        "legacy_imports": 0,
+        "alpha_preserved": true,
+        "reopen": true
+      },
+      "texture": {
+        "controlled_graph": true,
+        "original_texture_sha256": "cf5a1a4fbc01203d5317043f4f5343ddb02ca1d2220b1431b55b7477a509d7e8",
+        "original_texture_size": [
+          4096,
+          4096
+        ],
+        "errors": [
+          0.0,
+          0.0
+        ],
+        "rollback": true,
+        "reopen": true,
+        "menu": true,
+        "legacy_imports": 0,
+        "override_color_space_refusal": true
+      }
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Expand independent typed layer compiler to vector/texture/math, selected attributes and nested functions; migrate remaining legacy package/mesh/map paths. Actual original layer package and complete removal/provenance remain mandatory.",
+  "next_priority": "Selected attributes and nested function calls, then remaining legacy package/mesh/map routes; remove inherited files only after feature parity. Genuine layer package and rights audit remain mandatory.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -111,7 +145,8 @@
     "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. Safe UE5.6 in-map stage cancellation verified; individual synchronous/native calls and legacy maps remain indivisible. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
     "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported.",
     "Four inherited files and 29 literal sites remain; full legacy layer/graph, earlier profiles, original multi-LOD positive evidence and gallery support, map/mesh compatibility and rights audit open. Particle previews use manual neutral values; missing engine wind and runtime semantics not verified.",
-    "Typed layer topology, detached snapshots, scoped values and bounded function compiler validated with controlled serialized records; original layer stack asset absent. General unsupported layer expressions retain inherited fallback; four inherited files and 29 literal import sites remain."
+    "Typed layer topology, detached snapshots, scoped values and bounded function compiler validated with controlled serialized records; original layer stack asset absent. General unsupported layer expressions retain inherited fallback; four inherited files and 29 literal import sites remain.",
+    "0.10.111 extends typed layer function subset with RGB/vector, scalar arithmetic and default UV color textures; arbitrary vector math, normal/explicit UV/indexed or masked samples, selected attributes, nested calls and genuine layer package remain pending."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

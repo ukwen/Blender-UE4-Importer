@@ -274,7 +274,7 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
                     from layer_function_graph import load_function
                     function_path=owner.ToProjectPath(ref)
                     try:
-                        return load_function(function_path)
+                        return load_function(function_path,owner.uproject)
                     except NotImplementedError:
                         # Unsupported graph profiles retain the explicit compatibility backend.
                         pass

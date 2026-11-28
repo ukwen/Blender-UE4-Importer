@@ -3,8 +3,15 @@ from uv_semantics import set_address
 from generated_shader_groups import get, SCHEMA
 
 
+def validate_image(node,image):
+    expected=node.get('UE_typed_layer_sampler')
+    if expected and (not image.packed_file or image.colorspace_settings.name!=expected):
+        raise ValueError('Layer texture override must be packed with color space '+expected)
+
+
 def assign_image(node,image):
     if node.bl_idname!='ShaderNodeTexImage':raise ValueError('Expected image texture node')
+    validate_image(node,image)
     node.image=image
     node.interpolation='Closest' if image.get('nearest',False) else 'Linear'
     set_address(node,image)

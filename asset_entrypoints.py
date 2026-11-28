@@ -124,6 +124,16 @@ def import_material(path, allow_partial=False):
             mat.use_fake_user=True
             return mat
         if meta.get('ue4') in (508,522) and meta.get('ue5') is None and not meta['sidecars']:
+            if meta['ue4']==522 and not meta.get('flags',0)&0x80002000 and meta.get('status')=='tables_inspected':
+                from package_records import read_package
+                from layer_function_graph import USAGES,load_function
+                _,_,table=read_package(path)
+                if any(e.kind in USAGES and not e.outer for e in table.exports):
+                    try:group,_=load_function(path)
+                    except NotImplementedError:pass
+                    else:
+                        group.use_fake_user=True
+                        return group
             from classic_material import read_material, build_material
             try: data=read_material(path)
             except NotImplementedError:

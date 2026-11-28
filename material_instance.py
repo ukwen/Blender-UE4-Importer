@@ -142,10 +142,16 @@ def apply_overrides(mat, graph, props, load_texture, set_texture, native_snapsho
             if not texture_nodes or value is None:
                 issues.append(f'Unsupported or null texture override: {name}')
                 continue
+            typed_sampler=any(n.get('UE_typed_layer_sampler') for n in texture_nodes)
+            if typed_sampler:
+                from project_session import new_ids, rollback_new
+                from shader_texture_binding import validate_image
+                before=set(new_ids())
             if isinstance(value, str) and native_parameters is not NATIVE_UNREAD:
                 try:
                     image = native_texture_loader(value) if native_texture_loader else None
                 except (ValueError, OSError, RuntimeError) as exc:
+                    if typed_sampler:rollback_new(before)
                     issues.append(f'Native texture override {name}: {exc}')
                     continue
                 package = value
@@ -154,8 +160,14 @@ def apply_overrides(mat, graph, props, load_texture, set_texture, native_snapsho
                 from material_stage import package_reference
                 package = package_reference(value)
             if image is None:
+                if typed_sampler:rollback_new(before)
                 issues.append(f'Missing texture override: {name}')
                 continue
+            if typed_sampler:
+                try:
+                    for node in texture_nodes:validate_image(node,image)
+                except ValueError as exc:
+                    rollback_new(before);issues.append(str(exc));continue
             for node in texture_nodes:
                 set_texture(node, image)
                 if package: node['UE_texture_package'] = package
