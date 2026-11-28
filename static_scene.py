@@ -103,7 +103,7 @@ def _reconstruct_static_map(filepath, materials, allow_partial_materials, cooked
         report['component_report'] = extend_components(filepath,collection,resolver)
     if materials:
         from material_stage import bind_scene_materials
-        report['material_report'] = bind_scene_materials(collection, resolver.project, allow_partial=allow_partial_materials)
+        report['material_report'] = bind_scene_materials(collection, resolver.project, allow_partial=allow_partial_materials, cooked_profile=cooked_profile)
         report['materials_imported'] = bool(report['material_report']['bound_meshes'])
     collection['UE_source_map_path'] = source
     collection['UE_geometry_only'] = not materials

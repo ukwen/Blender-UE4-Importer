@@ -1,6 +1,6 @@
 # Unreal Project Importer — independent component migration
 
-Internal development candidate **0.10.120-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
+Internal development candidate **0.10.121-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
 
 Active development takes place directly on `development`; independent component replacement and feature advancement are parallel engineering priorities. The former migration branch is a historical rollback checkpoint only. This candidate replaces the inherited registration helper and binary shader library and removes the bundled external texture executable. Native supported editor texture profiles are used; cooked textures retain their explicit-profile operator. This is not yet a complete independent implementation.
 
@@ -44,3 +44,5 @@ Versioned UE4.25 tagged split package inventory and native cooked material depen
 **Opt-in UE4.18 cooked surface preview:** select UE4.18 cooked dependencies and enable Allow partial material preview. Original direct M_Worm texture links produce an editable approximate UV0 surface; default remains dependency-only, raw images remain unchanged and unverified shader semantics remain explicit.
 
 Native cooked mesh material slots: File > Import > UE Mesh, choose UE4.18/4.27/5.0 and enable Materials for project-contained assets. Enable Allow partial cooked material preview for the bounded UE4.18 editable surface. Other supported profiles retain dependency-only nodes; missing packages, shader semantics and unverified formats remain unresolved.
+
+Classic scene material binding now uses an explicit cooked profile for split material dependencies, including UV0-aware optional previews and source overrides. Original cooked assets were tested in controlled collections; original cooked level parity is not yet established.

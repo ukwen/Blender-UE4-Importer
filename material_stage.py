@@ -2,7 +2,6 @@
 import json
 from pathlib import Path
 import bpy
-from reference_identity import package_reference
 
 
 def incomplete_graph(tree, seen=None):
@@ -164,8 +163,26 @@ def bind_native_mesh_slots(mesh,resolver):
             bpy.data.materials.remove(mat)
 
 
-def bind_scene_materials(collection, project, allow_partial=False):
+def bind_scene_materials(collection, project, allow_partial=False, cooked_profile=None):
     resolver = MaterialResolver(project, allow_partial=allow_partial)
+    # Use an explicit cooked profile only for source split packages. Keep
+    # UV0-capable and dependency-only materials in separate caches.
+    cooked = {}
+
+    def resolve(package, slot, mesh):
+        from cooked_material_catalog import PROFILES
+        if cooked_profile in PROFILES and package and project.descriptor is not None:
+            try:
+                path = Path(project.resolve_package(package))
+            except (OSError, ValueError, NotImplementedError):
+                path = None
+            if path is not None and path.with_suffix('.uexp').is_file():
+                preview = bool(allow_partial and mesh.uv_layers.get('UV0') is not None)
+                if preview not in cooked:
+                    from cooked_mesh_materials import CookedSlotResolver
+                    cooked[preview] = CookedSlotResolver(project, cooked_profile, preview)
+                return cooked[preview].resolve(package, slot)
+        return resolver.resolve(package, slot)
     bound = set()
     errors = []
     for obj in collection.objects:
@@ -187,7 +204,7 @@ def bind_scene_materials(collection, project, allow_partial=False):
                     continue
             mesh.materials.clear()
             for slot, package in bindings:
-                mesh.materials.append(resolver.resolve(package, slot))
+                mesh.materials.append(resolve(package, slot, mesh))
             if mapping is not None:
                 for poly, group in zip(mesh.polygons, mesh.attributes['UE_polygon_group'].data):
                     poly.material_index = mapping[group.value]
@@ -204,6 +221,11 @@ def bind_scene_materials(collection, project, allow_partial=False):
                 continue
             slot = obj.material_slots[i]
             slot.link = 'OBJECT'
-            slot.material = resolver.resolve(package, slot.name)
-    return {'bound_meshes': len(bound), 'packages': resolver.records, 'errors': errors,
+            slot.material = resolve(package, slot.name, mesh)
+    packages = dict(resolver.records)
+    for preview, catalog in cooked.items():
+        for package, record in catalog.records.items():
+            key = package if package not in packages else package + (' [UV0 preview]' if preview else ' [dependencies]')
+            packages[key] = dict(record, cooked_profile=cooked_profile, preview_requested=preview)
+    return {'bound_meshes': len(bound), 'packages': packages, 'errors': errors,
             'allow_partial': allow_partial}

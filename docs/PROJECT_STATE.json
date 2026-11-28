@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.120-dev",
-  "previous_verified_commit": "e4f3f7235965595e4fb647cf5092d42f8730a689",
-  "previous_verified_tree": "7f2fdf5234c99b04ffc95bf178a2fbaec2a7aec3",
+  "application_version": "0.10.121-dev",
+  "previous_verified_commit": "0bbe5b0cfbdeab2d4ed6b289269a92896573040c",
+  "previous_verified_tree": "5d0acef38e00916c603c17f0bd87b1367d88b1fa",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Native cooked mesh material slot integration",
+  "milestone": "Typed native package references and cooked scene material binding",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.120_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.120-local.zip",
-    "install_archive": "install-120.zip",
+    "checkpoint": "Unreal_Importer_0.10.121_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.121-local.zip",
+    "install_archive": "install-121.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,7 +31,7 @@
   },
   "tests": {
     "python": {
-      "passed": 197,
+      "passed": 199,
       "skipped": 11,
       "failed": 0
     },
@@ -64,7 +64,7 @@
       "installed": true,
       "imported": 3,
       "reopen_reuse": true,
-      "archive_sha256": "33e42d0bb62b77cad6b8005b4114b4a2736c55a14230ab2527cb49c2210ff90a",
+      "archive_sha256": "26b3a953d1dfa7b0e6de2e192bbf4583733c782022e427a0a93689880ef0da08",
       "launcher_platform": "linux"
     },
     "versioned_split518": {
@@ -241,13 +241,33 @@
       "reopen": true,
       "rollback": true,
       "inherited_import_attempts": []
+    },
+    "typed_reference_identity": {
+      "original_western_map": true,
+      "foreign_and_null_refusal": true,
+      "invalid_index_and_cycle_refusal": true
+    },
+    "cooked_scene_materials": {
+      "original_meshes": 6,
+      "controlled_instances_and_copies": 6,
+      "unique_meshes": 9,
+      "profiles": [
+        "4.18",
+        "4.27",
+        "5.0"
+      ],
+      "object_override": true,
+      "uv0_guard": true,
+      "polygon_indices": true,
+      "reopen": true,
+      "inherited_import_attempts": []
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace remaining shared package identity and explicit inherited mesh/map/material compatibility backends with source-backed feature parity, then Windows acceptance and provenance review.",
+  "next_priority": "Replace explicit inherited mesh/map/material compatibility backends with source-backed feature parity, then Windows acceptance and provenance review.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -281,7 +301,8 @@
     "0.10.117: four inherited files and 16 literal production references remain. Older unverified classic map/component and Blueprint default profiles are explicitly unsupported/unresolved in native preview; legacy map menu remains. Rollback is for newly allocated IDs only.",
     "0.10.118: four inherited files and 14 literal import sites remain. Cooked material catalog preserves raw channels and three UE4.18 exact source edges, not a rendered shader. Unsupported intermediate editor texture compatibility removed; general legacy graph, map, geometry and material formats remain unsupported or explicit legacy. No commercial clearance.",
     "0.10.119: opt-in UE4.18 direct surface is a bounded Blender approximation; exact UE rendering, tangent basis, arbitrary cooked shader graphs, native cooked mesh slot binding to this preview, older profiles, four inherited files/14 sites, Windows and rights clearance remain outstanding.",
-    "0.10.120: cooked slot integration supports staged UE4.18/4.27/5.0 assets in a project Content directory; preview only UE4.18 direct UV0. Four inherited files and 14 sites remain; no cooked map material integration, Windows/Goblin rerun or commercial clearance."
+    "0.10.120: cooked slot integration supports staged UE4.18/4.27/5.0 assets in a project Content directory; preview only UE4.18 direct UV0. Four inherited files and 14 sites remain; no cooked map material integration, Windows/Goblin rerun or commercial clearance.",
+    "0.10.121: 4 inherited core files/13 literal production references. Controlled cooked scene collections are not original cooked maps; broader profiles, exact shader semantics, original Goblin and Windows acceptance remain unverified."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",
