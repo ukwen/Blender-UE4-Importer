@@ -5,6 +5,20 @@ from source_recovery import plan,restore,_target
 from types import SimpleNamespace
 
 class SourceRecoveryTests(unittest.TestCase):
+    def test_scan_diagnostics_and_directory_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);content=root/'Project/Content';content.mkdir(parents=True);folder=root/'Recovery';folder.mkdir();level=content/'L.umap';level.touch()
+            (folder/'invalid.uasset').write_bytes(b'bad');(folder/'alias.uasset').symlink_to(folder/'invalid.uasset')
+            project=SimpleNamespace(dir=str(content.parent))
+            with patch('source_recovery.audit',return_value={'dependencies':{}}):
+                r=plan(project,level,folder);self.assertEqual(r['scanned_files'],2)
+                self.assertEqual(r['scan_ignored'],{'unidentified':1,'non_regular_or_symlink':1})
+                def failed_walk(*args,**kwargs):
+                    kwargs['onerror'](PermissionError('denied'))
+                    return iter(())
+                with patch('source_recovery.os.walk',failed_walk):
+                    with self.assertRaisesRegex(ValueError,'Cannot completely scan'):plan(project,level,folder)
+
     def test_target_no_overwrite_and_mount_guards(self):
         with tempfile.TemporaryDirectory() as d:
             c=Path(d).resolve();p=_target(c,'/Game/A/B');self.assertEqual(p,c/'A/B.uasset')

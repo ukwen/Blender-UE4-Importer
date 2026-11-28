@@ -209,3 +209,7 @@ Primary sidebar workflow, project-path and rescan guards, safe inter-map event i
 ## 0.10.93-dev
 
 Selected-level, level-set, source-action and last-operation report navigation and copy. Original two-level Blender and X11 acceptance; see [report navigation](docs/0.10.93-report-navigation.md).
+
+## 0.10.94-dev
+
+Scoped recovery plan review and confirmation, ignored-file diagnostics, zero-ready and stale-plan refusal. Original recovery, overlay and actual X11 confirmation regression. See [recovery review](docs/0.10.94-recovery-review.md).

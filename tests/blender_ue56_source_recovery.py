@@ -20,6 +20,27 @@ with tempfile.TemporaryDirectory() as t:
     geo=next(c for c in roots[str(p)].children if c.get('UE_source_map_path')==str(p));anchors=[o for o in geo.objects if o.get('UE_mesh_package') in keys and o.get('UE_geometry_status')=='missing'];assert len(anchors)==36,len(anchors)
     historical=bpy.data.texts[geo['UE_report']].as_string();members={o.name for o in geo.objects}
     assert bpy.ops.ueimport.locate_sources()=={'FINISHED'};reviewed=json.loads(bpy.data.texts[s.source_recovery_plan].as_string());assert reviewed['counts']['ready']==2,reviewed['counts'];assert not any((content/n).exists() for n in paths)
+    plan_name=s.source_recovery_plan;plan_text=bpy.data.texts[plan_name];digest=plan_text['UE_recovery_digest'];original=plan_text.as_string()
+    assert browser.resolve_report(bpy.context,'RECOVERY')==plan_text and bpy.ops.ueimport.restore_sources.poll()
+    s.active=next(i for i,m in enumerate(s.maps) if m.filepath==str(q))
+    assert browser.resolve_report(bpy.context,'RECOVERY') is None and not bpy.ops.ueimport.restore_sources.poll()
+    s.active=next(i for i,m in enumerate(s.maps) if m.filepath==str(p))
+    empty=work/'Empty';empty.mkdir();s.recovery_folder=str(empty)
+    assert browser.resolve_report(bpy.context,'RECOVERY') is None and not bpy.ops.ueimport.restore_sources.poll()
+    s.recovery_folder=str(content);assert not browser.recovery_scope(bpy.context) and not bpy.ops.ueimport.restore_sources.poll()
+    s.recovery_folder=str(work/'Missing');assert not browser.recovery_scope(bpy.context)
+    s.recovery_folder=str(folder);assert bpy.ops.ueimport.restore_sources.poll()
+    plan_text.write('tampered');assert browser.recovery_report(bpy.context,verify=True) is None
+    def refused(**kwargs):
+        try:assert bpy.ops.ueimport.restore_sources(**kwargs)=={'CANCELLED'}
+        except RuntimeError as exc:assert 'Reviewed recovery plan changed' in str(exc),exc
+        assert not any((content/n).exists() for n in paths)
+    refused()
+    plan_text.clear();plan_text.write(original);assert browser.recovery_report(bpy.context,verify=True)==plan_text
+    s.recovery_folder=str(empty);assert bpy.ops.ueimport.locate_sources()=={'FINISHED'}
+    assert browser.resolve_report(bpy.context,'RECOVERY') is not None and not bpy.ops.ueimport.restore_sources.poll()
+    s.recovery_folder=str(folder);assert bpy.ops.ueimport.locate_sources()=={'FINISHED'}
+    refused(confirmed_name=plan_name,confirmed_digest=digest)
     assert bpy.ops.ueimport.restore_sources()=={'FINISHED'};restored=json.loads(bpy.data.texts[s.batch_report].as_string());assert len(restored['restored'])==2
     for n in paths:assert hash_file(content/n)==hash_file(src.parent/'Content'/n)
     assert bpy.ops.ueimport.select_recoverable_meshes()=={'FINISHED'};assert set(bpy.context.selected_objects)==set(anchors)
@@ -38,5 +59,5 @@ with tempfile.TemporaryDirectory() as t:
     assert bpy.ops.ueimport.repair_missing_meshes()=={'FINISHED'};assert len([o for o in bpy.data.objects if o.get('UE_repair_child')])==36
     bpy.ops.wm.save_as_mainfile(filepath=str(out));bpy.ops.wm.open_mainfile(filepath=str(out));scene=bpy.context.scene;overlay=next(c for c in bpy.data.collections if c.get('UE_repair_source_map'));assert len(overlay.objects)==36;assert verify()==error
     activate(scene,str(q));bpy.context.view_layer.update();assert all(not o.visible_get() for o in overlay.objects)
-    report=dict(restored=restored,plan_counts=reviewed['counts'],recovered_meshes=36,unique_meshes=2,max_world_matrix_error=error,visibility_isolated=True,automatic_anchor_selection=True,reopen=True,original_report_unchanged=True,scope='Original packages withheld in disposable copy; no genuinely absent source acquired')
+    report=dict(restored=restored,plan_counts=reviewed['counts'],recovered_meshes=36,unique_meshes=2,max_world_matrix_error=error,visibility_isolated=True,automatic_anchor_selection=True,reopen=True,original_report_unchanged=True,selected_scope_guard=True,folder_guard=True,zero_ready_guard=True,tampered_plan_refused=True,stale_confirmation_refused=True,scope='Original packages withheld in disposable copy; no genuinely absent source acquired')
     out.with_suffix('.json').write_text(json.dumps(report,indent=2));print('SOURCE_RECOVERY_PASS',report,flush=True)

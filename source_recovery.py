@@ -47,19 +47,29 @@ def plan(project,level,folder,limit=10000):
     for k,r in rows.items():
         try:r['destination']=str(_target(content,k))
         except ValueError as e:r.update(status='blocked',detail=str(e))
-    scanned=directories=0
-    for root,dirs,files in os.walk(folder,followlinks=False):
+    scanned=directories=0;ignored=Counter()
+    def scan_error(error):raise ValueError(f'Cannot completely scan recovery folder: {error}')
+    for root,dirs,files in os.walk(folder,followlinks=False,onerror=scan_error):
         directories+=1;require(directories<=limit,'Recovery directory limit exceeded')
         dirs[:]=sorted(d for d in dirs if not (Path(root)/d).is_symlink() and not (Path(root)/d).resolve().is_relative_to(content))
         for name in sorted(files):
             if not name.lower().endswith('.uasset'):continue
             scanned+=1;require(scanned<=limit,'Recovery file limit exceeded; choose a narrower folder')
             p=Path(root)/name
-            if p.resolve()!=p or not p.is_file() or not p.is_relative_to(folder):continue
-            try:meta=inspect_package(p)
-            except (OSError,ValueError):continue
+            if p.resolve()!=p or not p.is_file() or not p.is_relative_to(folder):
+                ignored['non_regular_or_symlink']+=1;continue
+            try:
+                # An unreadable candidate could hide a duplicate identity. Fail closed.
+                with p.open('rb') as stream:stream.read(4)
+                meta=inspect_package(p)
+            except OSError as e:scan_error(e)
+            except ValueError:
+                ignored['unidentified']+=1;continue
             k=meta.get('package_name');r=rows.get(k)
-            if not r or r['status']=='blocked':continue
+            if not k:
+                ignored['unidentified']+=1;continue
+            if not r or r['status']=='blocked':
+                ignored['not_recoverable_dependency']+=1;continue
             try:r['candidates'].append(_qualify(p,k))
             except Exception as e:r['candidates'].append(dict(source=str(p),detail=f'{type(e).__name__}: {e}'))
     for r in rows.values():
@@ -67,7 +77,7 @@ def plan(project,level,folder,limit=10000):
         n=len(r['candidates'])
         if n>1:r['status']='ambiguous'
         elif n==1:r['status']='ready' if 'sha256' in r['candidates'][0] else 'unsupported'
-    return dict(project=str(Path(project.dir).resolve()),level=str(level),folder=str(folder),scanned_files=scanned,counts=dict(Counter(r['status'] for r in rows.values())),rows=sorted(rows.values(),key=lambda r:r['package']),scope=SCOPE)
+    return dict(project=str(Path(project.dir).resolve()),level=str(level),folder=str(folder),scanned_files=scanned,scan_ignored=dict(ignored),counts=dict(Counter(r['status'] for r in rows.values())),rows=sorted(rows.values(),key=lambda r:r['package']),scope=SCOPE)
 
 
 def restore(project,level,folder,reviewed):

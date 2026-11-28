@@ -39,3 +39,5 @@ Goal: direct one-operation import of original Unreal project level into a faithf
 - 0.10.92: simplify the primary import panel while retaining all advanced tools, test actual Linux desktop clipboard, Esc rollback and retry, and recovery confirmation on an isolated X11 display. Next: verify installed desktop workflow on Windows, improve remaining import coverage/performance using source evidence; no new assets.
 
 - 0.10.93: selected-level and level-set report navigation, explicit last-operation report, source-action open/copy, mismatched and missing report refusal, save/reopen and Linux desktop acceptance. Next: scope recovery-plan UI to selected source and folder, improve diagnostics for recoverable missing assets, then Windows desktop and mid-map cancellation research; no new assets without approval.
+
+- 0.10.94: scoped recovery plan/report and confirmation, zero-ready refusal, ignored-file scan diagnostics, original-package repair and X11 confirmation. Next: safe cancellation within large-map stages and source-driven missing material diagnostics, Windows desktop acceptance when available. No new assets without approval.

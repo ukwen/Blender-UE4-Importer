@@ -1,6 +1,7 @@
 """Native project map selection; delegates reconstruction to the existing reader."""
 from pathlib import Path
 import json
+import hashlib
 import time
 import bpy
 from bpy.props import StringProperty, BoolProperty, IntProperty, FloatProperty, CollectionProperty, PointerProperty, EnumProperty
@@ -89,6 +90,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     recovery_folder: StringProperty(name='Original asset recovery folder', subtype='DIR_PATH')
     source_recovery_plan: StringProperty(options={'HIDDEN'})
     source_recovery_status: StringProperty(options={'HIDDEN'})
+    source_recovery_scope: StringProperty(options={'HIDDEN'})
     geometry_folder: StringProperty(name='Content subfolder',description='Relative to Content; empty imports all supported geometry assets')
     materials: BoolProperty(name='Materials', default=True)
     components: BoolProperty(name='Include Blueprint and skeletal components', default=False, description='Reconstruct map-owned component hierarchies; unresolved defaults and sockets stay diagnostic')
@@ -110,7 +112,7 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
         state.map_redirectors = ''
         state.active = 0
         state.scene_summary = state.scene_summary_source = state.scene_action_report = ''
-        state.source_recovery_plan = state.source_recovery_status = ''
+        state.source_recovery_plan = state.source_recovery_status = state.source_recovery_scope = ''
         try:
             redirectors=[]
             project, engine, maps = discover_maps(bpy.path.abspath(state.project_path),redirectors)
@@ -215,6 +217,7 @@ def resolve_report(context, kind):
     if kind=='LATEST':return bpy.data.texts.get(state.batch_report)
     if not UEIMPORT_OT_import_map.poll(context):return None
     source=state.maps[state.active].filepath
+    if kind=='RECOVERY':return recovery_report(context)
     if kind=='ACTIONS':
         return bpy.data.texts.get(state.scene_action_report) if state.scene_summary_source==source else None
     if kind=='LEVEL':
@@ -229,7 +232,7 @@ class UEIMPORT_OT_report(bpy.types.Operator):
     bl_idname='ueimport.report'
     bl_label='Read Import Report'
     bl_description='Open a stored report in a Text Editor or copy its complete contents; no source files are modified'
-    kind: EnumProperty(items=[('LEVEL','Selected level',''),('SET','Selected level set',''),('ACTIONS','Selected source actions',''),('LATEST','Last operation','')],default='LEVEL')
+    kind: EnumProperty(items=[('LEVEL','Selected level',''),('SET','Selected level set',''),('ACTIONS','Selected source actions',''),('RECOVERY','Reviewed recovery plan',''),('LATEST','Last operation','')],default='LEVEL')
     copy: BoolProperty(default=False)
 
     def execute(self,context):
@@ -245,6 +248,8 @@ class UEIMPORT_OT_report(bpy.types.Operator):
             except (ValueError,TypeError,AttributeError):valid=False
             if not valid:
                 self.report({'WARNING'},'Report contents do not match the selected level');return {'CANCELLED'}
+        if self.kind=='RECOVERY' and not recovery_report(context,verify=True):
+            self.report({'WARNING'},'Recovery plan contents changed; locate candidates again');return {'CANCELLED'}
         if self.copy:
             context.window_manager.clipboard=text.as_string()
             self.report({'INFO'},'Report copied');return {'FINISHED'}
@@ -303,11 +308,33 @@ class UEIMPORT_OT_scene_dependencies(bpy.types.Operator):
         return {'FINISHED'}
 
 
+def recovery_scope(context):
+    """Cheap current selection key; no package scan in panel redraws."""
+    if not UEIMPORT_OT_import_map.poll(context):return ''
+    s=context.scene.ueimport_project
+    if not s.recovery_folder.strip():return ''
+    try:
+        folder=Path(bpy.path.abspath(s.recovery_folder)).expanduser().resolve()
+        content=(Path(s.scanned_project).parent/'Content').resolve()
+        if not folder.is_dir() or folder.is_relative_to(content):return ''
+        return json.dumps([s.scanned_project,s.maps[s.active].filepath,str(folder)])
+    except (OSError,ValueError,RuntimeError):return ''
+
+
+def recovery_report(context,verify=False):
+    s=context.scene.ueimport_project;scope=recovery_scope(context)
+    if not scope or scope!=s.source_recovery_scope:return None
+    text=bpy.data.texts.get(s.source_recovery_plan)
+    if text is None or text.get('UE_recovery_scope')!=scope:return None
+    if verify and hashlib.sha256(text.as_string().encode()).hexdigest()!=text.get('UE_recovery_digest'):return None
+    return text
+
+
 def recovery_context(context):
     s=context.scene.ueimport_project
     project,_,maps=discover_maps(bpy.path.abspath(s.project_path));selected=s.maps[s.active].filepath
     if project!=s.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
-    if not s.recovery_folder.strip():raise ValueError('Choose a folder containing original asset packages')
+    if not recovery_scope(context):raise ValueError('Choose an existing recovery folder outside project Content')
     from uasset import UProject
     return s,UProject(project),selected,bpy.path.abspath(s.recovery_folder)
 
@@ -319,13 +346,16 @@ class UEIMPORT_OT_locate_sources(bpy.types.Operator):
     @classmethod
     def poll(cls,context):return UEIMPORT_OT_import_map.poll(context)
     def execute(self,context):
-        s=context.scene.ueimport_project;s.source_recovery_plan=s.source_recovery_status=''
+        s=context.scene.ueimport_project;s.source_recovery_plan=s.source_recovery_status=s.source_recovery_scope=''
         try:
             s,project,selected,folder=recovery_context(context)
             from source_recovery import plan
             report=plan(project,selected,folder)
-            t=bpy.data.texts.new(Path(selected).stem+' — source recovery plan.json');t.write(json.dumps(report,indent=2));s.source_recovery_plan=t.name
-            s.source_recovery_status=f"{report['counts'].get('ready',0)} verified; {report['counts'].get('ambiguous',0)} ambiguous; {report['counts'].get('not_found',0)} not found"
+            scope=recovery_scope(context);counts=report['counts']
+            t=bpy.data.texts.new(Path(selected).stem+' — source recovery plan.json');t.write(json.dumps(report,indent=2))
+            t['UE_recovery_scope']=scope;t['UE_recovery_digest']=hashlib.sha256(t.as_string().encode()).hexdigest();t['UE_recovery_ready']=counts.get('ready',0)
+            s.source_recovery_plan=t.name;s.source_recovery_scope=scope
+            s.source_recovery_status='; '.join(f"{counts.get(key,0)} {label}" for key,label in [('ready','verified'),('ambiguous','ambiguous'),('not_found','not found'),('unsupported','unsupported'),('blocked','blocked')])
             self.report({'INFO'},s.source_recovery_status);return {'FINISHED'}
         except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
@@ -334,15 +364,25 @@ class UEIMPORT_OT_restore_sources(bpy.types.Operator):
     bl_idname='ueimport.restore_sources'
     bl_label='Restore Verified Original Packages'
     bl_description='Copy verified missing assets into project Content; never overwrite existing files. Filesystem changes are not Blender Undo operations.'
+    confirmed_digest: StringProperty(options={'HIDDEN','SKIP_SAVE'})
+    confirmed_name: StringProperty(options={'HIDDEN','SKIP_SAVE'})
     @classmethod
     def poll(cls,context):
-        return UEIMPORT_OT_import_map.poll(context) and bpy.data.texts.get(context.scene.ueimport_project.source_recovery_plan) is not None
+        text=recovery_report(context)
+        return text is not None and text.get('UE_recovery_ready',0)>0
     def invoke(self,context,event):
-        return context.window_manager.invoke_confirm(self,event,title='Restore verified original packages?',message='Writes missing files into Content. Blender Undo cannot reverse this.',confirm_text='Restore Files')
+        text=recovery_report(context,verify=True)
+        if text is None:
+            self.report({'WARNING'},'Recovery plan changed; locate candidates again');return {'CANCELLED'}
+        self.confirmed_name=text.name;self.confirmed_digest=text['UE_recovery_digest']
+        return context.window_manager.invoke_confirm(self,event,title='Restore verified original packages?',message=f"Restore {text['UE_recovery_ready']} verified packages into Content? Blender Undo cannot reverse this.",confirm_text='Restore Files')
     def execute(self,context):
         try:
             s,project,selected,folder=recovery_context(context)
-            reviewed=json.loads(bpy.data.texts[s.source_recovery_plan].as_string())
+            text=recovery_report(context,verify=True)
+            if text is None or (self.confirmed_name and (text.name!=self.confirmed_name or text['UE_recovery_digest']!=self.confirmed_digest)):
+                raise ValueError('Reviewed recovery plan changed; locate candidates again')
+            reviewed=json.loads(text.as_string())
             from source_recovery import restore
             report,deps=restore(project,selected,folder,reviewed)
         except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
@@ -858,8 +898,14 @@ class UEIMPORT_PT_project(bpy.types.Panel):
         section=fold('show_recovery')
         if section:
             section.prop(state,'recovery_folder',text='Folder');section.operator('ueimport.locate_sources',icon='VIEWZOOM')
-            if state.source_recovery_status:section.label(text=state.source_recovery_status)
-            if state.source_recovery_plan:section.label(text=state.source_recovery_plan,icon='TEXT');section.operator('ueimport.restore_sources',icon='FILE_REFRESH')
+            scope=recovery_scope(context);plan=recovery_report(context)
+            if scope and scope==state.source_recovery_scope and state.source_recovery_status:
+                for line in state.source_recovery_status.split('; '):section.label(text=line)
+            if plan is not None:
+                draw_report_row(section,context,'RECOVERY','Read Recovery Plan')
+                if plan.get('UE_recovery_ready',0)>0:section.operator('ueimport.restore_sources',icon='FILE_REFRESH')
+                else:section.label(text='No verified packages to restore',icon='INFO')
+            elif state.source_recovery_plan:section.label(text='Selection or folder changed; locate again',icon='INFO')
             section.operator('ueimport.select_recoverable_meshes',icon='RESTRICT_SELECT_OFF');section.operator('ueimport.repair_missing_meshes',icon='FILE_REFRESH')
         section=fold('show_environment')
         if section:
