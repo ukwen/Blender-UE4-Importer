@@ -12,6 +12,20 @@ def validate_selection(project, paths):
 
 
 def reconstruct(project, paths, partial=False, preview_scale=1., strict=False, profile='4.27'):
+    """Synchronous callers use the same cancellable transaction as the modal UI."""
+    iterator=iter_reconstruct(project,paths,partial,preview_scale,strict,profile)
+    try:
+        while True:next(iterator)
+    except StopIteration as done:return done.value
+    finally:iterator.close()
+
+
+def iter_reconstruct(project, paths, partial=False, preview_scale=1., strict=False, profile='4.27',cache_budget=None):
+    """Yield after each completed map; closing before commit rolls back the entire set.
+
+    Native builders remain synchronous; cancellation is between maps, not mid-map.
+    Caller must prevent other edits while the generator owns the scene.
+    """
     import bpy
     from package_inspector import inspect_package
     from legacy_full_scene import supported
@@ -37,15 +51,20 @@ def reconstruct(project, paths, partial=False, preview_scale=1., strict=False, p
         rows=[]
         for p,builder in zip(paths,builders):
             args=(str(p),partial,preview_scale,strict)
-            root,report=builder(*args,profile) if builder is legacy else builder(*args)
+            if builder is legacy:root,report=builder(*args,profile)
+            elif cache_budget is None:root,report=builder(*args)
+            else:
+                from import_workflow import table_scope
+                with table_scope(cache_budget):root,report=builder(*args)
             group.children.link(root);scene.collection.children.unlink(root)
             root.hide_render=bool(rows);root.hide_viewport=bool(rows)
             rows.append(dict(source=str(p),collection=root.name,counts=report['counts'],report=root['UE_report']))
+            yield dict(completed=len(rows),total=len(paths),source=str(p))
         if scene.camera!=camera or scene.world!=world:raise ValueError('Unexpected camera or world change')
         report=dict(project=str(Path(project).resolve()),levels=rows,active_source=rows[0]['source'],scope='Explicit independent saved level set; only first level visible. No native streaming placement or runtime composition. Existing scene camera/world unchanged.')
         t=bpy.data.texts.new(group.name+' - project transfer.json');t.write(json.dumps(report,indent=2));group['UE_project_level_set']=str(Path(project).resolve());group['UE_report']=t.name;group['UE_active_level']=rows[0]['source']
         return group,report
-    except Exception:
+    except BaseException:
         scene.camera=camera;scene.world=world;rollback_new(before);raise
 
 

@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.89-dev",
-  "previous_verified_commit": "5d324b2feb7ac167caa42d9956980e69a7c9d48c",
-  "previous_verified_tree": "f1b711084681cb7ae24b15d5a9003b55ce386298",
-  "current_commit_resolution": "Match immutable 0.10.89 checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "Bounded operation-local package cache, stage performance and source action report",
+  "application_version": "0.10.90-dev",
+  "previous_verified_commit": "3b907e518b1b23b037e907bcfd7612a6c5cf6e72",
+  "previous_verified_tree": "f3e5686400ffd55800a8429f84d540af3eff31df",
+  "current_commit_resolution": "Match immutable 0.10.90 checkpoint and published development commit/tree to archive hashes.",
+  "milestone": "Exact original package recovery, level-local repair and between-map cancellation, configurable cache and peak memory measurement",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.89_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.89-local.zip",
-    "install_archive": "install-089.zip",
+    "checkpoint": "Unreal_Importer_0.10.90_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.90-local.zip",
+    "install_archive": "install-090.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,90 +30,203 @@
   },
   "tests": {
     "baseline": {
-      "passed": 100,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 104,
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Existing local tree matches 0.10.88; archive and dependency hashes checked; restored runtime reused",
-    "workflow": {
-      "thirdperson": {
-        "uncached": {
-          "elapsed_seconds": 1.0995922219999557,
-          "stage_seconds": {
-            "Dependencies": 0.6634632069999498,
-            "Actor inventory": 0.021462735000113753,
-            "Level layout": 0.022586646000036126,
-            "Light records": 0.020663836000039737,
-            "Camera records": 0.019591103000038856,
-            "Geometry and materials": 0.26968998400025157,
-            "Decals": 0.020313175999945088,
-            "Brushes": 0.0005583749998550047,
-            "Compiled BSP": 0.0005375740001909435,
-            "Volumes": 0.021103971999764326,
-            "Lighting": 0.028470351999658305,
-            "Environment": 0.0006420009999601461
+    "current": {
+      "passed": 106,
+      "skipped": 23,
+      "failed": 0
+    },
+    "environment_reverified": "Fresh extracted baseline archive exact tree, source/installer and all four recovery archive hashes checked; existing Blender and decoder reused",
+    "source_recovery": {
+      "restored": {
+        "restored": [
+          {
+            "package": "/Game/LevelPrototyping/Interactable/Door/Assets/Meshes/SM_DoorFrame_Edge",
+            "destination": "/tmp/tmpactp2cbk/ShooterSam/Content/LevelPrototyping/Interactable/Door/Assets/Meshes/SM_DoorFrame_Edge.uasset",
+            "sha256": "7fa5c503cf28ae0764f2e515e1579dcce9ee9575c7b3304bdc50ab19194c3e3e"
           },
-          "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
-          "table_hits": 0,
-          "table_reads": 1019,
-          "raw_bytes_read": 194039075,
-          "estimated_cache_peak_bytes": 0,
-          "cache_budget_bytes": 0,
-          "evictions": 0
-        },
-        "cached": {
-          "elapsed_seconds": 0.8108219450000433,
-          "stage_seconds": {
-            "Dependencies": 0.5261269310003627,
-            "Actor inventory": 0.021615067000311683,
-            "Level layout": 0.007777798999995866,
-            "Light records": 0.008078814999862516,
-            "Camera records": 0.006862013000045408,
-            "Geometry and materials": 0.21020461900025111,
-            "Decals": 0.008164124000359152,
-            "Brushes": 0.0001669630000833422,
-            "Compiled BSP": 0.00010074200008602929,
-            "Volumes": 0.008183492999705777,
-            "Lighting": 0.009316446999946493,
-            "Environment": 0.0004611180002029869
-          },
-          "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
-          "table_hits": 805,
-          "table_reads": 214,
-          "raw_bytes_read": 112885567,
-          "estimated_cache_peak_bytes": 67101396,
-          "cache_budget_bytes": 67108864,
-          "evictions": 97
-        },
-        "reports_exact": true,
-        "scene_exact": true,
-        "reopen": true,
-        "action_report": true,
-        "map": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/ThirdPerson/Lvl_ThirdPerson.umap",
-        "scope": "Original map, sequential in-process A/B; OS cache and timing order may influence wall clock; exact mesh vertex/topology/UV/material-index digests"
+          {
+            "package": "/Game/LevelPrototyping/Meshes/SM_Cube",
+            "destination": "/tmp/tmpactp2cbk/ShooterSam/Content/LevelPrototyping/Meshes/SM_Cube.uasset",
+            "sha256": "4680317a8c87f983e077f6c0a6b93ffaa0ba4dbddbc810960d4553e6ad380a89"
+          }
+        ],
+        "remaining_hard": 27,
+        "remaining_soft_only": 9,
+        "unknown_tables": [
+          "/Game/Characters/Mannequins/Materials/M_Mannequin",
+          "/Game/LevelPrototyping/Materials/MI_PrototypeGrid_TopDark",
+          "/Game/LevelPrototyping/Textures/T_GridChecker_A",
+          "/Game/Variant_Combat/Blueprints/AI/BP_CombatAIController",
+          "/Game/Variant_Combat/Blueprints/BP_CombatPlayerController",
+          "/Game/Variant_Combat/Blueprints/Interactables/BP_CombatActivationVolume",
+          "/Game/Variant_Combat/Blueprints/Interactables/BP_CombatCheckpointVolume",
+          "/Game/Variant_Combat/Blueprints/Interactables/BP_CombatLavaFloor"
+        ],
+        "scope": "Exact serialized UE5.6 monolithic /Game asset identity and table bounds; not complete payload, dependency or rendering validation. Existing files never replaced."
       },
-      "mainlevel": {
-        "uncached": {
-          "elapsed_seconds": 12.909867013000166,
+      "plan_counts": {
+        "ready": 2,
+        "not_found": 5
+      },
+      "recovered_meshes": 36,
+      "unique_meshes": 2,
+      "max_world_matrix_error": 0,
+      "visibility_isolated": true,
+      "automatic_anchor_selection": true,
+      "reopen": true,
+      "original_report_unchanged": true,
+      "scope": "Original packages withheld in disposable copy; no genuinely absent source acquired"
+    },
+    "previous_repair_regression": true,
+    "level_set": {
+      "levels": [
+        {
+          "source": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/MyStuff/Maps/TestLevel.umap",
+          "collection": "UE Scene \u2014 TestLevel",
+          "counts": {
+            "geometry_objects": 5,
+            "decal_objects": 0,
+            "brush_operand_objects": 8,
+            "compiled_bsp_objects": 9,
+            "volume_guide_objects": 1,
+            "lighting_objects": 5,
+            "cameras_objects": 4,
+            "objects": 32,
+            "meshes": 10,
+            "armatures": 1,
+            "lights": 1,
+            "cameras": 1
+          },
+          "report": "UE Scene \u2014 TestLevel - scene transfer.json"
+        },
+        {
+          "source": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/ThirdPerson/Lvl_ThirdPerson.umap",
+          "collection": "UE Scene \u2014 Lvl_ThirdPerson",
+          "counts": {
+            "geometry_objects": 55,
+            "decal_objects": 0,
+            "brush_operand_objects": 0,
+            "compiled_bsp_objects": 0,
+            "volume_guide_objects": 1,
+            "lighting_objects": 6,
+            "cameras_objects": 0,
+            "objects": 62,
+            "meshes": 53,
+            "armatures": 0,
+            "lights": 1,
+            "cameras": 0
+          },
+          "report": "UE Scene \u2014 Lvl_ThirdPerson - scene transfer.json"
+        }
+      ],
+      "layouts": {
+        "Lvl_Platforming": {
+          "owned": 144,
+          "external_errors": 0,
+          "partition": {
+            "name": "WorldPartition_0",
+            "owner": "WorldSettings",
+            "streaming_enabled": false,
+            "hashes": {
+              "EditorHash": "WorldPartitionEditorSpatialHash",
+              "RuntimeHash": "WorldPartitionRuntimeSpatialHash"
+            }
+          },
+          "composition_candidates": 0
+        },
+        "Lvl_ThirdPerson": {
+          "owned": 65,
+          "external_errors": 0,
+          "partition": {
+            "name": "WorldPartition_0",
+            "owner": "WorldSettings",
+            "streaming_enabled": false,
+            "hashes": {
+              "EditorHash": "WorldPartitionEditorSpatialHash",
+              "RuntimeHash": "WorldPartitionRuntimeHashSet"
+            }
+          },
+          "composition_candidates": 0
+        },
+        "Lvl_SideScrolling": {
+          "owned": 118,
+          "external_errors": 0,
+          "partition": {
+            "name": "WorldPartition_0",
+            "owner": "WorldSettings",
+            "streaming_enabled": false,
+            "hashes": {
+              "EditorHash": "WorldPartitionEditorSpatialHash",
+              "RuntimeHash": "WorldPartitionRuntimeSpatialHash"
+            }
+          },
+          "composition_candidates": 0
+        },
+        "Lvl_Combat": {
+          "owned": 138,
+          "external_errors": 0,
+          "partition": {
+            "name": "WorldPartition_0",
+            "owner": "WorldSettings",
+            "streaming_enabled": false,
+            "hashes": {
+              "EditorHash": "WorldPartitionEditorSpatialHash",
+              "RuntimeHash": "WorldPartitionRuntimeSpatialHash"
+            }
+          },
+          "composition_candidates": 0
+        }
+      },
+      "max_reopen_matrix_error": 0,
+      "reopen": true,
+      "duplicate_refusal": true,
+      "late_rollback": true,
+      "between_level_cancellation": true,
+      "low_memory_mode": true,
+      "world_camera_preserved": true,
+      "scope": "Independent levels, not streaming assembly"
+    },
+    "single_level_regression": true,
+    "memory": {
+      "uncached": {
+        "map": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/MyStuff/Maps/MainLevel.umap",
+        "cache_budget_bytes": 0,
+        "start_peak_rss_bytes": 265003008,
+        "process_peak_rss_bytes": 886190080,
+        "counts": {
+          "geometry_objects": 1995,
+          "decal_objects": 1110,
+          "brush_operand_objects": 45,
+          "compiled_bsp_objects": 17,
+          "volume_guide_objects": 3,
+          "lighting_objects": 146,
+          "cameras_objects": 24,
+          "objects": 3340,
+          "meshes": 24,
+          "armatures": 6,
+          "lights": 141,
+          "cameras": 6
+        },
+        "performance": {
+          "elapsed_seconds": 13.263462305999383,
           "stage_seconds": {
-            "Dependencies": 0.31344315599972106,
-            "Actor inventory": 0.11676008799986448,
-            "Level layout": 0.05328864099965358,
-            "Light records": 0.12152043200012486,
-            "Camera records": 0.1069759840002007,
-            "Geometry and materials": 11.080518726000264,
-            "Decals": 0.22971975699965697,
-            "Brushes": 0.07354466399965531,
-            "Compiled BSP": 0.1190999139998894,
-            "Volumes": 0.05396219200019914,
-            "Lighting": 0.12427774000025238,
-            "Cameras": 0.1102817710002455,
-            "Environment": 5.1888000143662794e-05
+            "Dependencies": 0.288244018000114,
+            "Actor inventory": 0.10211464799976966,
+            "Level layout": 0.05149463000088872,
+            "Light records": 0.10845617199993285,
+            "Camera records": 0.09884244699969713,
+            "Geometry and materials": 11.464827339000294,
+            "Decals": 0.23997392499950365,
+            "Brushes": 0.07350199799930124,
+            "Compiled BSP": 0.11536790900026972,
+            "Volumes": 0.05016087200056063,
+            "Lighting": 0.12688550499933626,
+            "Cameras": 0.11268002199994953,
+            "Environment": 5.309999960445566e-05
           },
           "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
           "table_hits": 0,
@@ -123,22 +236,43 @@
           "cache_budget_bytes": 0,
           "evictions": 0
         },
-        "cached": {
-          "elapsed_seconds": 10.557703935000063,
+        "scope": "Linux process high-water RSS including Blender startup; one fresh process per budget; no cross-platform or causal guarantee"
+      },
+      "cached": {
+        "map": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/MyStuff/Maps/MainLevel.umap",
+        "cache_budget_bytes": 67108864,
+        "start_peak_rss_bytes": 265150464,
+        "process_peak_rss_bytes": 945938432,
+        "counts": {
+          "geometry_objects": 1995,
+          "decal_objects": 1110,
+          "brush_operand_objects": 45,
+          "compiled_bsp_objects": 17,
+          "volume_guide_objects": 3,
+          "lighting_objects": 146,
+          "cameras_objects": 24,
+          "objects": 3340,
+          "meshes": 24,
+          "armatures": 6,
+          "lights": 141,
+          "cameras": 6
+        },
+        "performance": {
+          "elapsed_seconds": 12.319083190000129,
           "stage_seconds": {
-            "Dependencies": 0.2074404949999007,
-            "Actor inventory": 0.056113197000286164,
-            "Level layout": 0.0029318160000002536,
-            "Light records": 0.010903889000019262,
-            "Camera records": 0.0046626850003121945,
-            "Geometry and materials": 9.570103461999679,
-            "Decals": 0.1826288420002129,
-            "Brushes": 0.02342485500003022,
-            "Compiled BSP": 0.07003136700041068,
-            "Volumes": 0.0031899069999781204,
-            "Lighting": 0.03322036700001263,
-            "Cameras": 0.00898643800019272,
-            "Environment": 5.267000005915179e-05
+            "Dependencies": 0.27256809400023485,
+            "Actor inventory": 0.06038585099940974,
+            "Level layout": 0.003272129999459139,
+            "Light records": 0.01174077399991802,
+            "Camera records": 0.005466560999593639,
+            "Geometry and materials": 11.36595980400034,
+            "Decals": 0.13448029499977565,
+            "Brushes": 0.02166506899993692,
+            "Compiled BSP": 0.06287978500040481,
+            "Volumes": 0.0025530129996695905,
+            "Lighting": 0.022882129999743483,
+            "Cameras": 0.007585335999465315,
+            "Environment": 6.810300055803964e-05
           },
           "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
           "table_hits": 90,
@@ -148,24 +282,17 @@
           "cache_budget_bytes": 67108864,
           "evictions": 57
         },
-        "reports_exact": true,
-        "scene_exact": true,
-        "reopen": true,
-        "action_report": true,
-        "map": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/MyStuff/Maps/MainLevel.umap",
-        "scope": "Original map, sequential in-process A/B; OS cache and timing order may influence wall clock; exact mesh vertex/topology/UV/material-index digests"
+        "scope": "Linux process high-water RSS including Blender startup; one fresh process per budget; no cross-platform or causal guarantee"
       }
     },
-    "single_level_regression": true,
-    "level_set_regression": true,
-    "isolated_install": "See immutable checkpoint",
-    "legacy_and_goblin": "Previously verified, not rerun"
+    "legacy_and_goblin": "Previously verified, not rerun",
+    "isolated_install": "See immutable checkpoint"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Professional source repair workflow, memory profiling and larger multi-map benchmarks, safe cancellation boundaries; native formats only with positive evidence; no new assets.",
+  "next_priority": "Large-map geometry memory optimization, professional workflow/report usability and original whole-project/commercial acceptance; unsupported native profiles only with positive evidence. No new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -187,6 +314,6 @@
     "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition.",
     "BSP geometry supported for original zero-flag inline compiled profile only. Six explicit material packages unavailable and 76 faces have null source material; lightmap baking, other BSP/volume profiles and runtime CSG/physics/navigation/postprocess not validated.",
     "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
-    "No measured total RSS improvement, no mid-stage cancellation or actual headless OS clipboard validation; no timing portability claim."
+    "Desktop modal Esc/confirmation and clipboard unverified; only between-map cancellation, no mid-stage interruption. One fresh process per memory budget; no general memory reduction claim. Source recovery bounded to exact monolithic editor Game packages; hard-link filesystem support and Windows acceptance unverified."
   ]
 }

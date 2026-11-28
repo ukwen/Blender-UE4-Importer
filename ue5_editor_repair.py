@@ -89,14 +89,15 @@ def restore(filepath,anchors,materials=False,partial=False):
                     except Exception as exc:
                         entry.update(status='unresolved',detail=str(exc));raise
                 require(len(overrides)<=len(entry['data']['materials']),'Override slots exceed recovered mesh materials')
-                pending.append((a,entry,overrides,record));continue
+                pending.append((a,entry,overrides,record,original));continue
         except Exception as exc:record.update(status='refused',detail=f'{type(exc).__name__}: {exc}')
         results.append(record)
     before=set(new_ids());overlay=None;mesh_cache={};override_cache={};material_report={}
     try:
         if pending:
-            overlay=bpy.data.collections.new('UE5 recovered geometry — '+path.stem);bpy.context.scene.collection.children.link(overlay);overlay['UE_repair_source_map']=str(path)
-            for a,entry,overrides,record in pending:
+            require(len({original.as_pointer() for _,_,_,_,original in pending})==1,'Repair anchors must share one original geometry collection')
+            overlay=bpy.data.collections.new('UE5 recovered geometry — '+path.stem);pending[0][4].children.link(overlay);overlay['UE_repair_source_map']=str(path)
+            for a,entry,overrides,record,original in pending:
                 package=record['package']
                 if package not in mesh_cache:
                     require(hash_file(entry['path'])==entry['sha'],'Package changed before build')

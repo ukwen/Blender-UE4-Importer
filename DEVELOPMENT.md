@@ -193,3 +193,7 @@ See [landscape source atlas](docs/0.10.88-landscape-atlas.md). Original 64 embed
 ## 0.10.89-dev
 
 [Workflow performance and source actions](docs/0.10.89-workflow.md). No persistent package cache, measured table reuse and original geometry digests.
+
+## 0.10.90-dev
+
+[Source recovery, cancellation and memory](docs/0.10.90-source-recovery.md). Explicit read-only recovery plan and non-overwriting verified copies, restored source geometry under original level collections, between-map transaction close rollback, adjustable package cache budget and measured process peak RSS.

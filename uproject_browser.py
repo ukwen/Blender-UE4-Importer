@@ -58,6 +58,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     maps: CollectionProperty(type=UEIMPORT_Map)
     active: IntProperty(default=0, min=0)
     cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded unversioned split profile'),('5.4','UE5.4','Bounded cooked static only'),('5.5','UE5.5','Bounded cooked static only'),('5.6','UE5.6','Bounded cooked static and skeletal LOD0')],default='4.27')
+    scene_cache_mib: IntProperty(name='Package cache (MiB)',default=64,min=0,max=256,description='Modern saved-level package table cache; 0 disables caching for lower peak memory. Not a total memory limit.')
     strict_scene_dependencies: BoolProperty(name='Require resolved source dependencies',default=False,description='Refuse scene import if known hard/soft package references are missing or dependency tables are unknown; not a visual completeness guarantee')
     light_preview_scale: FloatProperty(name="Light preview multiplier",default=1.,min=.001,max=1000.,description="Approximate Blender preview brightness, not Unreal photometric equivalence")
     geometry_all_lods: BoolProperty(name='All skeletal LODs on one rig',default=False,description='UE5.6: import all supported native render LODs with shared materials')
@@ -74,6 +75,9 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     scene_summary: StringProperty(options={'HIDDEN'})
     scene_summary_source: StringProperty(options={'HIDDEN'})
     scene_action_report: StringProperty(options={'HIDDEN'})
+    recovery_folder: StringProperty(name='Original asset recovery folder', subtype='DIR_PATH')
+    source_recovery_plan: StringProperty(options={'HIDDEN'})
+    source_recovery_status: StringProperty(options={'HIDDEN'})
     geometry_folder: StringProperty(name='Content subfolder',description='Relative to Content; empty imports all supported geometry assets')
     materials: BoolProperty(name='Materials', default=True)
     components: BoolProperty(name='Include Blueprint and skeletal components', default=False, description='Reconstruct map-owned component hierarchies; unresolved defaults and sockets stay diagnostic')
@@ -92,6 +96,7 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
         state.engine = ''
         state.active = 0
         state.scene_summary = state.scene_summary_source = state.scene_action_report = ''
+        state.source_recovery_plan = state.source_recovery_status = ''
         try:
             project, engine, maps = discover_maps(bpy.path.abspath(state.project_path))
         except (OSError, ValueError) as exc:
@@ -214,13 +219,64 @@ class UEIMPORT_OT_scene_dependencies(bpy.types.Operator):
             if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
             from uasset import UProject
             from ue5_scene_dependencies import audit
-            report=audit(UProject(project),selected)
+            from import_workflow import table_scope
+            with table_scope(state.scene_cache_mib*1024*1024):report=audit(UProject(project),selected)
             text=bpy.data.texts.new(Path(selected).stem+' — source dependencies.json');text.write(json.dumps(report,indent=2));state.batch_report=text.name
             publish_scene_actions(state,selected,report)
             self.report({'INFO'},f"{report['scanned_packages']} inspected; {report['unresolved_hard']} hard and {report['unresolved_soft_only']} soft-only unresolved; {len(report['unknown_tables'])} unknown tables. See report.")
         except Exception as exc:
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
         return {'FINISHED'}
+
+
+def recovery_context(context):
+    s=context.scene.ueimport_project
+    project,_,maps=discover_maps(bpy.path.abspath(s.project_path));selected=s.maps[s.active].filepath
+    if project!=s.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+    if not s.recovery_folder.strip():raise ValueError('Choose a folder containing original asset packages')
+    from uasset import UProject
+    return s,UProject(project),selected,bpy.path.abspath(s.recovery_folder)
+
+
+class UEIMPORT_OT_locate_sources(bpy.types.Operator):
+    bl_idname='ueimport.locate_sources'
+    bl_label='Locate Missing Original Packages'
+    bl_description='Read only: find missing Game assets by serialized identity, not filename'
+    @classmethod
+    def poll(cls,context):return UEIMPORT_OT_import_map.poll(context)
+    def execute(self,context):
+        s=context.scene.ueimport_project;s.source_recovery_plan=s.source_recovery_status=''
+        try:
+            s,project,selected,folder=recovery_context(context)
+            from source_recovery import plan
+            report=plan(project,selected,folder)
+            t=bpy.data.texts.new(Path(selected).stem+' — source recovery plan.json');t.write(json.dumps(report,indent=2));s.source_recovery_plan=t.name
+            s.source_recovery_status=f"{report['counts'].get('ready',0)} verified; {report['counts'].get('ambiguous',0)} ambiguous; {report['counts'].get('not_found',0)} not found"
+            self.report({'INFO'},s.source_recovery_status);return {'FINISHED'}
+        except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
+
+
+class UEIMPORT_OT_restore_sources(bpy.types.Operator):
+    bl_idname='ueimport.restore_sources'
+    bl_label='Restore Verified Original Packages'
+    bl_description='Copy verified missing assets into project Content; never overwrite existing files. Filesystem changes are not Blender Undo operations.'
+    @classmethod
+    def poll(cls,context):
+        return UEIMPORT_OT_import_map.poll(context) and bpy.data.texts.get(context.scene.ueimport_project.source_recovery_plan) is not None
+    def invoke(self,context,event):return context.window_manager.invoke_confirm(self,event)
+    def execute(self,context):
+        try:
+            s,project,selected,folder=recovery_context(context)
+            reviewed=json.loads(bpy.data.texts[s.source_recovery_plan].as_string())
+            from source_recovery import restore
+            report,deps=restore(project,selected,folder,reviewed)
+        except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        s.source_recovery_plan='';s.source_recovery_status=f"Restored {len(report['restored'])} packages; repair missing mesh anchors or reimport explicitly"
+        try:
+            t=bpy.data.texts.new(Path(selected).stem+' — source recovery result.json');t.write(json.dumps(report,indent=2));s.batch_report=t.name
+            publish_scene_actions(s,selected,deps)
+        except Exception as exc:self.report({'WARNING'},f'Files restored; report could not be written: {exc}')
+        self.report({'INFO'},s.source_recovery_status);return {'FINISHED'}
 
 
 class UEIMPORT_OT_full_scene(bpy.types.Operator):
@@ -251,7 +307,9 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
                     step+=1;wm.progress_update(min(step,13))
                 wm.progress_begin(0,14)
                 try:
-                    collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies,progress=progress)
+                    from import_workflow import table_scope
+                    with table_scope(state.scene_cache_mib*1024*1024):
+                        collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies,progress=progress)
                     wm.progress_update(14)
                 finally:wm.progress_end()
         except Exception as exc:
@@ -272,20 +330,65 @@ class UEIMPORT_UL_maps(bpy.types.UIList):
 class UEIMPORT_OT_level_set(bpy.types.Operator):
     bl_idname='ueimport.level_set'
     bl_label='Import Checked Levels (Separate)'
-    bl_description='Atomic transfer of checked independent maps; no inferred streaming placement'
+    bl_description='Atomic independent map transfer; Esc rolls back the entire set between levels. No inferred streaming placement.'
     bl_options={'REGISTER','UNDO'}
+    _active=False
     @classmethod
-    def poll(cls,context):return UEIMPORT_OT_import_map.poll(context)
-    def execute(self,context):
+    def poll(cls,context):return not cls._active and not UEIMPORT_OT_batch._active and UEIMPORT_OT_import_map.poll(context)
+    def prepare(self,context):
         s=context.scene.ueimport_project
+        project,_,maps=discover_maps(bpy.path.abspath(s.project_path));paths=[m.filepath for m in s.maps if m.enabled]
+        if project!=s.scanned_project or not set(paths)<={p for _,p in maps}:raise ValueError('Project or maps changed; scan again')
+        from saved_project_levels import validate_selection,iter_reconstruct
+        validate_selection(project,paths)
+        self.state=s;self.total=len(paths);self.done=0;self.timer=None;self.wm=context.window_manager;self.next_tick=0.;self.finished=False
+        self.iterator=iter_reconstruct(project,paths,s.partial_materials,s.light_preview_scale,s.strict_scene_dependencies,s.cooked_profile,cache_budget=s.scene_cache_mib*1024*1024)
+        self.wm.progress_begin(0,self.total);type(self)._active=True
+        s.batch_status=f'0/{self.total} levels (atomic transfer)'
+    def step(self):
+        try:row=next(self.iterator)
+        except StopIteration as done:
+            c,r=done.value;self.state.batch_report=c['UE_report'];return self.finish('completed')
+        self.done=row['completed'];self.wm.progress_update(self.done);self.state.batch_status=f'{self.done}/{self.total} levels staged; Esc rolls back set'
+        return None
+    def finish(self,status,error=''):
+        if self.finished:return {'FINISHED'} if status=='completed' else {'CANCELLED'}
+        self.finished=True
         try:
-            project,_,maps=discover_maps(bpy.path.abspath(s.project_path));paths=[m.filepath for m in s.maps if m.enabled]
-            if project!=s.scanned_project or not set(paths)<={p for _,p in maps}:raise ValueError('Project or maps changed; scan again')
-            from saved_project_levels import reconstruct
-            c,r=reconstruct(project,paths,s.partial_materials,s.light_preview_scale,s.strict_scene_dependencies,s.cooked_profile);s.batch_report=c['UE_report']
-            self.report({'INFO'},f"Imported {len(r['levels'])} independent saved levels")
-            return {'FINISHED'}
+            self.iterator.close()
+            self.state.batch_status=f'Imported {self.total} independent levels' if status=='completed' else f'Level set {status}; staged levels rolled back'
+            self.report({'INFO'} if status=='completed' else {'WARNING'} if status=='cancelled' else {'ERROR'},error or self.state.batch_status)
+        finally:
+            if self.timer:self.wm.event_timer_remove(self.timer)
+            self.wm.progress_end();type(self)._active=False
+        return {'FINISHED'} if status=='completed' else {'CANCELLED'}
+    def execute(self,context):
+        try:self.prepare(context)
         except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        try:
+            while True:
+                result=self.step()
+                if result:return result
+        except Exception as exc:return self.finish('failed',str(exc))
+    def invoke(self,context,event):
+        try:self.prepare(context)
+        except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
+        try:
+            self.timer=self.wm.event_timer_add(.05,window=context.window);self.wm.modal_handler_add(self)
+        except Exception as exc:return self.finish('failed',str(exc))
+        return {'RUNNING_MODAL'}
+    def modal(self,context,event):
+        if event.type=='ESC' and event.value=='PRESS':return self.finish('cancelled')
+        if event.type=='TIMER' and time.monotonic()>=self.next_tick:
+            self.next_tick=time.monotonic()+.05
+            try:
+                result=self.step()
+                if result:return result
+                if context.area:context.area.tag_redraw()
+            except Exception as exc:return self.finish('failed',str(exc))
+        return {'RUNNING_MODAL'}
+    def cancel(self,context):
+        if hasattr(self,'finished'):self.finish('cancelled')
 
 
 class UEIMPORT_OT_activate_level(bpy.types.Operator):
@@ -345,6 +448,40 @@ class UEIMPORT_OT_toggle_fog_preview(bpy.types.Operator):
             return {'FINISHED'}
         except Exception as exc:
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
+
+
+class UEIMPORT_OT_select_recoverable_meshes(bpy.types.Operator):
+    bl_idname='ueimport.select_recoverable_meshes'
+    bl_label='Select Recoverable Mesh Anchors'
+    bl_description='Select visible missing mesh anchors in the selected original level whose exact native UE5.6 mesh packages are now available'
+    @classmethod
+    def poll(cls,context):return UEIMPORT_OT_import_map.poll(context)
+    def execute(self,context):
+        try:
+            s=context.scene.ueimport_project
+            project,_,maps=discover_maps(bpy.path.abspath(s.project_path));selected=s.maps[s.active].filepath
+            if project!=s.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+            owners=[c for c in context.scene.collection.children_recursive if c.get('UE_source_map_path')==selected]
+            if len(owners)!=1:raise ValueError('Import the selected map once before selecting recoverable anchors')
+            from uasset import UProject
+            from ue5_editor_repair import source_identity
+            from import_workflow import table_scope
+            p=UProject(project);eligible=[];verified={}
+            with table_scope():
+                for o in owners[0].objects:
+                    if o.type!='EMPTY' or o.get('UE_geometry_status')!='missing' or not o.get('UE_preview_only') or any(c.get('UE_repair_child') for c in o.children):continue
+                    if not o.visible_get() or o.hide_select:continue
+                    package=o.get('UE_mesh_package','')
+                    if package not in verified:
+                        try:source_identity(Path(p.resolve_package(package)),package);verified[package]=True
+                        except (ValueError,OSError,TypeError):verified[package]=False
+                    if verified[package]:eligible.append(o)
+            if not eligible:raise ValueError('No visible unrepaired anchors with verified available mesh packages; activate the selected level or restore sources first')
+            for o in context.selected_objects:o.select_set(False)
+            for o in eligible:o.select_set(True)
+            context.view_layer.objects.active=eligible[0]
+            self.report({'INFO'},f'Selected {len(eligible)} recoverable mesh anchors');return {'FINISHED'}
+        except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 
 class UEIMPORT_OT_repair_missing(bpy.types.Operator):
@@ -504,7 +641,7 @@ class UEIMPORT_OT_batch(bpy.types.Operator):
     _active=False
 
     @classmethod
-    def poll(cls,context): return not cls._active
+    def poll(cls,context): return not cls._active and not UEIMPORT_OT_level_set._active
 
     def start(self,context):
         from project_session import run_session
@@ -630,9 +767,14 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.operator('ueimport.scene_dependencies',icon='VIEWZOOM')
             if 0<=state.active<len(state.maps) and state.scene_summary_source==state.maps[state.active].filepath:
                 actions=layout.box();actions.label(text=state.scene_summary);actions.operator('ueimport.copy_scene_actions',icon='COPYDOWN')
+            recovery=layout.box();recovery.label(text='Recover missing original assets');recovery.prop(state,'recovery_folder',text='Folder');recovery.operator('ueimport.locate_sources',icon='VIEWZOOM')
+            if state.source_recovery_status:recovery.label(text=state.source_recovery_status)
+            if state.source_recovery_plan:recovery.label(text=state.source_recovery_plan,icon='TEXT');recovery.operator('ueimport.restore_sources',icon='FILE_REFRESH')
+            layout.prop(state,'scene_cache_mib')
             layout.prop(state,'strict_scene_dependencies')
             layout.operator('ueimport.full_scene',icon='SCENE_DATA')
             layout.operator('ueimport.level_set',icon='SCENE_DATA')
+            layout.label(text='Esc between levels rolls back the set')
             layout.operator('ueimport.activate_level')
             layout.operator('ueimport.apply_sky_preview',icon='WORLD')
             layout.operator('ueimport.toggle_fog_preview')
@@ -655,13 +797,14 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.prop(state,'light_preview_scale')
             layout.operator('ueimport.lighting_preview', icon='LIGHT')
             layout.operator('ueimport.camera_preview', icon='CAMERA_DATA')
+            layout.operator('ueimport.select_recoverable_meshes',icon='RESTRICT_SELECT_OFF')
             layout.operator('ueimport.repair_missing_meshes', icon='FILE_REFRESH')
             layout.label(text='Lighting is a preview, not Unreal rendering.')
             layout.label(text='Missing meshes remain empties; unresolved materials marked.')
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_copy_scene_actions, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_copy_scene_actions, UEIMPORT_OT_locate_sources, UEIMPORT_OT_restore_sources, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_select_recoverable_meshes, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():
