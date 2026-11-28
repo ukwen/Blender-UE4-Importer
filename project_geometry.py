@@ -1,4 +1,6 @@
 """Unified native project geometry routing. Cooked layouts require an explicit profile."""
+from project_paths import ProjectPaths
+
 import json
 from collections import Counter
 from pathlib import Path
@@ -91,9 +93,9 @@ class _NonGeometry(Exception): pass
 
 def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=False,planned_paths=None,all_lods=False,editor_materials=False,partial_materials=False):
     """Import supported geometry assets as a gallery, not as a level layout."""
-    import bpy,uasset
+    import bpy
     from skeletal_mesh_native import read_native_mesh,build_mesh
-    from uproject_browser import discover_maps
+    from project_paths import discover_maps
     if profile not in ('4.18','4.27','5.0','5.4','5.5','5.6'): raise ValueError('Select an explicit cooked profile')
     descriptor,_,_=discover_maps(descriptor)
     content=(Path(descriptor).parent/'Content').resolve()
@@ -104,7 +106,7 @@ def iter_geometry_folder(descriptor,subfolder='',profile='4.27',include_physics=
         allowed=set(paths); paths=[Path(p) for p in planned_paths]
         if len(set(paths))!=len(paths) or any(p not in allowed for p in paths): raise ValueError('Stale or invalid planned package paths')
     if len(paths)>10000: raise ValueError('Select a smaller folder (maximum 10000 packages)')
-    project=uasset.UProject(descriptor); collection=bpy.data.collections.new('UE native geometry gallery')
+    project=ProjectPaths(descriptor); collection=bpy.data.collections.new('UE native geometry gallery')
     bpy.context.scene.collection.children.link(collection)
     records=[]; cursor=0.; totals=Counter()
     stores=(bpy.data.objects,bpy.data.meshes,bpy.data.armatures,bpy.data.materials,bpy.data.images)

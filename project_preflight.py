@@ -103,10 +103,10 @@ def read_record(path,project):
 
 
 def preflight(descriptor,scope='ALL_MAPS',selected=None,subfolder='',job_filter='',selected_packages=None):
-    from uasset import UProject
-    from uproject_browser import discover_maps
+    from project_paths import ProjectPaths
+    from project_paths import discover_maps
     descriptor,engine,maps=discover_maps(descriptor)
-    content=(Path(descriptor).parent/'Content').resolve(); project=UProject(descriptor)
+    content=(Path(descriptor).parent/'Content').resolve(); project=ProjectPaths(descriptor)
     folder=(content/subfolder).resolve()
     if not folder.is_relative_to(content) or not folder.is_dir(): raise ValueError('Select a folder inside project Content')
     paths=content_paths(content); index={}; records={}

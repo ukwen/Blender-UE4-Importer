@@ -83,11 +83,11 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
     import bpy
     from package_inspector import inspect_package
     from project_session import new_ids,rollback_new
-    from uasset import UProject
+    from project_paths import ProjectPaths
     from ue5_scene_dependencies import audit
     from ue5_full_scene import coverage
     from static_scene import reconstruct_static_map
-    path=Path(filepath).resolve(); project=UProject(str(path));content=Path(project.dir)/'Content';scene=bpy.context.scene
+    path=Path(filepath).resolve(); project=ProjectPaths(str(path));content=Path(project.dir)/'Content';scene=bpy.context.scene
     meta=inspect_package(path);validate_tables(meta)
     if not math.isfinite(preview_scale) or not 0<preview_scale<=1000: raise ValueError('Invalid preview intensity multiplier')
     if any(str(path)==c.get(k) for c in scene.collection.children_recursive for k in ('UE_full_scene_source','UE_source_map_path')): raise ValueError('Level already imported (full or separate stages)')

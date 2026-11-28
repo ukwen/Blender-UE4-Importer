@@ -3,12 +3,12 @@ import argparse,json,sys
 from collections import Counter,defaultdict
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from uasset import UProject
+from project_paths import ProjectPaths
 from ue5_editor_scene import placement_records
 from ue5_editor_components import placements
 
 def audit(descriptor):
-    project=UProject(str(descriptor));content=Path(project.dir)/'Content';maps={};missing=defaultdict(Counter)
+    project=ProjectPaths(str(descriptor));content=Path(project.dir)/'Content';maps={};missing=defaultdict(Counter)
     for p in sorted(content.rglob('*.umap')):
         rel=p.relative_to(content).as_posix()
         try:

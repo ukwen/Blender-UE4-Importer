@@ -53,3 +53,5 @@ Goal: direct one-operation import of original Unreal project level into a faithf
 ## Consolidated development policy
 
 Use development as the sole active branch. Continue ordinary feature, performance and compatibility work alongside the staged replacement of inherited parser, mesh, material and level code. Maintain feature parity and regression evidence; audit source and binary provenance, remove obsolete branding from the final product after lawful replacement, and preserve required third-party notices. Preserve master and the former migration checkpoint; do not distribute until rights review is complete.
+
+0.10.98: independent project paths, host-only level inventory, classic tagged property records and typed UE4 animation routing. Next: migrate general property callers, skeleton/geometry and material/scene integration, recover matching legacy evidence and preserve feature parity while advancing importer coverage and workflow.

@@ -7,33 +7,7 @@ import bpy
 from bpy.props import StringProperty, BoolProperty, IntProperty, FloatProperty, CollectionProperty, PointerProperty, EnumProperty
 
 
-def discover_maps(descriptor,redirectors=None):
-    path = Path(descriptor).expanduser().resolve()
-    if path.suffix.lower() != '.uproject' or not path.is_file():
-        raise ValueError('Select an existing .uproject file')
-    with path.open(encoding='utf-8-sig') as stream:
-        metadata = json.load(stream)
-    if not isinstance(metadata, dict):
-        raise ValueError('Invalid project descriptor')
-    root = (path.parent / 'Content').resolve()
-    if not root.is_dir():
-        raise ValueError('Project Content directory is missing')
-    maps = []
-    for entry in root.rglob('*'):
-        if entry.suffix.lower() != '.umap' or not entry.is_file():
-            continue
-        if not entry.resolve().is_relative_to(root):
-            continue
-        relative = entry.relative_to(root)
-        if any(part in ('__ExternalActors__', '__ExternalObjects__') for part in relative.parts):
-            continue
-        from saved_project_levels import map_redirector
-        target=map_redirector(entry)
-        if target:
-            if redirectors is not None:redirectors.append(dict(source=relative.as_posix(),destination=target))
-            continue
-        maps.append((relative.as_posix(), str(entry.resolve())))
-    return str(path), str(metadata.get('EngineAssociation') or 'Unknown'), sorted(maps)
+from project_paths import discover_maps
 
 
 class UEIMPORT_Map(bpy.types.PropertyGroup):
@@ -307,10 +281,10 @@ class UEIMPORT_OT_scene_dependencies(bpy.types.Operator):
         try:
             project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
             if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
-            from uasset import UProject
+            from project_paths import ProjectPaths
             from ue5_scene_dependencies import audit
             from import_workflow import table_scope
-            with table_scope(state.scene_cache_mib*1024*1024):report=audit(UProject(project),selected)
+            with table_scope(state.scene_cache_mib*1024*1024):report=audit(ProjectPaths(project),selected)
             text=bpy.data.texts.new(Path(selected).stem+' — source dependencies.json');text.write(json.dumps(report,indent=2));state.batch_report=text.name
             publish_scene_actions(state,selected,report)
             self.report({'INFO'},f"{report['scanned_packages']} inspected; {report['unresolved_hard']} hard and {report['unresolved_soft_only']} soft-only unresolved; {len(report['unknown_tables'])} unknown tables. See report.")
@@ -346,8 +320,8 @@ def recovery_context(context):
     project,_,maps=discover_maps(bpy.path.abspath(s.project_path));selected=s.maps[s.active].filepath
     if project!=s.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
     if not recovery_scope(context):raise ValueError('Choose an existing recovery folder outside project Content')
-    from uasset import UProject
-    return s,UProject(project),selected,bpy.path.abspath(s.recovery_folder)
+    from project_paths import ProjectPaths
+    return s,ProjectPaths(project),selected,bpy.path.abspath(s.recovery_folder)
 
 
 class UEIMPORT_OT_locate_sources(bpy.types.Operator):
@@ -652,10 +626,10 @@ class UEIMPORT_OT_select_recoverable_meshes(bpy.types.Operator):
             if project!=s.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
             owners=[c for c in context.scene.collection.children_recursive if c.get('UE_source_map_path')==selected]
             if len(owners)!=1:raise ValueError('Import the selected map once before selecting recoverable anchors')
-            from uasset import UProject
+            from project_paths import ProjectPaths
             from ue5_editor_repair import source_identity
             from import_workflow import table_scope
-            p=UProject(project);eligible=[];verified={}
+            p=ProjectPaths(project);eligible=[];verified={}
             with table_scope():
                 for o in owners[0].objects:
                     if o.type!='EMPTY' or o.get('UE_geometry_status')!='missing' or not o.get('UE_preview_only') or any(c.get('UE_repair_child') for c in o.children):continue

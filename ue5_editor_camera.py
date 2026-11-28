@@ -80,8 +80,8 @@ def reconstruct(filepath):
     from mathutils import Matrix
     from blueprint_placement import apply_fields
     from project_session import new_ids,rollback_new
-    from uasset import UProject
-    path=Path(filepath).resolve();project=UProject(str(path));data=records(Path(project.dir)/'Content',path);require(data['records'],'No supported saved spring-arm camera records');require(not any(c.get('UE_camera_source')==str(path) for c in bpy.context.scene.collection.children_recursive),'Cameras already imported; remove prior camera preview collection before reimporting')
+    from project_paths import ProjectPaths
+    path=Path(filepath).resolve();project=ProjectPaths(str(path));data=records(Path(project.dir)/'Content',path);require(data['records'],'No supported saved spring-arm camera records');require(not any(c.get('UE_camera_source')==str(path) for c in bpy.context.scene.collection.children_recursive),'Cameras already imported; remove prior camera preview collection before reimporting')
     before=set(new_ids())
     try:
         collection=bpy.data.collections.new('UE5 camera rig preview — '+path.stem);bpy.context.scene.collection.children.link(collection)

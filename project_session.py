@@ -31,9 +31,9 @@ def source_fingerprint(plan):
 
 def job_fingerprint(plan,path,common,engine_hashes):
     """Scope-independent fingerprint of project bytes plus reachable known engine files."""
-    from uasset import UProject
+    from project_paths import ProjectPaths
     from project_preflight import package_id
-    project=Path(plan['project']).resolve(); resolver=UProject(str(project))
+    project=Path(plan['project']).resolve(); resolver=ProjectPaths(str(project))
     seed=package_id(path,project.parent/'Content'); pending=[seed];seen=set();external=[]
     while pending:
         package=pending.pop()

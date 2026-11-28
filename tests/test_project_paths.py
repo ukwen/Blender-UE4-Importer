@@ -1,19 +1,11 @@
 """Host-independent tests for project discovery and package resolution."""
-import ast
-import json
 import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-# Isolate the resolver from the original Blender-dependent binary parser.
-source = Path(__file__).resolve().parents[1] / "uasset.py"
-tree = ast.parse(source.read_text(encoding="utf-8"))
-project = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "UProject")
-namespace = dict(Path=Path, os=os, json=json, winreg=None)
-exec(compile(ast.Module(body=[project], type_ignores=[]), str(source), "exec"), namespace)
-UProject = namespace["UProject"]
+from project_paths import ProjectPaths as UProject, discover_maps
 
 class ProjectPathsTests(unittest.TestCase):
     def setUp(self):
@@ -60,6 +52,44 @@ class ProjectPathsTests(unittest.TestCase):
         (self.root / "Other.uproject").write_text("{}")
         with self.assertRaises(ValueError):
             UProject(str(self.asset))
+
+    def test_explicit_descriptor_disambiguates(self):
+        other = self.root / 'Other.uproject'
+        other.write_text('{}')
+        self.assertEqual(UProject(other).descriptor, other)
+
+    def test_invalid_descriptor(self):
+        descriptor = self.root / 'My Project.uproject'
+        for invalid in ('[]', '{"EngineAssociation":123}'):
+            descriptor.write_text(invalid)
+            with self.assertRaises(ValueError):
+                UProject(descriptor)
+
+    def test_map_extension_and_host_independent_discovery(self):
+        level = self.content / 'Level.umap'
+        level.touch()
+        hidden = self.root / 'Content' / '__ExternalActors__'
+        hidden.mkdir(); (hidden / 'Hidden.umap').touch()
+        descriptor = self.root / 'My Project.uproject'
+        self.assertEqual(Path(UProject(descriptor).resolve_package('/Game/Meshes/Level', '.umap')), level)
+        self.assertEqual(discover_maps(descriptor)[2], [('Meshes/Level.umap', str(level))])
+
+    def test_portable_identity_rejection(self):
+        p = UProject(self.asset)
+        for name in ('/Game/NUL', '/Game/Meshes/Bad?', '/Game/A.', '/Game/A ', '/Game/A\x00B'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                p.resolve_package(name)
+
+    def test_symlink_escape(self):
+        outside = Path(self.temp.name) / 'outside'
+        outside.mkdir()
+        link = self.root / 'Content' / 'Link'
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            self.skipTest('Symlink creation unavailable')
+        with self.assertRaises(ValueError):
+            UProject(self.asset).resolve_package('/Game/Link/Chair')
 
 if __name__ == "__main__":
     unittest.main()

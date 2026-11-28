@@ -38,9 +38,9 @@ def restore(filepath,anchors,materials=False,partial=False):
     """
     import bpy
     from mathutils import Matrix
-    from uasset import UProject
+    from project_paths import ProjectPaths
     from project_session import new_ids,rollback_new
-    path=Path(filepath).resolve();project=UProject(str(path));content=Path(project.dir)/'Content';anchors=list(dict.fromkeys(anchors))
+    path=Path(filepath).resolve();project=ProjectPaths(str(path));content=Path(project.dir)/'Content';anchors=list(dict.fromkeys(anchors))
     require(anchors and len(anchors)<=10000,'Select one or more missing mesh placeholders')
     level,index=record_index(content,path,any(a.get('UE_component_name') for a in anchors));results=[];cache={};pending=[];options_values=[bool(materials),bool(partial)]
     if materials:

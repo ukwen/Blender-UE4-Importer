@@ -1,10 +1,5 @@
 from __future__ import annotations
-import io, uuid, time, os, glob, json
-from pathlib import Path
-try:
-    import winreg
-except ImportError:
-    winreg = None
+import io, uuid, time, os
 from struct import *
 from ctypes import *
 from mathutils import *
@@ -538,63 +533,8 @@ class USummary:
             for i in range(f.ReadInt32()): chunk_id = f.ReadInt32()
         elif version_ue4 >= 278: chunk_id = f.ReadInt32()
         if version_ue4 >= 507: self.preload_depends_desc = ArrayDesc(f)
-class UProject:
-    def __init__(self, uasset_path: str):
-        source = Path(uasset_path).resolve()
-        # Find the nearest project root, rather than assuming Windows separators.
-        roots = [p for p in source.parents if list(p.glob("*.uproject"))]
-        if roots:
-            root = roots[0]
-            descriptors = sorted(root.glob("*.uproject"))
-            if len(descriptors) != 1:
-                raise ValueError(f"Ambiguous Unreal project descriptors in {root}")
-            self.descriptor = descriptors[0]
-        else:
-            content = next((p for p in source.parents if p.name.lower() == "content"), None)
-            root = content.parent if content else source.parent
-            self.descriptor = None
-        self.dir = str(root)
-        self.engine_dir = None
-        association = None
-        if self.descriptor:
-            with self.descriptor.open(encoding="utf-8-sig") as file:
-                association = json.load(file).get("EngineAssociation")
-        # The engine is optional: project-local /Game/ assets remain readable.
-        override = os.environ.get("UNREAL_ENGINE_ROOT")
-        candidates = [Path(override)] if override else []
-        if winreg is not None and association:
-            try:
-                key = rf"SOFTWARE\EpicGames\Unreal Engine\{association}"
-                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key) as handle:
-                    candidates.append(Path(winreg.QueryValueEx(handle, "InstalledDirectory")[0]))
-            except OSError:
-                pass
-        for candidate in candidates:
-            for engine in (candidate / "Engine", candidate):
-                if (engine / "Content").is_dir():
-                    self.engine_dir = str(engine.resolve())
-                    break
-            if self.engine_dir:
-                break
-
-    def resolve_package(self, path: str):
-        # Package paths are not arbitrary filesystem paths.
-        if path.startswith("/Game/"):
-            root, relative = Path(self.dir) / "Content", path[6:]
-        elif path.startswith("/Engine/"):
-            if not self.engine_dir:
-                raise FileNotFoundError(f"Engine dependency unavailable: {path}; set UNREAL_ENGINE_ROOT")
-            root, relative = Path(self.engine_dir) / "Content", path[8:]
-        else:
-            raise ValueError(f"Unsupported package mount: {path}")
-        parts = relative.split("/")
-        if any(not p or p in (".", "..") or "\\" in p or ":" in p for p in parts):
-            raise ValueError(f"Invalid package path: {path}")
-        target = root.joinpath(*parts)
-        result = Path(str(target) + ".uasset").resolve()
-        if not result.is_relative_to(root.resolve()):
-            raise ValueError(f"Package escapes content root: {path}")
-        return str(result)
+# Temporary API alias for legacy callers; implementation is host-independent.
+from project_paths import ProjectPaths as UProject
 
 class UAsset:
     def __init__(self, filepath:str, read_all=False, uproject=None):

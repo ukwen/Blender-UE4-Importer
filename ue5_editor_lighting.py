@@ -87,10 +87,10 @@ def reconstruct(filepath,preview_scale=1.):
     import bpy
     from mathutils import Matrix
     from blueprint_placement import apply_fields
-    from uasset import UProject
+    from project_paths import ProjectPaths
     from project_session import new_ids,rollback_new
     require(math.isfinite(preview_scale) and 0<preview_scale<=1000,'Invalid preview intensity multiplier')
-    path=Path(filepath).resolve();project=UProject(str(path));content=Path(project.dir)/'Content';data=records(content,path)
+    path=Path(filepath).resolve();project=ProjectPaths(str(path));content=Path(project.dir)/'Content';data=records(content,path)
     require(data['records'],'No supported light or marker records')
     require(not any(c.get('UE_lighting_source')==str(path) for c in bpy.context.scene.collection.children_recursive),'Lighting already imported; remove the prior lighting collection before reimporting')
     before=set(new_ids());counts=Counter()

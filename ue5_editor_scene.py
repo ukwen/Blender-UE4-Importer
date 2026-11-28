@@ -2,6 +2,8 @@
 External actors are discovered through the level-relative folder and checked against
 serialized PersistentLevel imports. Attached/Blueprint/runtime actors are not guessed.
 """
+from project_paths import ProjectPaths
+
 import json
 import math
 import struct
@@ -83,11 +85,11 @@ def reconstruct(filepath,materials=False,components=False,partial=False):
 
 def iter_geometry(filepath,materials=False,components=False,partial=False):
     """Cooperative geometry stages; caller owns rollback on close/failure."""
-    import bpy,uasset
+    import bpy
     from static_scene import MeshResolver
     from blueprint_placement import apply_fields
     require(not any(c.get('UE_full_scene_source')==str(Path(filepath).resolve()) for c in bpy.context.scene.collection.children_recursive),'Level already imported as a full scene; remove the prior import explicitly before retrying')
-    project=uasset.UProject(filepath);content=Path(project.dir)/'Content';data=placement_records(content,filepath)
+    project=ProjectPaths(filepath);content=Path(project.dir)/'Content';data=placement_records(content,filepath)
     yield 'Static placement records'
     resolver=MeshResolver(project,'5.6');collection=bpy.data.collections.new('UE5 editor — '+Path(filepath).stem);bpy.context.scene.collection.children.link(collection)
     override_cache={};counts=Counter();

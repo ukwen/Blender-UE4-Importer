@@ -28,24 +28,7 @@ def read_raw_tracks(r, frame_count, expected=None):
     return tracks
 
 
-def read_tagged_properties(r,names):
-    """Read bounded UE4 tagged fields without interpreting unrelated payloads."""
-    tags={}; kinds={}
-    simple={'IntProperty','FloatProperty','ObjectProperty','NameProperty','StrProperty','Int64Property','UInt32Property','DoubleProperty','TextProperty','SoftObjectProperty'}
-    while True:
-        key=r.name(names)
-        if key=='None': break
-        typ=r.name(names); size,index=r.unpack('ii'); require(key not in tags and index==0 and size>=0,'Invalid animation property tag')
-        inner=None; flag=None
-        if typ=='StructProperty': inner=r.name(names); r.take(16)
-        elif typ in ('ArrayProperty','SetProperty','ByteProperty','EnumProperty'): inner=r.name(names)
-        elif typ=='MapProperty': inner=r.name(names); r.name(names)
-        elif typ=='BoolProperty': flag=r.unpack('B')[0]; require(flag in (0,1) and size==0,'Invalid bool property')
-        elif typ not in simple: raise ValueError('Unsupported animation property tag type: '+typ)
-        guid=r.unpack('B')[0]; require(guid in (0,1),'Invalid property GUID flag')
-        if guid: r.take(16)
-        tags[key]=flag if typ=='BoolProperty' else r.take(size); kinds[key]=(typ,inner)
-    return tags,kinds
+from ue4_property_records import read_tagged_properties
 
 
 def read_export(data,names,name):
@@ -93,22 +76,18 @@ def read_animation(path):
     if meta.get('ue5')==1017:
         from ue5_editor_animation import read_animation as read_editor_animation
         return read_editor_animation(path)
-    from uasset import UAsset
-    from material_stage import package_reference
+    from package_records import read_package
     require(meta.get('status')=='tables_inspected' and meta.get('legacy')==-7 and meta.get('ue4')==522 and meta.get('ue5') is None and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected versioned monolithic UE4.27 editor animation')
-    asset=UAsset(str(path),False)
-    try:
-        asset.Read(False)
-        matches=[e for e in asset.exports if e.export_class_type=='AnimSequence' and e.outer_index==0]
-        require(len(matches)==1,'Expected one root AnimSequence export')
-        e=matches[0]; offset,size=e.serial_desc.offset,e.serial_desc.count
-        require(meta['header_end']<=offset and 0<size<=meta['size']-offset,'Invalid animation export extent')
-        asset.f.Seek(offset); data=read_export(asset.f.ReadBytes(size),asset.names,e.object_name)
-        idx=data['skeleton_index']; require(-len(asset.imports)<=idx<0,'Invalid animation skeleton reference')
-        ref=asset.DecodePackageIndex(idx); require(ref.class_name=='Skeleton','Animation skeleton reference is not USkeleton')
-        package=package_reference(ref); require(bool(package),'Unresolved skeleton package')
-        data['skeleton_package']=package; return data
-    finally: asset.Close()
+    meta, raw, table = read_package(path)
+    matches = [e for e in table.exports if e.kind=='AnimSequence' and not e.outer]
+    require(len(matches)==1,'Expected one root AnimSequence export')
+    e = matches[0]
+    require(e.size>0,'Empty animation export')
+    data = read_export(raw[e.offset:e.offset+e.size], table.names, e.name)
+    idx = data['skeleton_index']; require(-len(table.imports)<=idx<0,'Invalid animation skeleton reference')
+    ref = table.reference(idx); require(ref.kind=='Skeleton','Animation skeleton reference is not USkeleton')
+    package = table.package(idx); require(bool(package),'Unresolved skeleton package')
+    data['skeleton_package']=package; return data
 
 
 def authored_root_translation(track, frames):

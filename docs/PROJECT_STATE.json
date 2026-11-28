@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.97-dev",
-  "previous_verified_commit": "26379f434fa3099fd6735565465554339ba09f4d",
-  "previous_verified_tree": "a2a6e052eee02c0b1e846d80f3e874c0d4b38ce4",
-  "current_commit_resolution": "0.10.97 runtime acceptance baseline dd485f4f2541f202afcb93d8a4e70f4bdcc85e3d tree 9fc508f0cc9ce39832fdf4f553511ffabd7ec883; subsequent branch consolidation changes documentation only. Resolve current development head and verify exact tree.",
-  "milestone": "Bounded typed package table reader; UE5 table consumers and UE4 522 preflight migration",
+  "application_version": "0.10.98-dev",
+  "previous_verified_commit": "af3ffc87e967b19483034076a7844a25b7340045",
+  "previous_verified_tree": "93d7f94bb174049b985a60b2ebacc61f7e08fb76",
+  "current_commit_resolution": "Match latest development head and immutable 0.10.98 checkpoint/tree; prior 0.10.96 Library archive plus Git changes can restore source if upload quota intervenes.",
+  "milestone": "Independent project paths and bounded classic property records; host-independent map inventory and UE4 animation boundary migration",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.97_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.97-local.zip",
-    "install_archive": "install-097.zip",
+    "checkpoint": "Unreal_Importer_0.10.98_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.98-local.zip",
+    "install_archive": "install-098.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,33 +30,38 @@
   },
   "tests": {
     "python": {
-      "passed": 128,
+      "passed": 137,
       "skipped": 10,
       "failed": 0
     },
-    "original_table_corpus": {
-      "matching_original_packages": 872,
-      "accepted": 872,
-      "by_version": {
-        "1004": 3,
-        "1013": 4,
-        "1015": 2,
-        "1016": 2,
-        "1017": 853,
-        "1018": 5,
-        "UE4_522": 3
-      },
-      "failures": []
+    "project_paths": {
+      "passed": 11
     },
-    "isolated_install": "See immutable checkpoint",
-    "original_level_set": "See immutable checkpoint",
-    "previously_verified": "0.10.96 generated shader groups and native texture boundary not repeated; long material reopen previously timed out"
+    "classic_tags": {
+      "passed": 4,
+      "original_roots": 3,
+      "controlled_animation_boundary": true
+    },
+    "headless_inventory": {
+      "levels": 6,
+      "excluded_redirectors": 1
+    },
+    "level_set": {
+      "objects": 94,
+      "max_reopen_matrix_error": 0,
+      "rollback": true
+    },
+    "isolated_install": {
+      "imported": 3,
+      "reopen_reuse": true
+    },
+    "previously_verified": "0.10.97 original 872-package table corpus; 0.10.96 shader/texture acceptance; not rerun as whole corpus in this milestone"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Parallel work on development: independent UE4 tagged property decoder and project resolver; ongoing importer feature, fidelity, performance and compatibility improvements. Migrate remaining inherited geometry/material/map code and audit rights before distribution.",
+  "next_priority": "Migrate remaining UE4 property consumers and native skeleton/geometry readers to typed records; preserve legacy acceptance and continue importer feature, fidelity and performance work on development. Original UE4 animation parity and missing source profiles remain evidence-gated.",
   "restrictions": [
     "CPU only",
     "preserve master",

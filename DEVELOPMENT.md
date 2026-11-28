@@ -225,3 +225,7 @@ Separate `feature/independent-importer` branch, preserving development 0.10.95. 
 ## 0.10.97-dev — typed editor package table migration
 
 See [independence](docs/INDEPENDENCE.md) and [tests](docs/TEST_REPORT.md). Modern UE5 and UE4 522 preflight use bounded typed records; remaining inherited parser and import integration are still pending.
+
+## 0.10.98-dev — project paths and classic property records
+
+Independent project resolution, Python-only saved level inventory, bounded classic UE4 property headers, typed animation routing. See docs/INDEPENDENCE.md and docs/TEST_REPORT.md.

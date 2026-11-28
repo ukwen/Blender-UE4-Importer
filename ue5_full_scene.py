@@ -78,12 +78,12 @@ def iter_reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies
 def _reconstruct(filepath,partial,preview_scale,strict_dependencies,stages_timer,cache):
     import bpy
     from mathutils import Matrix
-    from uasset import UProject
+    from project_paths import ProjectPaths
     from project_session import new_ids,rollback_new
     from ue5_editor_scene import iter_geometry
     from ue5_editor_lighting import records as lights, reconstruct as lighting
     from ue5_editor_camera import records as cameras, reconstruct as camera
-    path=Path(filepath).resolve();project=UProject(str(path));content=Path(project.dir)/'Content';scene=bpy.context.scene
+    path=Path(filepath).resolve();project=ProjectPaths(str(path));content=Path(project.dir)/'Content';scene=bpy.context.scene
     # Refuse overlapping independent imports too, rather than quietly duplicate or delete them.
     keys=('UE_full_scene_source','UE_source_map_path','UE_lighting_source','UE_camera_source')
     require(not any(str(path)==c.get(k) for c in scene.collection.children_recursive for k in keys),'Level already imported (full or separate stages); remove the prior import explicitly before retrying')
