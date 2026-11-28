@@ -19,7 +19,7 @@ def base_property_audit(history, base):
             if flag is None:
                 row['status']='inactive_no_flag'
             elif flag.get('type')!=['BoolProperty'] or flag.get('data')!='' or flag.get('flags',0)&0x28:
-                row['status']='invalid_flag';issues.append('Invalid base property flag: '+name)
+                row['status']='invalid_flag';selected.add(name);issues.append('Invalid base property flag: '+name)
             elif not flag['flags']&16:
                 row['status']='inactive_false_flag'
             elif name in selected:

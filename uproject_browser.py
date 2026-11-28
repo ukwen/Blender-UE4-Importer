@@ -31,6 +31,7 @@ def discover_maps(descriptor):
 
 
 class UEIMPORT_Map(bpy.types.PropertyGroup):
+    enabled: BoolProperty(default=False)
     name: StringProperty()
     filepath: StringProperty()
 
@@ -214,6 +215,43 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
         state.batch_report=collection['UE_report'];counts=report['counts']
         self.report({'INFO'},f"Saved level preview: {counts['meshes']} meshes, {counts['armatures']} rigs, {counts['lights']} lights, {counts['cameras']} cameras. Inspect scene transfer report for gaps.")
         return {'FINISHED'}
+
+
+class UEIMPORT_UL_maps(bpy.types.UIList):
+    def draw_item(self,context,layout,data,item,icon,active_data,active_propname,index):
+        row=layout.row(align=True);row.prop(item,'enabled',text='');row.label(text=item.name)
+
+
+class UEIMPORT_OT_level_set(bpy.types.Operator):
+    bl_idname='ueimport.level_set'
+    bl_label='Import Checked Levels (Separate)'
+    bl_description='Atomic transfer of checked independent maps; no inferred streaming placement'
+    bl_options={'REGISTER','UNDO'}
+    @classmethod
+    def poll(cls,context):return UEIMPORT_OT_import_map.poll(context)
+    def execute(self,context):
+        s=context.scene.ueimport_project
+        try:
+            project,_,maps=discover_maps(bpy.path.abspath(s.project_path));paths=[m.filepath for m in s.maps if m.enabled]
+            if project!=s.scanned_project or not set(paths)<={p for _,p in maps}:raise ValueError('Project or maps changed; scan again')
+            from saved_project_levels import reconstruct
+            c,r=reconstruct(project,paths,s.partial_materials,s.light_preview_scale,s.strict_scene_dependencies,s.cooked_profile);s.batch_report=c['UE_report']
+            self.report({'INFO'},f"Imported {len(r['levels'])} independent saved levels")
+            return {'FINISHED'}
+        except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
+
+
+class UEIMPORT_OT_activate_level(bpy.types.Operator):
+    bl_idname='ueimport.activate_level'
+    bl_label='Show Selected Imported Level'
+    bl_options={'REGISTER','UNDO'}
+    @classmethod
+    def poll(cls,context):return UEIMPORT_OT_import_map.poll(context)
+    def execute(self,context):
+        try:
+            from saved_project_levels import activate
+            s=context.scene.ueimport_project;activate(context.scene,s.maps[s.active].filepath);return {'FINISHED'}
+        except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 
 class UEIMPORT_OT_apply_sky_preview(bpy.types.Operator):
@@ -540,11 +578,13 @@ class UEIMPORT_PT_project(bpy.types.Panel):
         if state.scanned_project:
             layout.label(text=f'Engine: {state.engine}')
             layout.label(text=f'Maps: {len(state.maps)}')
-            layout.template_list('UI_UL_list', 'unreal_maps', state, 'maps', state, 'active', rows=5)
+            layout.template_list('UEIMPORT_UL_maps', 'unreal_maps', state, 'maps', state, 'active', rows=5)
             layout.prop(state,'partial_materials',text='Allow partial material previews')
             layout.operator('ueimport.scene_dependencies',icon='VIEWZOOM')
             layout.prop(state,'strict_scene_dependencies')
             layout.operator('ueimport.full_scene',icon='SCENE_DATA')
+            layout.operator('ueimport.level_set',icon='SCENE_DATA')
+            layout.operator('ueimport.activate_level')
             layout.operator('ueimport.apply_sky_preview',icon='WORLD')
             layout.operator('ueimport.toggle_fog_preview')
             layout.prop(state, 'materials')
@@ -572,7 +612,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():

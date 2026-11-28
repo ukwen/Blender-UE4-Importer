@@ -17,6 +17,7 @@ def external_packages(content,map_path):
     require(map_path.is_relative_to(content),'Map is outside Content')
     relative=map_path.relative_to(content).with_suffix('')
     root=content/'__ExternalActors__'/relative
+    require(root.resolve().is_relative_to(content),'External actor folder escapes Content')
     paths=sorted(p for p in root.rglob('*.uasset') if p.is_file() and p.resolve().is_relative_to(root.resolve()))
     require(len(paths)<=10000,'External actor count limit');return paths
 

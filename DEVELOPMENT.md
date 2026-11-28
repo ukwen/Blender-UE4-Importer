@@ -173,3 +173,7 @@ See [instance fidelity](docs/0.10.83-instance-fidelity.md): preserve selected/sh
 ## 0.10.84-dev
 
 See [fog and material semantics](docs/0.10.84-fog-and-material.md). Explicit base property flags, bounded RGB-factor Lerp and opt-in finite fog. Original map toggle/reopen and controlled CPU render verified; no engine parity claim.
+
+## 0.10.85-dev
+
+See [saved level sets and partition ownership](docs/0.10.85-level-sets.md). Atomic checked independent maps, partition ownership and explicit unsupported composition, material override guard and external actor path safety.

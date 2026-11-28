@@ -68,6 +68,9 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
     inventory,errors=actor_inventory(content,path,instance_records)
     from ue5_instance_inventory import summarize
     instance_report=summarize(instance_records,errors)
+    from ue5_level_layout import inventory as layout_inventory
+    try:layout=layout_inventory(content,path)
+    except ValueError as exc:layout=dict(status="unsupported",detail=str(exc))
     light_data=lights(content,path);camera_data=cameras(content,path)
     before=set(new_ids());old_camera=scene.camera
     try:
@@ -100,7 +103,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
         require(scene.camera==old_camera,'Unexpected active camera change')
         objects=list(root.all_objects);require(objects,'No supported scene objects reconstructed')
         material_counts=Counter(v['status'] for v in gr.get('material_report',{}).values())
-        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset and non-rendering decal guides; opt-in analytical sky where supported; opt-in finite fog preview separately available; no Unreal fog equivalence, runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
+        report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,level_layout=layout,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset and non-rendering decal guides; opt-in analytical sky where supported; opt-in finite fog preview separately available; no Unreal fog equivalence, runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
         text=bpy.data.texts.new(root.name+' - scene transfer.json');text.write(json.dumps(report,indent=2));root['UE_report']=text.name;root['UE_full_scene_source']=str(path);root['UE_preview_only']=True
         return root,report
     except Exception:

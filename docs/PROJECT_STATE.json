@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.84-dev",
-  "previous_verified_commit": "896848b1b2ecfee04fa26882660baa434125a9f8",
-  "previous_verified_tree": "bb539ded9294ba70d9e9d032865ec31cb0f9419c",
-  "current_commit_resolution": "Verify immutable 0.10.84 checkpoint or exact GitHub commit message against source tree and archives; if Library throttled use 0.10.83 archive plus changed GitHub blobs.",
-  "milestone": "Explicit base-property audit, bounded RGB vector interpolation and opt-in finite height fog preview",
+  "application_version": "0.10.85-dev",
+  "previous_verified_commit": "809bb689f45585b965451941092476031c7df15a",
+  "previous_verified_tree": "e256e218f9d5cc1013753c4cea4911fc57966651",
+  "current_commit_resolution": "Match immutable 0.10.85 Library checkpoint and published development commit/tree to archive hashes.",
+  "milestone": "World Partition ownership audit and atomic checked independent saved level transfer; material override guard",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.84_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.84-local.zip",
-    "install_archive": "install-084.zip",
+    "checkpoint": "Unreal_Importer_0.10.85_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.85-local.zip",
+    "install_archive": "install-085.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,65 +30,47 @@
   },
   "tests": {
     "baseline": {
-      "passed": 82,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 86,
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Verified original archive hashes and baseline source/installer hashes; reused restored Blender and decoder; no fresh runtime extraction",
-    "fog_plan_original_levels": 4,
-    "fog_and_vector_probe": {
-      "original_map": "Lvl_ThirdPerson.umap",
-      "source_density": 0.04360000044107437,
-      "reopen": true,
-      "toggle": true,
-      "clear": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "scatter": [
-        0.9479788737371564,
-        0.9479788737371564,
-        0.9479788737371564
-      ],
-      "absorption": [
-        0.9391107596457005,
-        0.9391107596457005,
-        0.9391107596457005
-      ],
-      "analytic_absorption": 0.9371088881367227,
-      "rgb_vector_expected": [
-        0.19999999999999998,
-        0.45,
-        0.7999999999999999
-      ],
-      "rgb_vector_observed": [
-        0.20000047981739044,
-        0.4499989449977875,
-        0.8000019192695618
-      ],
-      "rgb_max_error": 1.9192695618341915e-06,
-      "scope": "original level toggle and controlled CPU volume and RGB probe; no UE rendering parity"
+    "current": {
+      "passed": 91,
+      "skipped": 23,
+      "failed": 0
     },
+    "environment_reverified": "Baseline source/installer hashes, local Git tree and four original dependency archive hashes verified; reused restored Blender/decoder",
+    "partition_original_maps": 4,
+    "owned_external_actor_packages": 465,
+    "external_ownership_errors": 0,
+    "streaming_disabled": 4,
+    "native_composition_candidates": 0,
+    "level_set": {
+      "original_levels": 2,
+      "objects": 75,
+      "meshes": 54,
+      "armatures": 1,
+      "max_reopen_matrix_error": 0,
+      "duplicate_refusal": true,
+      "late_rollback": true,
+      "world_camera_preserved": true,
+      "active_report_persisted": true
+    },
+    "single_level_regression": true,
     "original_instance_regression": true,
-    "sky_regression": true,
-    "two_level_blender_ue5_regression": true,
-    "legacy_and_goblin": "Previously verified; not rerun",
+    "fog_regression": true,
+    "legacy_and_goblin": "Previously verified, not rerun",
     "isolated_install": {
       "imported": 3,
-      "reopen_reuse": true
+      "reopen_reuse": true,
+      "scope": "Runtime tested; final archive checked separately"
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Saved level streaming and level instance coverage, modern UE5 instancing only with positive original payload evidence; improve UI and performance. No new downloads.",
+  "next_priority": "Native level composition only with positive streaming/LevelInstance records; improve existing visual geometry and scene fidelity, then modern instancing, professional UI and performance. No new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -106,6 +88,7 @@
     "Goblin incomplete mixed-version fixture: 559 static placements and 34 accessory mesh references missing; original descriptor absent; incomplete material graphs and no same-version project parity.",
     "Runtime tangent basis, normal compression and arbitrary normal expressions, mixed sampler mip/anisotropic behavior and exact material appearance unverified. Library quota may require GitHub-only incremental recovery.",
     "Legacy sky, actual UE fog scattering/capture/radiance equivalence, missing fog defaults/unsupported fields and EEVEE not validated.",
-    "Active base-property flags without serialized values (MI_GlowNT BlendMode and ShadingModel), float4 alpha, arbitrary vector widths and missing material functions remain unresolved."
+    "Active base-property flags without serialized values (MI_GlowNT BlendMode and ShadingModel), float4 alpha, arbitrary vector widths and missing material functions remain unresolved.",
+    "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition."
   ]
 }
