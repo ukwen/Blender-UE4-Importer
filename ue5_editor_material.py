@@ -12,7 +12,11 @@ EDITOR_MATERIAL_REVISION = "editor_material_085"
 
 def read_material(path):
     from package_inspector import inspect_package
-    if inspect_package(path).get('ue5')==1004:
+    meta=inspect_package(path)
+    if meta.get('ue5') is None and meta.get('ue4')==522:
+        from classic_material_graph import read_graph
+        return read_graph(path)
+    if meta.get('ue5')==1004:
         from ue5_legacy_editor import read_material as legacy_material
         return legacy_material(path)
     m,b,im,ex,ref,pkg=read_tables(path); names=m['names']
@@ -175,7 +179,7 @@ def expand_local_functions(data,content,unsupported):
     data['function_packages']=sorted(catalog)
 
 
-def apply_overrides(nodes,overrides,unsupported):
+def apply_overrides(nodes,overrides,unsupported,history=(),classic=False):
     groups={}
     for n in nodes.values():
         kind={'ScalarParameter':'scalar','VectorParameter':'vector','TextureSampleParameter2D':'texture','StaticSwitchParameter':'switch'}.get(n['kind'])
@@ -193,11 +197,19 @@ def apply_overrides(nodes,overrides,unsupported):
             if not intrinsic:unsupported.append('Unmatched material parameter: '+key[1])
             continue
         guid=v['guid'];field='texture' if key[0]=='texture' else 'value'
+        corroboration=None
         if guid and any(bytes.fromhex(guid)) and not any(n['guid']==guid for n in group):
-            entry['status']='guid_mismatch';unsupported.append('Parameter GUID mismatch: '+key[1]);continue
+            # The original classic child instance contains stale wind GUIDs.
+            # Only a unique global expression and an exact ancestor GUID allow
+            # a name-based preview; preserve the original GUID and evidence.
+            if classic and len(group)==1:
+                corroboration=next((h for h in history if not h['selected'] and (h['kind'],h['name'])==key and h['guid']==group[0]['guid'] and h['guid'] and any(bytes.fromhex(h['guid']))),None)
+            if corroboration is None:
+                entry['status']='guid_mismatch';unsupported.append('Parameter GUID mismatch: '+key[1]);continue
+            entry['ancestor_guid_evidence']={'guid':corroboration['guid'],'source_package':corroboration['source_package']}
         entry['status']='applied'
         for n in group:
-            previous=n.get(field);n[field]=v['value'];n['override_guid']=guid;n['override_resolution']='exact_guid' if n['guid']==guid else 'shared_global_parameter';n['override_source_package']=v.get('source_package')
+            previous=n.get(field);n[field]=v['value'];n['override_guid']=guid;n['override_resolution']='classic_unique_name_with_ancestor_guid' if corroboration else 'exact_guid' if n['guid']==guid else 'shared_global_parameter';n['override_source_package']=v.get('source_package')
             entry['matched_nodes'].append(dict(name=n['name'] if 'name' in n else n['parameter'],guid=n['guid'],resolution=n['override_resolution'],previous_value=previous,source_function=n.get('source_function'),source_export_index=n.get('source_export_index')))
     return audit
 
@@ -219,7 +231,7 @@ def resolve_material(content,package):
     # expressions (Epic Material Expressions Reference). Accept duplicate
     # GUIDs only when the override GUID matches a member of that exact group.
     expand_local_functions(data,content,unsupported)
-    audit=apply_overrides(data['nodes'],overrides,unsupported)
+    audit=apply_overrides(data['nodes'],overrides,unsupported,history,classic=data.get('source_profile')=='ue4_522_graph')
     from ue5_material_semantics import base_property_audit
     base_audit,base_issues=base_property_audit(base_override_history,data)
     if base_issues:unsupported.extend(['BasePropertyOverrides',*base_issues])
@@ -248,6 +260,15 @@ def build_material(content,package,allow_partial=False):
     import bpy
     from texture_blender import load_editor_texture
     data=resolve_material(content,package);mat=bpy.data.materials.new(package.rsplit('/',1)[-1]);mat.use_nodes=True;mat['UE_material_package']=package
+    if data.get('source_profile')=='ue4_522_graph':
+        mat.use_backface_culling=not data['two_sided']
+        from classic_wind_profile import extract_profile
+        try:
+            wind=extract_profile(data)
+            if wind:
+                mat['UE_wind_profile']=json.dumps(wind,sort_keys=True)
+                mat['UE_unimplemented_surface_inputs']='WorldPositionOffset'
+        except NotImplementedError as exc:mat['UE_wind_profile_error']=str(exc)
     mat['UE_editor_graph']=json.dumps(data,sort_keys=True);mat['UE_parameter_audit']=json.dumps(data['parameter_audit'],sort_keys=True); nt=mat.node_tree;nodes=nt.nodes;links=nt.links;bs=next(n for n in nodes if n.type=='BSDF_PRINCIPLED');bs.location=(650,0);built={};texture_nodes={};texture_alpha={};active=set();issues=list(data['unsupported']);connected=[];surface_inputs={}
     def node(typ,label):
         n=nodes.new(typ);n.label=label;n.location=(-600+(len(nodes)%4)*220,-240*(len(nodes)//4));return n

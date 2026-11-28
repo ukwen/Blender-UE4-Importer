@@ -1,0 +1,50 @@
+{
+  "T_PolygonGoblinWarCamp_Emissive_01_A.uasset": {
+    "metadata": {
+      "address_x": "TA_Wrap",
+      "address_y": "TA_Wrap",
+      "clamp": false,
+      "flip_y": false,
+      "format": "TSF_BGRA8",
+      "height": 4096,
+      "mips": 1,
+      "nearest": false,
+      "source_png": true,
+      "srgb": true,
+      "width": 4096
+    },
+    "sha256": "0f5fec9e362edcc740ef793f95aeaa02913ca33e6b93b12232e30f6454bfe92c"
+  },
+  "T_PolygonGoblinWarCamp_Normals_01.uasset": {
+    "metadata": {
+      "address_x": "TA_Wrap",
+      "address_y": "TA_Wrap",
+      "clamp": false,
+      "flip_y": true,
+      "format": "TSF_BGRA8",
+      "height": 4096,
+      "mips": 1,
+      "nearest": false,
+      "source_png": true,
+      "srgb": false,
+      "width": 4096
+    },
+    "sha256": "22ee98392a6dc1c34c52a9c8ed99c67521f400f38af645acebb9060c07a98820"
+  },
+  "T_PolygonGoblinWarCamp_Texture_01_A.uasset": {
+    "metadata": {
+      "address_x": "TA_Wrap",
+      "address_y": "TA_Wrap",
+      "clamp": false,
+      "flip_y": false,
+      "format": "TSF_BGRA8",
+      "height": 4096,
+      "mips": 1,
+      "nearest": false,
+      "source_png": true,
+      "srgb": true,
+      "width": 4096
+    },
+    "sha256": "cf5a1a4fbc01203d5317043f4f5343ddb02ca1d2220b1431b55b7477a509d7e8"
+  }
+}

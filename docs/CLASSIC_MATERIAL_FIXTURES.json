@@ -1,0 +1,30 @@
+{
+  "MF_VertexColorWind.uasset": {
+    "package": "/Game/PolygonGoblinWarCamp/Materials/Functions/MF_VertexColorWind",
+    "sha256": "3e2e999b0e7f3ddd3f634db8c9863f5ec05b156d978bd2f9c610eeef73b54261"
+  },
+  "MI_PolygonGoblinWarCamp.uasset": {
+    "package": "/Game/PolygonGoblinWarCamp/Materials/MI_PolygonGoblinWarCamp",
+    "sha256": "60b2a3d964eb5930e3b06d1a52c9aea755a2a52d619ab2b3d5318ef78ab27401"
+  },
+  "MI_PolygonGoblinWarCamp_Texture_01_A.uasset": {
+    "package": "/Game/PolygonGoblinWarCamp/Materials/Alts/MI_PolygonGoblinWarCamp_Texture_01_A",
+    "sha256": "830d801ee020ad1001204e7fcde24270606bd8170b1c3808a727187cf5b15076"
+  },
+  "M_PolygonGoblinWarCamp_Base.uasset": {
+    "package": "/Game/PolygonGoblinWarCamp/Materials/Base/M_PolygonGoblinWarCamp_Base",
+    "sha256": "86b4210f8e77b221b260616704b513ccb8046b50f7d46a608d3d4fe08e47c8b2"
+  },
+  "T_PolygonGoblinWarCamp_Emissive_01_A.uasset": {
+    "package": "/Game/PolygonGoblinWarCamp/Textures/Emissive/T_PolygonGoblinWarCamp_Emissive_01_A",
+    "sha256": "447bb04fb076d136b07563bc0d7c1bc854534aec9d88ff51eb33a9122ba4813d"
+  },
+  "T_PolygonGoblinWarCamp_Normals_01.uasset": {
+    "package": "/Game/PolygonGoblinWarCamp/Textures/Misc/T_PolygonGoblinWarCamp_Normals_01",
+    "sha256": "08e808cda4d0750ab7069d6b6874d97513b1087064059fcf7e247336035fc04c"
+  },
+  "T_PolygonGoblinWarCamp_Texture_01_A.uasset": {
+    "package": "/Game/PolygonGoblinWarCamp/Textures/Alts/T_PolygonGoblinWarCamp_Texture_01_A",
+    "sha256": "4eb56ab403d1c92d232e61ed60c1ec3865d30d579d0c70f1bdde706395fbd5c6"
+  }
+}

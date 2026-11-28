@@ -15,15 +15,17 @@ def selected_paths(operator):
 
 
 def run_files(operator, action):
-    paths=selected_paths(operator); succeeded=0; errors=[]
+    paths=selected_paths(operator); succeeded=0; errors=[]; previews=0
     for path in paths:
         try:
             if not path.is_file(): raise FileNotFoundError(path)
-            action(path); succeeded+=1
+            result=action(path); succeeded+=1
+            if isinstance(result,bpy.types.Material) and result.get("UE_unresolved_material"):
+                previews+=1;print(f"{path.name}: {result.get('UE_editor_material_status','partial')} — source graph limitations recorded in material properties")
         except Exception as exc:
             errors.append(f'{path.name}: {type(exc).__name__}: {exc}')
     for error in errors: print(error)
-    operator.report({'WARNING'} if errors else {'INFO'},f'Imported {succeeded}/{len(paths)} packages; {len(errors)} failed (see console)')
+    operator.report({'WARNING'} if errors or previews else {'INFO'},f'Imported {succeeded}/{len(paths)} packages; {len(errors)} failed; {previews} unresolved previews (see console)')
     return {'FINISHED'} if succeeded else {'CANCELLED'}
 
 
@@ -75,26 +77,46 @@ class ImportMesh(bpy.types.Operator, ImportHelper):
         return run_files(self,lambda path:import_mesh(path,self.materials,self.all_lods))
 
 
-def import_material(path):
+def import_material(path, allow_partial=False):
     from package_inspector import inspect_package
-    meta=inspect_package(path)
-    if meta.get('ue4')==508 and meta.get('ue5') is None and not meta['sidecars']:
-        from classic_material import read_material, build_material
-        try: data=read_material(path)
-        except NotImplementedError: pass  # non-basic graphs retain the compatibility route
-        else:
-            from project_paths import ProjectPaths
-            from project_session import new_ids, rollback_new
-            before=set(new_ids())
-            try:
+    from project_paths import ProjectPaths
+    from project_session import new_ids, rollback_new
+    path=Path(path).resolve();meta=inspect_package(path)
+    before=set(new_ids())
+    try:
+        if meta.get('ue5') in (1004,1012,1013,1014,1015,1016,1017,1018) and not meta['sidecars'] and not meta.get('flags',0)&0x80002000:
+            from ue5_editor_material import build_material
+            project=ProjectPaths(path);content=(Path(project.dir)/'Content').resolve()
+            if not path.is_relative_to(content):raise ValueError('Select a material inside its original project Content directory')
+            package='/Game/'+path.relative_to(content).with_suffix('').as_posix()
+            mat=build_material(content,package,allow_partial=allow_partial)
+            mat.use_fake_user=True
+            return mat
+        if meta.get('ue4') in (508,522) and meta.get('ue5') is None and not meta['sidecars']:
+            from classic_material import read_material, build_material
+            try: data=read_material(path)
+            except NotImplementedError:
+                if meta['ue4']==522:
+                    from classic_material_graph import read_graph
+                    try: graph=read_graph(path)
+                    except NotImplementedError: pass
+                    else:
+                        if graph['kind'] in ('material','instance'):
+                            from ue5_editor_material import build_material as build_graph
+                            project=ProjectPaths(path);content=(Path(project.dir)/'Content').resolve()
+                            if not path.is_relative_to(content):raise ValueError('Material outside project Content directory')
+                            mat=build_graph(content,'/Game/'+path.relative_to(content).with_suffix('').as_posix(),allow_partial=allow_partial)
+                            mat.use_fake_user=True
+                            return mat
+            else:
                 mat=build_material(ProjectPaths(path),path,data)
-                mat.use_fake_user=True  # keep a directly imported, unassigned material on reopen
+                mat.use_fake_user=True
                 return mat
-            except Exception:
-                rollback_new(before)
-                raise
-    from umat import ImportNodeGraph
-    return ImportNodeGraph(str(path))
+        from umat import ImportNodeGraph
+        return ImportNodeGraph(str(path))
+    except Exception:
+        rollback_new(before)
+        raise
 
 
 class ImportMaterial(bpy.types.Operator, ImportHelper):
@@ -105,8 +127,10 @@ class ImportMaterial(bpy.types.Operator, ImportHelper):
     files: CollectionProperty(type=bpy.types.OperatorFileListElement,options={'HIDDEN','SKIP_SAVE'})
     directory: StringProperty(options={'HIDDEN'})
 
+    allow_partial: BoolProperty(name='Allow partial material preview',description='Preview supported branches; unresolved source expressions remain reported',default=False)
+
     def execute(self,context):
-        return run_files(self,import_material)
+        return run_files(self,lambda path:import_material(path,self.allow_partial))
 
 
 class ImportLevel(bpy.types.Operator, ImportHelper):

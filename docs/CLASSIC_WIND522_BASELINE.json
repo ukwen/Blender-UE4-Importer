@@ -1,0 +1,170 @@
+{
+  "MI_PolygonGoblinWarCamp": {
+    "actor_custom_primitive_data_verified": false,
+    "engine_function": "/Engine/Functions/Engine_MaterialFunctions01/WorldPositionOffset/SimpleGrassWind",
+    "engine_input_semantics_verified": false,
+    "engine_inputs": [
+      {
+        "a": 20.0,
+        "b": 0.0,
+        "guid": "59b25ca3-7cbc-4405-bb26-78046abb81b0",
+        "material_lerp_value": -180.0,
+        "parameter": "WindIntensity"
+      },
+      {
+        "a": 0.019999999552965164,
+        "b": 0.0,
+        "guid": "9f127867-94c8-429e-a45b-24533d13b915",
+        "material_lerp_value": -0.979999978095293,
+        "parameter": "WindStregth"
+      },
+      {
+        "a": 0.5,
+        "b": 0.0,
+        "guid": "b142cfd8-5357-4efe-a4e6-c6f84d0e074e",
+        "material_lerp_value": 0.5,
+        "parameter": "WindSpeed"
+      },
+      {
+        "constant_rgb": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "guid": "12c80829-89c3-4253-97ac-47ee9d8e17bd"
+      }
+    ],
+    "mask": "1 - vertex color red",
+    "parameters": {
+      "WindIntensity": {
+        "custom_primitive_index": 1,
+        "default": 10.0,
+        "material_value": 10.0
+      },
+      "WindSpeed": {
+        "custom_primitive_index": 2,
+        "default": 0.0,
+        "material_value": 0.0
+      },
+      "WindStregth": {
+        "custom_primitive_index": 0,
+        "default": 50.0,
+        "material_value": 50.0
+      }
+    },
+    "profile": "simple_grass_wind_one_minus_red_v1",
+    "source_function": "/Game/PolygonGoblinWarCamp/Materials/Functions/MF_VertexColorWind"
+  },
+  "MI_PolygonGoblinWarCamp_Texture_01_A": {
+    "actor_custom_primitive_data_verified": false,
+    "engine_function": "/Engine/Functions/Engine_MaterialFunctions01/WorldPositionOffset/SimpleGrassWind",
+    "engine_input_semantics_verified": false,
+    "engine_inputs": [
+      {
+        "a": 20.0,
+        "b": 0.0,
+        "guid": "59b25ca3-7cbc-4405-bb26-78046abb81b0",
+        "material_lerp_value": -180.0,
+        "parameter": "WindIntensity"
+      },
+      {
+        "a": 0.019999999552965164,
+        "b": 0.0,
+        "guid": "9f127867-94c8-429e-a45b-24533d13b915",
+        "material_lerp_value": -1.9799999557435513,
+        "parameter": "WindStregth"
+      },
+      {
+        "a": 0.5,
+        "b": 0.0,
+        "guid": "b142cfd8-5357-4efe-a4e6-c6f84d0e074e",
+        "material_lerp_value": -49.5,
+        "parameter": "WindSpeed"
+      },
+      {
+        "constant_rgb": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "guid": "12c80829-89c3-4253-97ac-47ee9d8e17bd"
+      }
+    ],
+    "mask": "1 - vertex color red",
+    "parameters": {
+      "WindIntensity": {
+        "custom_primitive_index": 1,
+        "default": 10.0,
+        "material_value": 10.0
+      },
+      "WindSpeed": {
+        "custom_primitive_index": 2,
+        "default": 0.0,
+        "material_value": 100.0
+      },
+      "WindStregth": {
+        "custom_primitive_index": 0,
+        "default": 50.0,
+        "material_value": 100.0
+      }
+    },
+    "profile": "simple_grass_wind_one_minus_red_v1",
+    "source_function": "/Game/PolygonGoblinWarCamp/Materials/Functions/MF_VertexColorWind"
+  },
+  "M_PolygonGoblinWarCamp_Base": {
+    "actor_custom_primitive_data_verified": false,
+    "engine_function": "/Engine/Functions/Engine_MaterialFunctions01/WorldPositionOffset/SimpleGrassWind",
+    "engine_input_semantics_verified": false,
+    "engine_inputs": [
+      {
+        "a": 20.0,
+        "b": 0.0,
+        "guid": "59b25ca3-7cbc-4405-bb26-78046abb81b0",
+        "material_lerp_value": -180.0,
+        "parameter": "WindIntensity"
+      },
+      {
+        "a": 0.019999999552965164,
+        "b": 0.0,
+        "guid": "9f127867-94c8-429e-a45b-24533d13b915",
+        "material_lerp_value": -0.979999978095293,
+        "parameter": "WindStregth"
+      },
+      {
+        "a": 0.5,
+        "b": 0.0,
+        "guid": "b142cfd8-5357-4efe-a4e6-c6f84d0e074e",
+        "material_lerp_value": 0.5,
+        "parameter": "WindSpeed"
+      },
+      {
+        "constant_rgb": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "guid": "12c80829-89c3-4253-97ac-47ee9d8e17bd"
+      }
+    ],
+    "mask": "1 - vertex color red",
+    "parameters": {
+      "WindIntensity": {
+        "custom_primitive_index": 1,
+        "default": 10.0,
+        "material_value": 10.0
+      },
+      "WindSpeed": {
+        "custom_primitive_index": 2,
+        "default": 0.0,
+        "material_value": 0.0
+      },
+      "WindStregth": {
+        "custom_primitive_index": 0,
+        "default": 50.0,
+        "material_value": 50.0
+      }
+    },
+    "profile": "simple_grass_wind_one_minus_red_v1",
+    "source_function": "/Game/PolygonGoblinWarCamp/Materials/Functions/MF_VertexColorWind"
+  }
+}

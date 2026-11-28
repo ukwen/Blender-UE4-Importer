@@ -62,7 +62,7 @@ class MaterialResolver:
                     return
                 from package_inspector import inspect_package
                 meta=inspect_package(path)
-                if meta.get('ue4') in (508,522) and meta.get('ue5') is None and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
+                if meta.get('ue4') in (508,522) and (meta.get('ue5') is None or meta.get('ue5') in (1004,1012,1013,1014,1015,1016,1017,1018)) and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
                     from package_records import read_package
                     _,_,table=read_package(path)
                     refs=[i.name for i in table.imports if i.kind=='Package']
@@ -96,21 +96,32 @@ class MaterialResolver:
             try:
                 path=self.project.resolve_package(package)
                 from package_inspector import inspect_package
-                meta=inspect_package(path); classic=None
-                if meta.get('ue4')==508 and meta.get('ue5') is None:
+                meta=inspect_package(path); classic=None; graph=False
+                if meta.get('ue4') in (508,522) and meta.get('ue5') is None:
                     from classic_material import read_material
                     try: classic=read_material(path)
-                    except NotImplementedError: pass  # preserve other supported legacy graph paths
+                    except NotImplementedError:
+                        if meta['ue4']==522:
+                            from classic_material_graph import read_graph
+                            try: graph=read_graph(path)['kind'] in ('material','instance')
+                            except NotImplementedError: pass
+                elif meta.get('ue5') in (1004,1012,1013,1014,1015,1016,1017,1018) and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
+                    graph=True
                 if classic is not None:
                     from classic_material import build_material
                     mat=build_material(self.project,path,classic)
+                elif graph and package.startswith('/Game/'):
+                    from ue5_editor_material import build_material
+                    mat=build_material(Path(self.project.dir)/'Content',package,self.allow_partial)
                 else:
                     import umat
                     umat.TryAppendNodeGroups()
                     mat,_=umat.ImportNodeGraph(path,self.project)
                 if not isinstance(mat, bpy.types.Material) or not mat.node_tree:
                     raise ValueError('Not a material graph')
-                if incomplete_graph(mat.node_tree) or record['missing']:
+                if mat.get('UE_editor_material_status')=='metadata_only':
+                    raise ValueError('Unresolved source graph; partial preview disabled')
+                if incomplete_graph(mat.node_tree) or record['missing'] or mat.get('UE_editor_material_status')=='partial':
                     if not self.allow_partial or not connected_surface(mat.node_tree):
                         raise ValueError('Incomplete graph or missing image')
                     status = 'partial_graph_unresolved'

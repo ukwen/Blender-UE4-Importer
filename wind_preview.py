@@ -17,68 +17,18 @@ def require(condition, message):
         raise NotImplementedError(message)
 
 
-def source_link(exp, key, kind):
-    inp = exp.properties.TryGetValue(key)
-    require(inp is not None and inp.node is not None and inp.node_output_i == 0 and not inp.mask,
-            'Unsupported WPO link: ' + key)
-    require(inp.node.export_class_type == 'MaterialExpression' + kind, 'Unexpected WPO expression: ' + key)
-    return inp.node
-
-
 def read_profile(material_properties):
-    """Recognize the actual wrapper topology, not a material or filename heuristic."""
-    import uasset
-    from material_stage import package_reference
-    prop = material_properties['WorldPositionOffset']
-    inp = getattr(prop, 'material_input', None)
-    require(inp is not None and not inp.use_constant and not inp.mask and inp.node_output_i == 0,
-            'Unsupported WPO surface input')
-    call = inp.node
-    require(call is not None and call.export_class_type == 'MaterialExpressionMaterialFunctionCall', 'WPO is not a function call')
-    package = package_reference(call.properties.TryGetValue('MaterialFunction'))
-    require(package and not call.properties.TryGetValue('FunctionInputs', ()), 'Unsupported WPO wrapper interface')
-    outputs = call.properties.TryGetValue('FunctionOutputs', ())
-    require(len(outputs) == 1, 'Unsupported WPO output count')
-    with uasset.UAsset(call.asset.ToProjectPath(package), True, call.asset.uproject) as asset:
-        functions = [e for e in asset.exports if e.export_class_type == 'MaterialExpressionFunctionOutput']
-        require(len(functions) == 1 and str(functions[0].properties.TryGetValue('Id')) == str(outputs[0].TryGetValue('ExpressionOutputId')),
-                'WPO output GUID mismatch')
-        mul = source_link(functions[0], 'A', 'Multiply')
-        engine = source_link(mul, 'A', 'MaterialFunctionCall')
-        require(package_reference(engine.properties.TryGetValue('MaterialFunction')) == ENGINE, 'Not the supported engine wind dependency')
-        inverse = source_link(mul, 'B', 'OneMinus')
-        red = inverse.properties.TryGetValue('Input')
-        require(red is not None and red.node is not None and red.node.export_class_type == 'MaterialExpressionVertexColor'
-                and red.node_output_i == 1 and red.mask and tuple(red.mask_rgba) == (1, 0, 0, 0), 'Unsupported vertex color mask')
-        entries = engine.properties.TryGetValue('FunctionInputs', ())
-        require(len(entries) == 4, 'Unsupported engine wind interface')
-        parameters, sockets = {}, []
-        for entry in entries:
-            guid = str(entry.TryGetValue('ExpressionInputId'))
-            value = entry.TryGetValue('Input')
-            require(value is not None and value.node is not None and not value.mask and value.node_output_i == 0, 'Unsupported engine input link')
-            exp = value.node
-            if exp.export_class_type == 'MaterialExpressionLinearInterpolate':
-                a = float(source_link(exp, 'A', 'Constant').properties.TryGetValue('R', 0.0))
-                b = float(source_link(exp, 'B', 'Constant').properties.TryGetValue('R', 0.0))
-                p = source_link(exp, 'Alpha', 'ScalarParameter').properties
-                name = p.TryGetValue('ParameterName')
-                require(name in NAMES and name not in parameters, 'Unsupported or duplicate wind parameter')
-                default = float(p.TryGetValue('DefaultValue', 0.0))
-                require(all(math.isfinite(x) for x in (a, b, default)), 'Nonfinite wind parameter')
-                parameters[name] = {'default': default, 'material_value': default,
-                                    'custom_primitive_index': int(p.TryGetValue('PrimitiveDataIndex', 0)) if p.TryGetValue('bUseCustomPrimitiveData', False) else None}
-                sockets.append({'guid': guid, 'parameter': name, 'a': a, 'b': b})
-            elif exp.export_class_type == 'MaterialExpressionConstant3Vector':
-                c = exp.properties.TryGetValue('Constant')
-                require(c is not None, 'Missing constant engine input')
-                sockets.append({'guid': guid, 'constant_rgb': [float(c.r), float(c.g), float(c.b)]})
-            else:
-                raise NotImplementedError('Unsupported wind input expression')
-        require(set(parameters) == NAMES and len({s['guid'] for s in sockets}) == 4, 'Incomplete wind interface')
-    return {'profile': PROFILE, 'source_function': package, 'engine_function': ENGINE,
-            'mask': '1 - vertex color red', 'parameters': parameters, 'engine_inputs': sockets,
-            'engine_input_semantics_verified': False, 'actor_custom_primitive_data_verified': False}
+    """Temporary legacy caller bridge; decode the source with typed records."""
+    from pathlib import Path
+    from ue5_editor_material import resolve_material
+    from classic_wind_profile import extract_profile
+    inp=getattr(material_properties['WorldPositionOffset'],'material_input',None)
+    require(inp is not None and inp.node is not None,'Missing wind source material')
+    asset=inp.node.asset;content=(Path(asset.uproject.dir)/'Content').resolve();path=Path(asset.filepath).resolve()
+    require(path.is_relative_to(content),'Wind material outside project content')
+    graph=resolve_material(content,'/Game/'+path.relative_to(content).with_suffix('').as_posix())
+    require(graph.get('source_profile')=='ue4_522_graph','Unsupported classic wind source profile')
+    profile=extract_profile(graph);require(profile is not None,'Missing wind wrapper');return profile
 
 
 def refresh_profile(mat, graph):

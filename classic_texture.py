@@ -29,6 +29,11 @@ def read_source(path):
     require(path.stat().st_size<=MAX_BYTES,'Editor package size limit')
     meta,raw,table=read_package(path)
     require(meta['ue4'] in (508,522) and meta['ue5'] is None and not meta['flags']&8 and meta['licensee']==0,'Unsupported classic texture profile')
+    if meta['ue4']==522:
+        from package_inspector import inspect_package
+        summary=inspect_package(path,include_bulk_522=True)
+        require(summary.get('status')=='tables_inspected' and 'bulk_data_offset' in summary and summary['size']==len(raw),'Unsupported 522 bulk-data summary')
+        meta['bulk_data_offset']=summary['bulk_data_offset']
     e=root_export(table,'Texture2D'); end=e.offset+e.size
     r=Reader(raw[e.offset:end]); p=properties(r,table.names)
     src=p.get('Source'); require(src is not None and src.kind=='StructProperty' and src.parameters==('TextureSource',),'Missing texture source properties')

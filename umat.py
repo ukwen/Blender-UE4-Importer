@@ -500,17 +500,8 @@ def LinkSockets(node_tree, nodes_data:dict[str,NodeData], node_data:NodeData):
                         case 'StructProperty': TryLinkSocket(node_tree, nodes_data, node_data, expr, property, map_val)
                         case 'ArrayProperty':
                             for i, elem in enumerate(expr.value): TryLinkSocket(node_tree, nodes_data, node_data, elem['Input'], i, map_val[i])
-def SetNodeTexture(node, image):
-    node.image = image
-    from uv_semantics import set_address
-    set_address(node, image)
-    node.interpolation = 'Closest' if image.get('nearest', False) else 'Linear'
-
-    links = node.outputs['Color'].links
-    if len(links) > 0:
-        linked_node = links[0].to_node
-        if linked_node.type == 'GROUP' and linked_node.node_tree and linked_node.node_tree.get('UI_group_key','').startswith('RGBtoNormal'):
-            linked_node.node_tree = generated_group('RGBtoNormal' if image.get('flip_y', False) else 'RGBtoNormalY-')
+# Compatibility alias; texture assignment is implemented by the owned shader boundary.
+from shader_texture_binding import assign_image as SetNodeTexture
 def ImportMaterialFunction(mat_fnc_imp:Import, mesh=None, stack=()):
     from material_stage import package_reference
     package = package_reference(mat_fnc_imp)

@@ -198,7 +198,7 @@ def replace_snapshot(mat,graph,snapshot,guids):
         if new.get('UE_attribute_error') or incomplete_graph(group):
             raise ValueError('Replacement layer stack incomplete')
         from material_instance import CLASSES
-        from umat import SetNodeTexture
+        from shader_texture_binding import assign_image
         for key,(value,count) in replay.items():
             kind=key[3]
             targets=[t for t in staging.scoped_param_nodes.get(key[:3],[]) if CLASSES.get(t.classname)==kind]
@@ -209,7 +209,7 @@ def replace_snapshot(mat,graph,snapshot,guids):
                 if len(nodes)!=expected or not image.packed_file or not package:
                     raise ValueError('Inherited texture target or packed source changed')
                 for n in nodes:
-                    SetNodeTexture(n,image)
+                    assign_image(n,image)
                     n['UE_texture_package']=package
             elif kind=='switch':
                 if any(t.node.bl_idname not in ('ShaderNodeMixRGB','ShaderNodeMix') or t.node.inputs[0].is_linked for t in targets):

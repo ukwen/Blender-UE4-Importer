@@ -68,13 +68,16 @@ def object_index(p,key):
     return struct.unpack('<i',v.data)[0]
 
 
-def surface_input(record):
+def surface_input(record, names=None):
     unsupported(record.kind=='StructProperty' and record.parameters in (('ColorMaterialInput',),('ScalarMaterialInput',)),'Unsupported classic surface input type '+record.name)
-    r=Reader(record.data);index,output=r.unpack('2i');n=r.i()
-    require(abs(n)<=4096,'Material input name too large')
-    if n:
-        raw=r.take(n if n>0 else -2*n);term=bytes(1 if n>0 else 2)
-        require(raw.endswith(term),'Invalid input name');raw[:-len(term)].decode('utf8' if n>0 else 'utf-16-le')
+    r=Reader(record.data);index,output=r.unpack('2i')
+    if names is not None:  # UE4 522 stores an FName rather than an FString.
+        r.name(names)
+    else:
+        n=r.i();require(abs(n)<=4096,'Material input name too large')
+        if n:
+            raw=r.take(n if n>0 else -2*n);term=bytes(1 if n>0 else 2)
+            require(raw.endswith(term),'Invalid input name');raw[:-len(term)].decode('utf8' if n>0 else 'utf-16-le')
     mask=r.unpack('5i');use=r.i()
     require(index>=0 and (0<=output<=4 or index==0 and output==-1) and all(v in (0,1) for v in (*mask,use)),'Invalid material input')
     if record.parameters==('ColorMaterialInput',):
@@ -89,13 +92,14 @@ def surface_input(record):
 
 def read_material(path):
     meta,raw,table=read_package(path)
-    unsupported(meta['ue4']==508 and meta['ue5'] is None and meta['licensee']==0,'Unsupported classic material package')
+    unsupported(meta['ue4'] in (508,522) and meta['ue5'] is None and meta['licensee']==0,'Unsupported classic material package')
     roots=[(i,e) for i,e in enumerate(table.exports,1) if not e.outer and e.kind=='Material']
     unsupported(len(roots)==1,'Expected a simple classic material root')
     index,entry=roots[0];p=property_map(raw,entry,table.names)
     blend=name(p,'BlendMode',table.names,'BLEND_Opaque')
     unsupported(blend in ('BLEND_Opaque','BLEND_Translucent','BLEND_Masked') and name(p,'ShadingModel',table.names,'MSM_DefaultLit')=='MSM_DefaultLit' and name(p,'MaterialDomain',table.names,'MD_Surface')=='MD_Surface' and not boolean(p,'bUseMaterialAttributes'),'Unsupported classic surface semantics')
     allowed={'Expressions','StateId','ThumbnailInfo','LightingGuid','BaseColor','Roughness','Metallic','Specular','EmissiveColor','Opacity','OpacityMask','bCanMaskedBeAssumedOpaque','ReferencedTextureGuids','BlendMode','ShadingModel','MaterialDomain','bUseMaterialAttributes','TwoSided','OpacityMaskClipValue','EditorX','EditorY','EditorComments'}
+    if meta['ue4']==522: allowed.add('CachedExpressionData')  # editor cache, not graph source
     unsupported(all(k in allowed or k.startswith('bUsedWith') for k in p),'Unsupported classic material fields: '+', '.join(sorted(k for k in p if k not in allowed and not k.startswith('bUsedWith'))))
     expr=p.get('Expressions');require(expr is not None and expr.kind=='ArrayProperty' and expr.parameters==('ObjectProperty',),'Missing material expression array')
     r=Reader(expr.data);refs=[r.i() for _ in range(r.count(4096))];require(r.pos==len(expr.data) and len(set(refs))==len(refs),'Invalid expression array')
@@ -119,10 +123,10 @@ def read_material(path):
             unsupported(sampler in ('SAMPLERTYPE_Color','SAMPLERTYPE_LinearColor','SAMPLERTYPE_Grayscale','SAMPLERTYPE_LinearGrayscale','SAMPLERTYPE_Masks'),'Unsupported texture sampler '+sampler)
             node.update(texture=pkg,sampler=sampler,sampler_source=name(props,'SamplerSource',table.names,'SSM_FromTextureAsset'))
         nodes[i]=node
-    outputs={k:surface_input(p[k]) for k in SURFACE if k in p}
+    outputs={k:surface_input(p[k],table.names if meta['ue4']==522 else None) for k in SURFACE if k in p}
     require(all(not a['index'] or a['index'] in nodes for a in outputs.values()),'Material surface points outside expression list')
     unsupported(not ('Opacity' in outputs and 'OpacityMask' in outputs),'Ambiguous opacity bindings')
-    return dict(name=entry.name,blend=blend,two_sided=boolean(p,'TwoSided'),clip=scalar(p,'OpacityMaskClipValue',.333333),clip_serialized='OpacityMaskClipValue' in p,nodes=nodes,outputs=outputs,position=(integer(p,'EditorX'),-integer(p,'EditorY')))
+    return dict(name=entry.name,version=meta['ue4'],blend=blend,two_sided=boolean(p,'TwoSided'),clip=scalar(p,'OpacityMaskClipValue',.333333),clip_serialized='OpacityMaskClipValue' in p,nodes=nodes,outputs=outputs,position=(integer(p,'EditorX'),-integer(p,'EditorY')))
 
 
 def build_material(project,path,data):
@@ -166,6 +170,6 @@ def build_material(project,path,data):
         if field=='EmissiveColor':bs.inputs['Emission Strength'].default_value=1.
     if data['blend']=='BLEND_Masked':
         set_opacity_clip(material,data['clip']);material['UE_mask_clip_source']='serialized' if data['clip_serialized'] else 'preview_default_not_serialized'
-    material['UE_classic_material_profile']='typed_508_basic_surface'
+    material['UE_classic_material_profile']=f"typed_{data.get('version',508)}_basic_surface"
     material['UE_classic_material_graph']=json.dumps(data,sort_keys=True)
     return material

@@ -255,3 +255,7 @@ User's acceptance target is now complete removal of inherited implementation, no
 ## 0.10.104-dev — cold registration and UE4.27 static source
 
 See docs/TEST_REPORT.md and docs/INDEPENDENCE.md. Four original compressed MeshDescription sources matched the prior mesh data exactly; independent direct import and material persistence verified. Legacy compatibility remains.
+
+## 0.10.105-dev — typed advanced material and wind boundaries
+
+Native modern standalone surface/instance routing, typed UE4.27 basic and advanced material graph with bounded local function expansion, effective global parameter resolution and source-specific stale GUID corroboration. Classic source texture bulk offset fixed. Wind profile and shared layer texture binding no longer import inherited modules. Original Goblin chain, three textures and three wind profiles validated against earlier reference; strict/partial modern material and failure rollback, full original mixed Goblin and independent Western maps pass. Runtime visual equivalence remains unverified.
