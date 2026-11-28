@@ -57,3 +57,5 @@ Use development as the sole active branch. Continue ordinary feature, performanc
 0.10.98: independent project paths, host-only level inventory, classic tagged property records and typed UE4 animation routing. Next: migrate general property callers, skeleton/geometry and material/scene integration, recover matching legacy evidence and preserve feature parity while advancing importer coverage and workflow.
 
 0.10.99: typed UE4.27 editor skeletal/USkeleton/PhysicsAsset readers, geometry root classification across supported typed tables, explicit unsupported modern static refusal. Original ten-record exact parity, five posed meshes, 205 collision/joint overlays and reopen. Next: migrate remaining UE4 static and legacy geometry routing, Blueprint property readers and material/scene integration while advancing importer features and fidelity.
+
+0.10.100: typed 508 tables, classic FString soft references and native FRawMesh package boundary; 325 static meshes exact decoded parity and 452 preflight reports; legacy Western Frontier map placement and modern level-set regression. Next: remaining classic static/Blueprint property paths and material/scene integration.

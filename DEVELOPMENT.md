@@ -233,3 +233,7 @@ Independent project resolution, Python-only saved level inventory, bounded class
 ## 0.10.99-dev — native skeletal and physics migration
 
 UE4.27 editor skeletal, reference-skeleton and PhysicsAsset readers now use typed package records without inherited parser imports; all ten recovered original decoded records exactly match 0.10.98. See docs/TEST_REPORT.md and docs/INDEPENDENCE.md.
+
+## 0.10.100-dev — classic static geometry migration
+
+Typed UE4 object version 508 package tables, soft dependencies and static geometry boundary. See docs/INDEPENDENCE.md and docs/TEST_REPORT.md.

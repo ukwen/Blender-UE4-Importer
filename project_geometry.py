@@ -56,6 +56,9 @@ def load_static(path,project,profile):
         return build_static(read_static(path))
     if meta.get('ue5') is not None:
         raise NotImplementedError('UE5 editor static geometry profile not supported')
+    if meta.get('ue4') == 508:
+        from legacy_static import read_legacy_static_path,build_legacy_static
+        return build_legacy_static(read_legacy_static_path(path))
     import uasset,umesh
     asset=uasset.UAsset(str(path),False,project)
     try:
@@ -70,7 +73,7 @@ def root_class(path,project):
     if path.with_suffix('.uexp').is_file(): return split_root_class(path)
     from package_inspector import inspect_package
     meta=inspect_package(path)
-    if (meta.get('status')=='tables_inspected' and meta.get('ue4')==522 and
+    if (meta.get('status')=='tables_inspected' and meta.get('ue4') in (508,522) and
         (meta.get('ue5') is None or meta['ue5']==1004 or 1012<=meta['ue5']<=1018)):
         from package_records import read_package
         _,_,table=read_package(path)

@@ -31,49 +31,61 @@ def decode_raw(payload):
     return dict(points=points,wedges=wedges,slots=slots,smooth=smooth,tangents=tangents,bitangents=bitangents,normals=normals,uv=uv,colors=colors,import_slots=imports)
 
 
-def package_reference(asset,index):
-    seen=set()
-    while index<0:
-        require(index not in seen and -index<=len(asset.imports),'Invalid material reference chain'); seen.add(index)
-        ref=asset.GetImport(index)
-        if ref.class_name=='Package' and ref.object_name.startswith(('/Game/','/Engine/')): return ref.object_name
-        index=ref.outer_index
-    return ''
+def read_legacy_static_path(path):
+    """UE4 object-version 508 editor FRawMesh, using bounded typed package records.
+
+    Native field layout is the previously tested 508 profile; migration of the
+    package/property boundary, not a claim of independent provenance for all
+    existing FRawMesh decoding or Blender construction algorithms.
+    """
+    from package_records import read_package, root_export, classic_custom_versions
+    from skeleton_native import Reader
+    from ue4_property_records import read_records
+    path=Path(path); meta,raw,table=read_package(path)
+    versions=classic_custom_versions(raw)
+    require(meta['legacy']==-7 and meta['ue4']==508 and meta['ue5'] is None and meta['licensee']==0 and versions.get(EDITOR.bytes_le)==8 and versions.get(RENDER.bytes_le)==12,'Unsupported UE4.14 static mesh profile')
+    e=root_export(table,'StaticMesh'); r=Reader(raw[e.offset:e.offset+e.size])
+    props=read_records(r,table.names)
+    models=[p for p in props if p.name=='SourceModels' and p.index==0]
+    require(len(models)==1 and models[0].kind=='ArrayProperty' and models[0].parameters==('StructProperty',) and len(models[0].data)>=4 and struct.unpack_from('<i',models[0].data)[0]==1,'Only one legacy source LOD supported')
+    def flag():
+        value=r.i(); require(value in (0,1),'Invalid native boolean'); return value
+    def string():
+        n=r.i(); require(abs(n)<=1048576,'Oversized native string')
+        if n==0:return ''
+        data=r.take(n if n>0 else -2*n); end=bytes(1 if n>0 else 2)
+        require(data.endswith(end),'Unterminated native string'); return data[:-len(end)].decode('utf8' if n>0 else 'utf-16-le')
+    if flag():r.take(16)
+    require(r.take(2)==bytes(2) and r.i()==0,'Expected editor source mesh')
+    r.take(8); string(); r.take(20)
+    sockets=[table.reference(r.i()) for _ in range(r.count(1024))]
+    flags,count,size=r.unpack('III'); offset=r.unpack('q')[0]+meta['bulk_data_offset']
+    require(flags==1 and 0<count==size<=128*1024*1024 and offset>=e.offset+e.size and offset+size<=len(raw),'Unsupported source bulk range')
+    r.take(16); flag()
+    n=r.count(4096); require(n>0,'Invalid section count'); sections={}
+    for _ in range(n):
+        key,mat,collision,shadow=r.unpack('Iiii')
+        require(key<4096 and key not in sections and mat>=0 and collision in (0,1) and shadow in (0,1),'Invalid legacy section')
+        sections[key]=(mat,collision,shadow)
+    require(r.i()==0,'SpeedTree wind unsupported'); n=r.count(4096); require(n>0,'Invalid material count')
+    materials=[]; display=[]; material_refs=[]
+    for _ in range(n):
+        ref=r.i(); name=r.name(table.names); imported=r.name(table.names)
+        flags=r.unpack('ii'); density=r.unpack('4f')
+        require(all(v in (0,1) for v in flags) and all(math.isfinite(v) for v in density),'Invalid material UV metadata')
+        package=table.package(ref) if ref else ''; require(not ref or bool(package),'Unresolved material reference')
+        materials.append((imported,package)); display.append(name); material_refs.append(ref)
+    require(r.pos==e.size,'Unexpected legacy native export trailer')
+    require(all(0<=m<n for m,_,_ in sections.values()),'Invalid section material')
+    data=decode_raw(raw[offset:offset+size]); require(set(data['slots'])<=set(sections),'Missing raw face section')
+    data.update(materials=materials,display=display,material_refs=material_refs,sections=sections,sockets=[x.name if x else None for x in sockets],name=e.name,source=str(path))
+    return data
 
 
 def read_legacy_static(export):
-    a=export.asset; f=a.f; s=a.summary; path=Path(a.filepath)
-    require(s.version_ue4==508 and s.version_ue4_licensee==0 and s.version_legacy==-7 and s.custom_versions.get(EDITOR)==8 and s.custom_versions.get(RENDER)==12 and not s.compression_flags and not path.with_suffix('.uexp').exists(),'Unsupported UE4.14 static mesh profile')
-    require(export.export_class_type=='StaticMesh','Expected static mesh export')
-    export.ReadProperties(False,False)
-    require(export.serial_desc.offset<=f.Position()<export.serial_desc.offset+export.serial_desc.count,'Invalid native export start')
-    guid=f.ReadInt32(); require(guid in (0,1),'Invalid object GUID flag')
-    if guid: f.ReadGuid()
-    require(f.ReadBytes(2)==bytes(2) and f.ReadInt32()==0,'Expected editor source mesh')
-    f.ReadInt32(); f.ReadInt32(); f.ReadFString(); f.ReadUInt32(); f.ReadGuid()
-    n=f.ReadInt32(); require(0<=n<=1024,'Invalid sockets count'); sockets=[a.DecodePackageIndex(f.ReadInt32()) for _ in range(n)]
-    require(len(export.properties.TryGetValue('SourceModels',[]))==1,'Only one legacy source LOD supported')
-    flags,count,size=f.ReadStruct('III',12); offset=f.ReadInt64()+s.bulk_data_offset
-    require(flags==1 and 0<count==size<=128*1024*1024 and offset>=export.serial_desc.offset+export.serial_desc.count and offset+size<=path.stat().st_size,'Unsupported source bulk range')
-    f.ReadGuid(); require(f.ReadInt32() in (0,1),'Invalid source GUID flag')
-    n=f.ReadInt32(); require(0<n<=4096,'Invalid section count'); sections={}
-    for _ in range(n):
-        key,mat,collision,shadow=f.ReadStruct('Iiii',16)
-        require(key<4096 and key not in sections and mat>=0 and collision in (0,1) and shadow in (0,1),'Invalid legacy section')
-        sections[key]=(mat,collision,shadow)
-    require(f.ReadInt32()==0,'SpeedTree wind unsupported'); n=f.ReadInt32(); require(0<n<=4096,'Invalid material count')
-    materials=[]; display=[]; material_refs=[]
-    for _ in range(n):
-        ref=f.ReadInt32(); name=f.ReadFName(a.names); imported=f.ReadFName(a.names)
-        flags=f.ReadStruct('ii',8); density=f.ReadStruct('4f',16)
-        require(all(v in (0,1) for v in flags) and all(math.isfinite(v) for v in density),'Invalid material UV metadata')
-        package=package_reference(a,ref) if ref else ''; require(not ref or bool(package),'Unresolved material reference')
-        materials.append((imported,package)); display.append(name); material_refs.append(ref)
-    require(f.Position()==export.serial_desc.offset+export.serial_desc.count,'Unexpected legacy native export trailer')
-    require(all(0<=m<n for m,_,_ in sections.values()),'Invalid section material')
-    f.Seek(offset); data=decode_raw(f.ReadBytes(size))
-    require(set(data['slots'])<=set(sections),'Missing raw face section')
-    data.update(materials=materials,display=display,material_refs=material_refs,sections=sections,sockets=[x.object_name if x else None for x in sockets],name=export.object_name,source=str(path))
+    """Temporary legacy integration adapter; no legacy property reads."""
+    data=read_legacy_static_path(export.asset.filepath)
+    require(export.export_class_type=='StaticMesh' and export.object_name==data['name'],'Mismatched static export')
     return data
 
 

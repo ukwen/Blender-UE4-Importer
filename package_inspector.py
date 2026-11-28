@@ -81,8 +81,26 @@ def inspect_package(path):
                 if ue5==1018:
                     hierarchy_count,hierarchy_offset=i32(),i32()
                     extra.update(import_hierarchy_count=hierarchy_count,import_hierarchy_offset=hierarchy_offset)
-            if ue5 is None and ue4 == 522:
-                extra.update(depends_offset=i32(), soft_package_count=i32(), soft_package_offset=i32(), searchable_offset=i32(), thumbnail_offset=i32())
+            if ue5 is None and ue4 in (508, 522):
+                extra.update(depends_offset=i32(), soft_package_count=i32(), soft_package_offset=i32())
+                if ue4 == 522: extra['searchable_offset'] = i32()
+                extra['thumbnail_offset'] = i32()
+                if ue4 == 508:
+                    read(16)  # package GUID
+                    generations = i32()
+                    if not 0 <= generations <= 10000: raise ValueError('invalid generation count')
+                    read(generations * 8)
+                    for _ in range(2):  # saved and compatible engine versions
+                        read(10); string()
+                    compression, chunks = u32(), i32()
+                    if compression or chunks: raise ValueError('compressed classic package unsupported')
+                    read(4)  # package source
+                    additional = i32()
+                    if not 0 <= additional <= 10000: raise ValueError('invalid additional package count')
+                    for _ in range(additional): string()
+                    extra['asset_registry_offset'] = i32()
+                    extra['bulk_data_offset'] = struct.unpack('<q', read(8))[0]
+                    if not 0 <= extra['bulk_data_offset'] <= size: raise ValueError('invalid bulk data offset')
             for n, o in ((names_count,names_offset),(export_count,export_offset),(import_count,import_offset)):
                 if not 0 <= n <= 2000000 or (n and not f.tell() <= o < header_end):
                     raise ValueError('invalid package table')

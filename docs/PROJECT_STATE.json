@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.99-dev",
-  "previous_verified_commit": "5a3a92014adbd76377bd708ee764f1701ba06af8",
-  "previous_verified_tree": "9c9631260e91f17a5ac5c3b51a72568164eb2852",
-  "current_commit_resolution": "Match development head and immutable 0.10.99 checkpoint; recover 0.10.96 archive plus exact Git blobs if Library throttles.",
-  "milestone": "UE4.27 editor skeletal, skeleton and PhysicsAsset package readers migrated to typed records; geometry classification broadened with unsupported UE5 static profiles explicitly refused.",
+  "application_version": "0.10.100-dev",
+  "previous_verified_commit": "4aa92fadca4a9795d92a6da9078cd503d7f07f1d",
+  "previous_verified_tree": "e8e57a3afea91589c323ed6c38caf20cadab7885",
+  "current_commit_resolution": "Match development head and immutable 0.10.100 checkpoint; if Library archive unavailable, recover 0.10.96 archive plus exact Git blobs.",
+  "milestone": "Classic UE4 508 package tables, preflight and static geometry boundary migrated; 325 original meshes exact decoded parity.",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.99_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.99-local.zip",
-    "install_archive": "install-099.zip",
+    "checkpoint": "Unreal_Importer_0.10.100_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.100-local.zip",
+    "install_archive": "install-100.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,37 +30,42 @@
   },
   "tests": {
     "python": {
-      "passed": 140,
+      "passed": 142,
       "skipped": 10,
       "failed": 0
     },
-    "editor522": {
-      "decoded_records_identical": 10,
-      "meshes": 5,
-      "physics_assets": 4,
-      "reference_skeletons": 1,
-      "vertices": 99811,
-      "triangles": 34803,
-      "physics_overlays": 205,
-      "reference_skeleton_bones": 72,
-      "reference_skeleton_sockets_decoded": 20,
-      "max_deformation_error_m": 6.198271436262273e-07,
+    "editor508": {
+      "packages": 452,
+      "preflight": 452,
+      "decoded_mesh_parity": 325,
+      "vertices": 130412,
+      "triangles": 228484,
+      "duplicate_faces_split": 16,
       "legacy_import_blocked": true,
       "reopen": true
+    },
+    "western_maps": {
+      "reconstructed": 2316,
+      "missing": 2,
+      "reopen": true,
+      "legacy_actor_reader_retained": true
     },
     "level_set": {
       "objects": 94,
       "max_reopen_matrix_error": 0,
       "rollback": true
     },
-    "isolated_install": "See immutable checkpoint; final installer tested separately.",
-    "previously_verified": "0.10.98 project inventory, 0.10.97 corpus, 0.10.96 generated shader tests not repeated in full."
+    "isolated_install": {
+      "imported": 3,
+      "reopen_reuse": true
+    },
+    "previously_verified": "0.10.99 skeletal pose/physics actual Blender regression not repeated; previous full shader tests not repeated."
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Migrate remaining inherited UE4 static geometry, Blueprint property consumers, material and map readers while improving import fidelity and performance; obtain evidence for remaining profiles and Windows.",
+  "next_priority": "Migrate remaining UE4 522/other static profile and Blueprint property consumers, then legacy material/scene readers; continue fidelity and feature work.",
   "restrictions": [
     "CPU only",
     "preserve master",
