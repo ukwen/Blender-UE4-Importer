@@ -4,7 +4,8 @@ from mathutils import Vector
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]))
 from static_scene import reconstruct_static_map
 from uasset import UAsset
-from foliage_legacy import read_component
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+from legacy_foliage_oracle import read_component
 root=pathlib.Path(os.environ['UE_WESTERN_PROJECT']); out=os.environ['UE_WESTERN_OUTPUT']
 bpy.ops.wm.read_factory_settings(use_empty=True)
 reports={}; expected={}; max_error=0

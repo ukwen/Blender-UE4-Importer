@@ -30,27 +30,6 @@ def decode_instances(payload, expected_count):
     return transforms
 
 
-def read_component(export):
-    from uasset import Properties
-    asset = export.asset
-    if (export.export_class_type != 'FoliageInstancedStaticMeshComponent' or asset.summary.version_ue4 != 508
-            or asset.summary.version_legacy != -7 or asset.summary.version_ue4_licensee != 0 or asset.summary.compression_flags):
-        raise ValueError('Unsupported foliage export profile')
-    f = asset.f
-    f.Seek(export.serial_desc.offset)
-    props = Properties().Read(asset, read_children=False)
-    end = export.serial_desc.offset + export.serial_desc.count
-    remaining = end - f.Position()
-    if not 47 <= remaining <= 128 * 1024 * 1024:
-        raise ValueError('Invalid foliage export extent')
-    records = decode_instances(f.ReadBytes(remaining), props.TryGetValue('NumBuiltInstances'))
-    ref = props.TryGetValue('StaticMesh')
-    package = getattr(getattr(ref, 'import_ref', None), 'object_name', '')
-    if not package.startswith('/Game/'):
-        raise ValueError('Unresolved foliage mesh package')
-    return props, package, records
-
-
 def instance_matrix(row):
     from mathutils import Matrix
     # Unreal FMatrix rows are basis vectors; Blender uses column vectors.
@@ -106,48 +85,4 @@ def reconstruct_foliage(filepath, collection, resolver):
         _,_,table=read_package(filepath)
         records=[dict(component=e.name,package='',instances=0,status='unsupported',detail='Unsupported foliage export profile') for e in table.exports if e.kind=='FoliageInstancedStaticMeshComponent']
         return dict(components=len(records),status={'unsupported':len(records)} if records else {},instances=0,records=records)
-    import bpy
-    import uasset
-    from umap import Transform
-    from collections import Counter
-    records=[]; roots={}
-    with uasset.UAsset(filepath) as asset:
-        for component in asset.exports:
-            if component.export_class_type != 'FoliageInstancedStaticMeshComponent':
-                continue
-            record={'component':component.object_name,'package':'','instances':0,'status':'unsupported'}
-            created=[]; root_obj=None; new_root=False
-            try:
-                props,package,rows=read_component(component)
-                record.update(package=package,source_instances=len(rows))
-                owner=asset.GetExport(component.outer_index) if 0<component.outer_index<=len(asset.exports) else None
-                if owner is None or owner.export_class_type!='InstancedFoliageActor' or not 0<owner.outer_index<=len(asset.exports) or asset.GetExport(owner.outer_index).export_class_type!='Level':
-                    raise ValueError('Foliage component is not owned by a level foliage actor')
-                owner.ReadProperties(False); root=owner.properties.TryGetValue('RootComponent')
-                if root is None or root.outer_index!=component.outer_index or props.TryGetValue('AttachParent') is not root:
-                    raise ValueError('Unsupported foliage attachment hierarchy')
-                root.ReadProperties(False)
-                for p in (props,root.properties):
-                    if any(p.TryGetValue(k,False) for k in ('bAbsoluteLocation','bAbsoluteRotation','bAbsoluteScale')) or p.TryGetValue('AttachSocketName','None') not in ('None','',None):
-                        raise ValueError('Unsupported foliage absolute or socket transform')
-                if root.properties.TryGetValue('AttachParent') is not None:
-                    raise ValueError('Unsupported external foliage parent')
-                mesh,status=resolver(package)
-                if mesh is None:
-                    record.update(status=status,detail='Foliage source mesh unavailable'); continue
-                root_obj=roots.get(id(root))
-                if root_obj is None:
-                    root_obj=bpy.data.objects.new(owner.object_name+' / Foliage root',None); created.append(root_obj)
-                    collection.objects.link(root_obj); root_obj.rotation_mode='YXZ'; Transform(root,root_obj)
-                    root_obj['UE_foliage_root']=owner.object_name; new_root=True
-                anchor=bpy.data.objects.new(component.object_name+' / Component',None); created.append(anchor)
-                collection.objects.link(anchor); anchor.parent=root_obj; anchor.rotation_mode='YXZ'; component.properties=props; Transform(component,anchor)
-                anchor['UE_foliage_anchor']=component.object_name
-                objs=build_instances(collection,anchor,mesh,component.object_name,package,rows); created.extend(objs)
-                if new_root: roots[id(root)]=root_obj
-                record.update(status='reconstructed',instances=len(objs))
-            except Exception as exc:
-                for obj in reversed(created): bpy.data.objects.remove(obj,do_unlink=True)
-                record.update(status='unsupported' if isinstance(exc,(ValueError,NotImplementedError)) else 'failed',detail=str(exc))
-            finally: records.append(record)
-    return {'components':len(records),'status':dict(Counter(r['status'] for r in records)),'instances':sum(r['instances'] for r in records),'records':records}
+    raise NotImplementedError('Native foliage package profile unsupported; no legacy fallback')

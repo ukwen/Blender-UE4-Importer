@@ -5,7 +5,8 @@ from mathutils import Vector, Matrix
 sys.path.insert(0, os.environ['UE_SOURCE'])
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from uasset import UAsset
-from foliage_legacy import read_component, build_instances, instance_matrix, decode_instances
+from legacy_foliage_oracle import read_component
+from foliage_legacy import build_instances, instance_matrix, decode_instances
 from umap import Transform
 root=pathlib.Path(os.environ['UE_WESTERN_PROJECT']); out=pathlib.Path(os.environ['UE_FOLIAGE_OUTPUT'])
 bpy.ops.wm.read_factory_settings(use_empty=True)

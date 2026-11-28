@@ -2,7 +2,7 @@
 import tempfile
 from pathlib import Path
 import bpy
-from bpy.props import EnumProperty, StringProperty, BoolProperty
+from bpy.props import EnumProperty, StringProperty, BoolProperty, CollectionProperty
 from bpy_extras.io_utils import ImportHelper
 from native_texture import read_texture, decode_rgba, png_bytes
 
@@ -85,27 +85,63 @@ def load_native_texture(filepath, version, srgb=False, normal=False):
     return image
 
 
+
+def import_texture_batch(paths, version='editor', srgb=False, normal=False):
+    """All-or-nothing packed texture import; preserve prior images on failure."""
+    paths = [Path(path).resolve() for path in paths]
+    if not paths or len(set(paths)) != len(paths):
+        raise ValueError('Select distinct texture packages')
+    if any(not path.is_file() or path.suffix.lower() != '.uasset' for path in paths):
+        raise ValueError('Each texture must be an existing .uasset package')
+    if version == 'editor':
+        from package_inspector import inspect_package
+        for path in paths:
+            meta = inspect_package(path)
+            ue4, ue5 = meta.get('ue4'), meta.get('ue5')
+            if (meta.get('status') != 'tables_inspected' or meta.get('sidecars') or
+                not ((ue5 is None and ue4 in (508,522)) or ue5 in (1004,1013,1017))):
+                raise NotImplementedError('Unsupported native editor texture profile: '+path.name)
+    from project_session import new_ids, rollback_new
+    before = set(new_ids())
+    original_flags = {im.as_pointer(): (im, im.use_fake_user) for im in bpy.data.images}
+    images = []
+    try:
+        for path in paths:
+            if version == 'editor':
+                image = load_editor_texture(path)
+            else:
+                image = load_native_texture(path, version, srgb, normal)
+            if not image.packed_file:
+                raise ValueError('Texture not packed: '+path.name)
+            image.use_fake_user = True
+            images.append(image)
+    except Exception:
+        for image, flag in original_flags.values():
+            image.use_fake_user = flag
+        rollback_new(before)
+        raise
+    return images
+
 class UEIMPORT_OT_native_texture(bpy.types.Operator, ImportHelper):
     bl_idname = 'ueimport.native_texture'
     bl_label = 'Import Native Texture'
-    bl_description = 'Import and pack UE4 editor source art or cooked BC1/BC4/BC5 with matching sidecars'
+    bl_description = 'Import and pack supported editor source textures or cooked textures with matching sidecars; all selected packages must succeed'
     filename_ext = '.uasset'
     filter_glob: StringProperty(default='*.uasset', options={'HIDDEN'})
-    version: EnumProperty(name='Asset profile', items=[('editor','UE4 editor source','Versioned monolithic source texture')]+[(v,'Cooked '+v,'') for v in ('4.18','4.27','5.0','5.5')], default='editor')
+    files: CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN','SKIP_SAVE'})
+    directory: StringProperty(options={'HIDDEN'})
+    version: EnumProperty(name='Asset profile', items=[('editor','Editor source (UE4/UE5)','Supported versioned monolithic source texture')]+[(v,'Cooked '+v,'') for v in ('4.18','4.27','5.0','5.5')], default='editor')
     srgb: BoolProperty(name='sRGB color', default=False)
     normal: BoolProperty(name='Reconstruct BC5 normal Z', default=False)
 
     def execute(self, context):
         try:
-            if self.version == 'editor':
-                image=load_editor_texture(self.filepath)
-                image.use_fake_user=True
-            else:
-                image = load_native_texture(self.filepath, self.version, self.srgb, self.normal)
+            from asset_entrypoints import selected_paths
+            images = import_texture_batch(selected_paths(self), self.version, self.srgb, self.normal)
         except Exception as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
-        self.report({'INFO'}, f'Packed {image.name}: {image.size[0]} x {image.size[1]}')
+        self.report({'INFO'}, f'Packed {len(images)} texture package(s)')
         return {'FINISHED'}
 
 

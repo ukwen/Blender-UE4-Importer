@@ -7,7 +7,8 @@ import uproject_browser as browser
 import legacy_full_scene as legacy
 from project_session import new_ids
 from static_scene import reconstruct_static_map
-from foliage_legacy import read_component
+sys.path.insert(0,os.path.dirname(os.path.abspath(__file__)))
+from legacy_foliage_oracle import read_component
 from uasset import UAsset
 root=Path(os.environ['UE_WESTERN_PROJECT']);out=Path(os.environ['UE_WESTERN_OUTPUT'])
 bpy.ops.wm.read_factory_settings(use_empty=True);browser.register();scene=bpy.context.scene

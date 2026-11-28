@@ -1,6 +1,6 @@
 # Unreal Project Importer — independent component migration
 
-Internal development candidate **0.10.115-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
+Internal development candidate **0.10.116-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
 
 Active development takes place directly on `development`; independent component replacement and feature advancement are parallel engineering priorities. The former migration branch is a historical rollback checkpoint only. This candidate replaces the inherited registration helper and binary shader library and removes the bundled external texture executable. Native supported editor texture profiles are used; cooked textures retain their explicit-profile operator. This is not yet a complete independent implementation.
 
@@ -33,3 +33,5 @@ The controlled UE4.27 layer-function compiler supports a bounded bundle graph su
 Versioned UE4.25 tagged split package inventory and native cooked material dependency auditing now share the project preflight path. This does not reconstruct cooked shader graphs or certify arbitrary older profiles.
 
 **Native geometry boundary:** supported editor and cooked meshes use the native import profile. Unsupported mesh layouts are reported without inherited fallback; explicitly select Legacy compatibility (editor or cooked) for the old mesh route. Native project inventory and geometry gallery report unknown or unsupported profiles.
+
+**Native texture file menu:** File > Import > UE Texture (.uasset). Select one or more source textures and a supported explicit profile; the entire batch is rolled back if any package fails. Packed images remain editable and survive reopen.

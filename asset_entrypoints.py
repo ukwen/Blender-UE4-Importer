@@ -274,6 +274,7 @@ def draw_menu(self,context):
     self.layout.operator(ImportLevel.bl_idname,text='UE Map — Legacy Compatibility (.umap)')
     self.layout.operator(ImportMesh.bl_idname,text='UE Mesh (.uasset)')
     self.layout.operator(ImportMaterial.bl_idname,text='UE Material (.uasset)')
+    self.layout.operator('ueimport.native_texture',text='UE Texture (.uasset)')
 
 
 CLASSES=(ImportMesh,ImportMaterial,ImportSavedLevel,ImportLevel)

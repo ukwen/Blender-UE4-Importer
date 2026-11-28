@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.115-dev",
-  "previous_verified_commit": "9cdb83a4c8dbbdd8a897c2a6542bf85c4d6e6a53",
-  "previous_verified_tree": "30da12478e25170b893cbe20d8a75ffcf52eedf5",
+  "application_version": "0.10.116-dev",
+  "previous_verified_commit": "092b410660ff2abcfa2e8a43c774e1f1995b5186",
+  "previous_verified_tree": "c61f8b9ed27ed5bea329492d9dd529636e9fd6ac",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Native geometry and catalog boundary",
+  "milestone": "Native foliage boundary and atomic texture menu",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.115_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.115-local.zip",
-    "install_archive": "install-115.zip",
+    "checkpoint": "Unreal_Importer_0.10.116_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.116-local.zip",
+    "install_archive": "install-116.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,7 +31,7 @@
   },
   "tests": {
     "python": {
-      "passed": 189,
+      "passed": 190,
       "skipped": 11,
       "failed": 0
     },
@@ -64,7 +64,7 @@
       "installed": true,
       "imported": 3,
       "reopen_reuse": true,
-      "archive_sha256": "d14b146e3ae33a35a90b4dd06f5e7a3ea12e3c5f7ffa64d6b1a0c5539e1c1ca7",
+      "archive_sha256": "68e1bc6151f55d59af8309e938de853249baa416fc41a22b3a441292d8cc8475",
       "launcher_platform": "linux"
     },
     "versioned_split518": {
@@ -87,15 +87,15 @@
       "inherited_import_attempts": []
     },
     "evidence_files": [
-      "python115.log",
-      "native-geometry115.log",
-      "cooked-menu115.log",
-      "native-level115.log",
-      "native-level115.json",
-      "west115.log",
-      "west115.json",
-      "inherited-audit115.json",
-      "install115.json"
+      "python116.log",
+      "texture-menu116.log",
+      "foliage116.log",
+      "native-level116.log",
+      "native-level116.json",
+      "west116.log",
+      "west116.json",
+      "inherited-audit116.json",
+      "install116.json"
     ],
     "native_geometry_boundary": {
       "reconstructed": 3,
@@ -116,13 +116,28 @@
       "materials": 10,
       "reopen": true,
       "inherited_import_attempts": []
+    },
+    "texture_batch": {
+      "original_textures": 11,
+      "editor": 2,
+      "cooked": 9,
+      "rollback": true,
+      "reopen": true,
+      "inherited_import_attempts": []
+    },
+    "foliage": {
+      "instances": 462,
+      "max_local_point_error_m": 1.5377651809513707e-05,
+      "corruption_refusals": 8,
+      "reopen": true,
+      "oracle": "historical inherited reader (test only)"
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace remaining source-backed Blueprint, map, foliage, texture and geometry compatibility dependencies; independently validate unsupported older monolithic profiles before removing explicit legacy routes; preserve master and provenance.",
+  "next_priority": "Source-backed replacement of remaining map/component/Blueprint and material compatibility dependencies; preserve native texture and foliage routes; validate unsupported older profiles and Windows before commercial distribution.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -151,7 +166,8 @@
     "0.10.111 extends typed layer function subset with RGB/vector, scalar arithmetic and default UV color textures; arbitrary vector math, normal/explicit UV/indexed or masked samples, selected attributes, nested calls and genuine layer package remain pending.",
     "0.10.112 native saved-level menu requires original project descriptor; old menu options remain as explicitly labeled compatibility; complete inherited removal still pending.",
     "0.10.114: four inherited files and 28 literal import sites remain; versioned split 518 inventory tested on one original animation Blueprint, no execution or payload translation. Unclassified material formats now report unsupported dependency inventory; no blanket legacy parity.",
-    "0.10.115: four inherited files and 25 literal sites remain. Unsupported older monolithic mesh/table profiles have no independently validated decoder; native gallery/static resolver and preflight now report these explicitly rather than trying legacy automatically. Standalone explicit compatibility remains. Native material fallback and remaining map-related legacy consumers still present."
+    "0.10.115: four inherited files and 25 literal sites remain. Unsupported older monolithic mesh/table profiles have no independently validated decoder; native gallery/static resolver and preflight now report these explicitly rather than trying legacy automatically. Standalone explicit compatibility remains. Native material fallback and remaining map-related legacy consumers still present.",
+    "0.10.116: four inherited files, 22 literal production sites. Historical foliage reader retained only for test comparison. Native texture menu refuses unvalidated profiles; older material compatibility reader remains."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",
