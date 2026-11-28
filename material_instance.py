@@ -90,10 +90,13 @@ def read_overrides(props, scoped=False, layers_handled=False):
     return records, issues
 
 
-def apply_overrides(mat, graph, props, load_texture, set_texture, native_snapshot=NATIVE_UNREAD):
+def apply_overrides(mat, graph, props, load_texture, set_texture, native_snapshot=NATIVE_UNREAD, native_parameters=NATIVE_UNREAD, native_texture_loader=None):
     from material_layers import explicit_override, replace_snapshot
     handled=False; topology_issues=[]
     try:
+        # Refuse topology mutation when the typed parameter set was malformed.
+        if isinstance(native_parameters, ValueError):
+            raise ValueError("Cannot apply snapshot with unreadable parameter records")
         snapshot=explicit_override(props,graph,native_snapshot)
         if snapshot:
             replace_snapshot(mat,graph,*snapshot)
@@ -103,7 +106,15 @@ def apply_overrides(mat, graph, props, load_texture, set_texture, native_snapsho
         graph.layer_topology_unresolved=True
         topology_issues.append(str(exc))
     scoped_targets=getattr(graph,'scoped_param_nodes',{})
-    records, issues = read_overrides(props, scoped=bool(scoped_targets) or hasattr(graph,'layer_context'), layers_handled=handled)
+    if native_parameters is NATIVE_UNREAD:
+        records, issues = read_overrides(props, scoped=bool(scoped_targets) or hasattr(graph,'layer_context'), layers_handled=handled)
+    elif isinstance(native_parameters, ValueError):
+        records, issues = [], [str(native_parameters)]
+    else:
+        from scoped_parameters import ParameterValue
+        if not isinstance(native_parameters, tuple) or not all(isinstance(r, ParameterValue) for r in native_parameters):
+            raise ValueError('Invalid native parameter records')
+        records, issues = [r.replay_record() for r in native_parameters], []
     issues.extend(topology_issues)
     # Any scoped record, including unresolved records, prevents unsafe later remapping.
     has_layers=hasattr(graph,'layer_context')
@@ -131,14 +142,22 @@ def apply_overrides(mat, graph, props, load_texture, set_texture, native_snapsho
             if not texture_nodes or value is None:
                 issues.append(f'Unsupported or null texture override: {name}')
                 continue
-            image = load_texture(value, value.asset.extract_dir)
+            if isinstance(value, str) and native_parameters is not NATIVE_UNREAD:
+                try:
+                    image = native_texture_loader(value) if native_texture_loader else None
+                except (ValueError, OSError, RuntimeError) as exc:
+                    issues.append(f'Native texture override {name}: {exc}')
+                    continue
+                package = value
+            else:
+                image = load_texture(value, value.asset.extract_dir)
+                from material_stage import package_reference
+                package = package_reference(value)
             if image is None:
                 issues.append(f'Missing texture override: {name}')
                 continue
             for node in texture_nodes:
                 set_texture(node, image)
-                from material_stage import package_reference
-                package = package_reference(value)
                 if package: node['UE_texture_package'] = package
             replay_value=(image,package,len(texture_nodes))
         elif kind == 'switch':

@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.108-dev",
-  "previous_verified_commit": "c380c088ea6c7e58b71eb4769548629a11389a88",
-  "previous_verified_tree": "7c82e8027b415ca290bc8b0cc1a4d9221afeb9f1",
+  "application_version": "0.10.109-dev",
+  "previous_verified_commit": "9f313ce06125939e2ca5d0a0f91f06d222c1d038",
+  "previous_verified_tree": "85adc4abc5fac8951f4c0af638feaf57da9cd1bb",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Typed classic material layer topology and detached snapshot records with independent controlled replay",
+  "milestone": "Typed UE4.27 scoped parameter values and four-kind controlled replay",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.108_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.108-local.zip",
-    "install_archive": "install-108.zip",
+    "checkpoint": "Unreal_Importer_0.10.109_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.109-local.zip",
+    "install_archive": "install-109.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -31,7 +31,7 @@
   },
   "tests": {
     "python": {
-      "passed": 167,
+      "passed": 170,
       "skipped": 10,
       "failed": 0
     },
@@ -40,7 +40,9 @@
       "max_error": 2.384185793236071e-08,
       "inherited_imports": 0,
       "rollback": true,
-      "reopen": true
+      "reopen": true,
+      "scoped_kinds": 4,
+      "malformed_parameter_refusal": true
     },
     "controlled_layer_compatibility": {
       "scripts_passed": 3
@@ -60,14 +62,19 @@
       "packed_images": 4,
       "reopen": true
     },
-    "installer": "See external checkpoint",
-    "previously_verified": "0.10.107 full Goblin, native skeletal/static menu and particle acceptance not repeated in 0.10.108."
+    "installer": "See external checkpoint for exact isolated acceptance",
+    "previously_verified": "0.10.107 full Goblin, native skeletal/static and particle tests not repeated in 0.10.109.",
+    "original_global_parameters": {
+      "instances": 2,
+      "records": 22,
+      "exact": true
+    }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace inherited general layer function graph construction and scoped parameter decoding; then earlier package profiles and remaining legacy mesh/map compatibility. Require positive original layer package evidence for format acceptance, preserve existing compatibility paths and complete removal/provenance gate.",
+  "next_priority": "Replace inherited general layer function graph construction; then earlier package profiles and remaining legacy mesh/map compatibility. Original layer package evidence, complete removal and provenance audit remain mandatory.",
   "restrictions": [
     "CPU only",
     "preserve master",

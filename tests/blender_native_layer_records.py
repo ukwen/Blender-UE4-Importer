@@ -13,6 +13,8 @@ from layer_records import decode_stack,decode_override
 from material_attributes import FIELDS, interface_bundle, by_id
 from material_layers import build, replace_snapshot
 from material_instance import apply_overrides
+from test_scoped_parameters import decode, records
+from dataclasses import replace
 from material_stage import incomplete_graph
 
 class Props(dict):
@@ -34,18 +36,31 @@ def loader(package,mesh,stack):
             group.links.new(param.outputs[0],mix.inputs[0]);group.links.new(by_id(inp.outputs,inputs['Bottom'][field]),mix.inputs[4 if vector else 2]);group.links.new(by_id(inp.outputs,inputs['Top'][field]),mix.inputs[5 if vector else 3]);group.links.new(mix.outputs[1 if vector else 0],by_id(out.inputs,output[field]))
     else:
         group.links.new(param.outputs[0],by_id(out.inputs,output['Roughness']))
+        from generated_shader_groups import get
+        tint=group.nodes.new('ShaderNodeGroup');tint.node_tree=get('RGBA')
+        tex=group.nodes.new('ShaderNodeTexImage');tex.image=default_image
+        switch=group.nodes.new('ShaderNodeMixRGB')
+        registry['Shared'].extend([NS(classname='MaterialExpressionVectorParameter',node=tint),NS(classname='MaterialExpressionTextureSampleParameter2D',node=tex),NS(classname='MaterialExpressionStaticSwitchParameter',node=switch)])
     group['UE_function_usage']='MaterialLayerBlend' if package=='/Game/Blend' else 'MaterialLayer'
     group['UE_input_ids']=json.dumps(inputs);group['UE_input_order']=json.dumps(list(inputs));group['UE_output_ids']=json.dumps({'out':output})
     return group,NS(param_nodes=registry)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
+from native_texture import png_bytes
+with tempfile.TemporaryDirectory() as folder:
+    def packed(name,rgba):
+        path=Path(folder)/(name+'.png');path.write_bytes(png_bytes(2,2,bytes(rgba)*4));image=bpy.data.images.load(str(path));image.pack();return image
+    default_image=packed('Default',(255,0,0,255));override_image=packed('Override',(0,255,0,255))
+override_image['nearest']=True;override_image['UE_address_x']=override_image['UE_address_y']='TA_Clamp'
 mat=bpy.data.materials.new('NativeLayerRecords');mat.use_nodes=True;mat.use_fake_user=True;tree=mat.node_tree
 stack=decode_stack(default_record(),TABLE);graph=NS(stack=(),scoped_param_nodes={},param_nodes={});data=NS(export=NS(object_name='Stack',properties=props(ParameterName='Stack')))
 node=build(tree,data,graph,loader,None,records=stack);assert not incomplete_graph(tree)
 assert not apply_overrides(mat,graph,props(),None,None,decode_override(override_fields(),TABLE))[1]
 def set_scalar(index,value):
-    entry=NS(value=props(ParameterInfo=props(Name='Shared',Association='LayerParameter',Index=index),ParameterValue=value))
-    assert not apply_overrides(mat,graph,props(ScalarParameterValues=[entry]),None,None)[1]
+    from shader_texture_binding import assign_image
+    parsed=decode(records(index,scalar=value))
+    applied,issues=apply_overrides(mat,graph,None,None,assign_image,native_snapshot=None,native_parameters=parsed,native_texture_loader=lambda package: override_image if package=='/Game/Texture' else None)
+    assert len(applied)==4 and not issues,issues
 set_scalar(2,.8)
 bpy.ops.mesh.primitive_plane_add(size=2);bpy.context.object.data.materials.append(mat)
 cam=bpy.data.objects.new('Camera',bpy.data.cameras.new('Camera'));bpy.context.collection.objects.link(cam);cam.location=(0,0,3);cam.data.type='ORTHO';cam.data.ortho_scale=1
@@ -57,14 +72,23 @@ with tempfile.TemporaryDirectory() as tmp:
     render(.35)
     # Move active layer GUID from slot 2 to slot 1, and keep its override.
     new=decode_override(override_fields(guids=(IDS[0],IDS[2],IDS[1]),indices=(-1,-1,-2),blends=(-3,0),states=(1,1,0)),TABLE)
-    assert not apply_overrides(mat,graph,props(),None,None,new)[1];render(.35)
-    assert abs(graph.scoped_param_nodes['LayerParameter',1,'shared'][0].node.outputs[0].default_value-.8)<1e-6
+    issues=apply_overrides(mat,graph,props(),None,None,new)[1];assert not issues,issues;render(.35)
+    targets={t.classname:t.node for t in graph.scoped_param_nodes['LayerParameter',1,'shared']}
+    assert abs(targets['MaterialExpressionScalarParameter'].outputs[0].default_value-.8)<1e-6
+    tint=targets['MaterialExpressionVectorParameter'];assert abs(tint.inputs['A'].default_value-.9)<1e-6
+    assert max(abs(x-y) for x,y in zip(tint.inputs['RGB'].default_value,(.3,.5,.7,.9)))<1e-6
+    tex=targets['MaterialExpressionTextureSampleParameter2D'];assert tex.image==override_image and tex.image.packed_file and tex['UE_texture_package']=='/Game/Texture'
+    assert targets['MaterialExpressionStaticSwitchParameter'].inputs[0].default_value==1
+    assert len(graph.scoped_records)==4
     current=tree.nodes['Stack'].node_tree;before={g.as_pointer() for g in bpy.data.node_groups}
     try:replace_snapshot(mat,graph,(['/Game/Missing','/Game/A','/Game/B'],['/Game/Blend',None],[True,True,False]),list(new.guids))
     except ValueError:pass
     else:raise AssertionError('Missing function accepted')
     assert tree.nodes['Stack'].node_tree==current and before=={g.as_pointer() for g in bpy.data.node_groups};render(.35)
+    # An invalid typed record set must not swap a valid existing stack.
+    applied,issues=apply_overrides(mat,graph,None,None,None,native_snapshot=new,native_parameters=ValueError('Malformed controlled parameter set'))
+    assert not applied and issues and tree.nodes['Stack'].node_tree==current
     path=str(Path(tmp)/'native.blend');bpy.ops.wm.save_as_mainfile(filepath=path);bpy.ops.wm.open_mainfile(filepath=path)
     assert json.loads(bpy.data.materials['NativeLayerRecords'].node_tree.nodes['Stack']['UE_layer_guids'])==list(map(str,new.guids))
 assert not {'uasset','umat','umesh','umap'}&set(sys.modules)
-print('NATIVE_LAYER_RECORDS_PASS',json.dumps(dict(render_errors=errors,max_error=max(errors),reopen=True,rollback=True,controlled=True,legacy_imports=0)))
+print('NATIVE_LAYER_RECORDS_PASS',json.dumps(dict(render_errors=errors,max_error=max(errors),reopen=True,rollback=True,controlled=True,legacy_imports=0,scoped_kinds=4)))

@@ -612,13 +612,22 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                     out = mat
                     from material_layers import NATIVE_UNREAD
                     native_snapshot=NATIVE_UNREAD
+                    native_parameters=NATIVE_UNREAD
+                    native_texture_loader=None
                     if getattr(graph_data,'native_layer_topology',False) and hasattr(graph_data,'layer_context') and pathlib.Path(filepath).is_file() and asset.summary.version_ue4==522:
                         from package_inspector import inspect_package
                         meta=inspect_package(filepath)
                         if meta.get('ue5') is None and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
                             from layer_records import read_override
                             native_snapshot=read_override(filepath,exp.object_name)
-                    apply_overrides(mat, graph_data, params, TryGetExtractedImport, SetNodeTexture,native_snapshot)
+                            from scoped_parameters import read_parameters
+                            try:
+                                native_parameters=read_parameters(filepath,exp.object_name,layers_handled=True)
+                            except (ValueError, KeyError, OSError) as exc:
+                                native_parameters=ValueError(f'Native parameter records: {exc}')
+                            from texture_blender import load_editor_texture
+                            native_texture_loader=lambda package: load_editor_texture(asset.ToProjectPath(package),asset.uproject)
+                    apply_overrides(mat, graph_data, params, TryGetExtractedImport, SetNodeTexture,native_snapshot,native_parameters,native_texture_loader)
                     import json
                     chain = json.loads(mat.get('UE_instance_chain', '[]'))
                     chain.append(str(pathlib.Path(filepath).resolve()))

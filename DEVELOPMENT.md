@@ -271,3 +271,7 @@ Two original classic particle surface graphs decoded with explicit 508 expressio
 ## 0.10.108-dev — typed layer records and detached snapshots
 
 Bounded UE4.27 default layers, detached snapshot GUID and link-state records; controlled independent compositing, scalar GUID replay and rollback; existing legacy graph path retains compatibility. See docs/TEST_REPORT.md.
+
+## 0.10.109-dev — typed scoped material parameters
+
+Independent scoped parameter decoding and native texture identity; controlled four-kind layer replay and malformed-record refusal. See docs/INDEPENDENCE.md and docs/TEST_REPORT.md.
