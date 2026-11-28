@@ -1,6 +1,6 @@
 # Independent-component migration (internal; commercial release prohibited pending rights review)
 
-Reference baseline: development 0.10.95-dev, commit 8afb826f9a63f92a7e6c67d4cbfde7d820764de3, tree 954982b398cdbcf672cf7efea7d5c7ea485142a8. Preserve both development and master. Active migration branch: feature/independent-importer. Upstream Waffle1434 authorship retained. This is reimplementation with existing interface knowledge, not a certified clean-room process. No license grant for inherited code is established.
+Reference baseline: development 0.10.95-dev, commit 8afb826f9a63f92a7e6c67d4cbfde7d820764de3, tree 954982b398cdbcf672cf7efea7d5c7ea485142a8. Preserve the reference baseline commit and master. Active engineering branch: development. The former feature/independent-importer branch is a frozen rollback checkpoint; component replacement proceeds alongside feature work. Upstream Waffle1434 authorship retained. This is reimplementation with existing interface knowledge, not a certified clean-room process. No license grant for inherited code is established.
 
 | Component | Migration result | Provenance / limitations |
 |---|---|---|
@@ -24,4 +24,4 @@ Original corpus: 872 matching editor packages accepted (UE4 522: 3; UE5 1004: 3;
 
 ## Next priority
 
-Replace inherited UE4 tagged property decoder and project/path resolution boundary, then migrate remaining UAsset callers; validate original legacy 508 and 522 fixtures and supported split/cooked layouts. Mesh, material and scene integration still derived; full provenance and dependency audit pending. Retain prior feature branch checkpoint and reference branches. No distribution clearance; no claims of strict clean-room provenance.
+Replace inherited UE4 tagged property decoder and project/path resolution boundary, then migrate remaining UAsset callers; validate original legacy 508 and 522 fixtures and supported split/cooked layouts. Mesh, material and scene integration still derived; full provenance and dependency audit pending. Retain prior checkpoints and reference history. The target is removal of inherited implementation and obsolete product branding from the distributable product, not deletion of necessary attribution or provenance records. No distribution clearance; no claims of strict clean-room provenance.

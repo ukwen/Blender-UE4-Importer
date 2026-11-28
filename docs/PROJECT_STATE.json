@@ -4,11 +4,11 @@
   "repository": "https://github.com/ukwen/Blender-UE4-Importer",
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
-  "development_branch": "feature/independent-importer",
+  "development_branch": "development",
   "application_version": "0.10.97-dev",
   "previous_verified_commit": "26379f434fa3099fd6735565465554339ba09f4d",
   "previous_verified_tree": "a2a6e052eee02c0b1e846d80f3e874c0d4b38ce4",
-  "current_commit_resolution": "Match 0.10.97 immutable checkpoint to feature/independent-importer commit/tree and hashes.",
+  "current_commit_resolution": "0.10.97 runtime acceptance baseline dd485f4f2541f202afcb93d8a4e70f4bdcc85e3d tree 9fc508f0cc9ce39832fdf4f553511ffabd7ec883; subsequent branch consolidation changes documentation only. Resolve current development head and verify exact tree.",
   "milestone": "Bounded typed package table reader; UE5 table consumers and UE4 522 preflight migration",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
@@ -38,13 +38,13 @@
       "matching_original_packages": 872,
       "accepted": 872,
       "by_version": {
-        "1017": 853,
-        "1016": 2,
-        "1013": 4,
         "1004": 3,
+        "1013": 4,
         "1015": 2,
-        "UE4_522": 3,
-        "1018": 5
+        "1016": 2,
+        "1017": 853,
+        "1018": 5,
+        "UE4_522": 3
       },
       "failures": []
     },
@@ -56,7 +56,7 @@
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace inherited UE4 tagged property decoder and project resolver, then remaining UAsset consumers and mesh/material/map integration; audit all rights.",
+  "next_priority": "Parallel work on development: independent UE4 tagged property decoder and project resolver; ongoing importer feature, fidelity, performance and compatibility improvements. Migrate remaining inherited geometry/material/map code and audit rights before distribution.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -81,7 +81,8 @@
     "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. Safe UE5.6 in-map stage cancellation verified; individual synchronous/native calls and legacy maps remain indivisible. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
     "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported."
   ],
-  "reference_development_branch": "development",
+  "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",
-  "commercial_distribution_ready": false
+  "commercial_distribution_ready": false,
+  "branch_policy": "Single active development branch; feature/independent-importer is a frozen rollback reference; preserve master and provenance."
 }

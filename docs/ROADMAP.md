@@ -49,3 +49,7 @@ Goal: direct one-operation import of original Unreal project level into a faithf
 0.10.96: registration helper, binary shader library and texture executable removed. Next: independently implemented package parser (bounded typed data, fixture-backed conformance), then geometry, material and scene import integration. Audit remaining code and dependency rights, restore missing texture/function parity from permitted evidence, run full fixture and platform acceptance. Existing source/Windows blockers remain. See INDEPENDENCE.md.
 
 0.10.97: typed package-table reader and adapter for UE5 editor profiles; UE4 522 preflight no longer uses inherited UAsset object tables. 872 matching original packages accepted; controlled corruption refused. Next: independent UE4 tagged property and project path readers, then remaining geometry/material/scene callers.
+
+## Consolidated development policy
+
+Use development as the sole active branch. Continue ordinary feature, performance and compatibility work alongside the staged replacement of inherited parser, mesh, material and level code. Maintain feature parity and regression evidence; audit source and binary provenance, remove obsolete branding from the final product after lawful replacement, and preserve required third-party notices. Preserve master and the former migration checkpoint; do not distribute until rights review is complete.
