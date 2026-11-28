@@ -1,6 +1,6 @@
 # Unreal Project Importer — independent component migration
 
-Internal development candidate **0.10.116-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
+Internal development candidate **0.10.117-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
 
 Active development takes place directly on `development`; independent component replacement and feature advancement are parallel engineering priorities. The former migration branch is a historical rollback checkpoint only. This candidate replaces the inherited registration helper and binary shader library and removes the bundled external texture executable. Native supported editor texture profiles are used; cooked textures retain their explicit-profile operator. This is not yet a complete independent implementation.
 
@@ -8,7 +8,7 @@ See [migration and provenance](docs/INDEPENDENCE.md), [handoff](docs/HANDOFF.md)
 
 The Python-only inventory command `python tools/inspect_saved_project.py /path/to/Project.uproject` lists saved levels and excluded redirectors without launching Blender. It reports optional engine content availability, not rendering or complete dependency coverage.
 
-Classic UE4 object-version 508 geometry-only maps now reconstruct supported static actors and foliage using typed records, without invoking the inherited importer modules. Other legacy profiles and optional material/skeletal-component extensions retain existing paths.
+Classic UE4 object-version 508 geometry-only maps now reconstruct supported static actors and foliage using typed records, without invoking the inherited importer modules. Unsupported classic map profiles require explicit legacy compatibility; native component extensions use typed records.
 
 Supported UE4.27 Blueprint defaults and character body templates now use the typed package/property reader; the original mixed-version component integration and full Western Frontier skeletal/foliage regression pass.
 
@@ -28,10 +28,12 @@ The controlled UE4.27 layer-function compiler supports a bounded bundle graph su
 
 **Primary saved-level file menu:** File > Import > UE Saved Level (.umap). Select a saved map inside its original project (or multiple maps from one project). The native project transaction preserves independent levels and reports unresolved dependencies. UE Map — Legacy Compatibility retains the old menu options; it is not the primary workflow.
 
-**Primary mesh menu:** UE Mesh (.uasset) supports original editor assets and explicit native cooked profiles with adjacent sidecars. Cooked surfaces retain unresolved material slot identities, not reconstructed shaders. For unmigrated split formats, choose Legacy compatibility explicitly; older monolithic fallback remains.
+**Primary mesh menu:** UE Mesh (.uasset) supports original editor assets and explicit native cooked profiles with adjacent sidecars. Cooked surfaces retain unresolved material slot identities, not reconstructed shaders. For unmigrated split formats, choose Legacy compatibility explicitly; older monolithic formats require explicit Legacy compatibility.
 
 Versioned UE4.25 tagged split package inventory and native cooked material dependency auditing now share the project preflight path. This does not reconstruct cooked shader graphs or certify arbitrary older profiles.
 
 **Native geometry boundary:** supported editor and cooked meshes use the native import profile. Unsupported mesh layouts are reported without inherited fallback; explicitly select Legacy compatibility (editor or cooked) for the old mesh route. Native project inventory and geometry gallery report unknown or unsupported profiles.
 
 **Native texture file menu:** File > Import > UE Texture (.uasset). Select one or more source textures and a supported explicit profile; the entire batch is rolled back if any package fails. Packed images remain editable and survive reopen.
+
+**Native preview transaction:** classic and modern static-scene preview rolls back newly allocated IDs on late failure; older unverified classic map and Blueprint defaults are explicitly unsupported or unresolved.

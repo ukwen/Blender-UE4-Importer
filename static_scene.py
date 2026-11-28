@@ -65,7 +65,21 @@ class MeshResolver:
 
 
 def reconstruct_static_map(filepath, materials=False, allow_partial_materials=False, cooked_profile='4.27', components=False):
-    """Return a new collection plus measured per-actor and per-package results."""
+    """Create a preview atomically with respect to newly allocated Blender IDs.
+
+    Both the project browser and standalone callers use this boundary. A failed
+    late stage may not leave a half-created import collection or geometry behind.
+    """
+    from project_session import new_ids, rollback_new
+    before = set(new_ids())
+    try:
+        return _reconstruct_static_map(filepath, materials, allow_partial_materials, cooked_profile, components)
+    except Exception:
+        rollback_new(before)
+        raise
+
+
+def _reconstruct_static_map(filepath, materials, allow_partial_materials, cooked_profile, components):
     from package_inspector import inspect_package
     source=str(Path(filepath).resolve())
     if any(c.get("UE_full_scene_source")==source for c in bpy.context.scene.collection.children_recursive):
