@@ -6,7 +6,7 @@ Blender addon to import Unreal Engine 4 asset files. [Download the latest releas
 
 ## Development branch
 
-Current development candidate: **0.10.91-dev**. Objective: direct native UE4/UE5 saved-scene transfer into Blender 4.2.4, with explicit supported profiles and no FBX/USD conversion. Stable branch: `master`; active branch: `development`. [Handoff](docs/HANDOFF.md) · [Project state](docs/PROJECT_STATE.json) · [Roadmap](docs/ROADMAP.md) · [Tests](docs/TEST_REPORT.md) · [Dependencies and installation](docs/DEPENDENCIES.md).
+Current development candidate: **0.10.92-dev**. Objective: direct native UE4/UE5 saved-scene transfer into Blender 4.2.4, with explicit supported profiles and no FBX/USD conversion. Stable branch: `master`; active branch: `development`. [Handoff](docs/HANDOFF.md) · [Project state](docs/PROJECT_STATE.json) · [Roadmap](docs/ROADMAP.md) · [Tests](docs/TEST_REPORT.md) · [Dependencies and installation](docs/DEPENDENCIES.md).
 
 For verified native UE4/UE5 reconstruction profiles, limitations and setup, see [DEVELOPMENT.md](DEVELOPMENT.md). The original upstream feature table below is historical. UE5.6 saved lighting/marker import is an approximate preview, not Unreal rendering parity.
 
@@ -172,3 +172,5 @@ For 0.10.86-dev, unified UE5.6 saved-level transfer preserves supported inline a
 0.10.90-dev adds exact-identity missing source recovery, automatic visible anchor selection, level-local repair overlays, between-map atomic cancellation and adjustable package cache memory budget. [Details](docs/0.10.90-source-recovery.md).
 
 0.10.91-dev reduces temporary terrain allocation, excludes validated saved-map redirectors from the world selector, and includes an all-original-map acceptance harness. [Details](docs/0.10.91-landscape-memory.md).
+
+0.10.92-dev prioritizes the direct level import controls, retains advanced tools in collapsible sections, and validates actual Linux desktop clipboard, modal cancellation/retry and source restoration confirmation. [Details](docs/0.10.92-desktop-workflow.md).

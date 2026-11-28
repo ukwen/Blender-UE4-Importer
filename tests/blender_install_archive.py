@@ -6,7 +6,7 @@ assert bpy.app.version[:2]==(4,2)
 assert bpy.ops.preferences.addon_install(filepath=str(archive),overwrite=True)=={'FINISHED'}
 assert bpy.ops.preferences.addon_enable(module=module)=={'FINISHED'}
 try:
-    addon=sys.modules[module];assert addon.bl_info['version']==tuple(map(int,os.environ.get('UE_IMPORTER_EXPECTED_VERSION','0.10.91').split('.')))
+    addon=sys.modules[module];assert addon.bl_info['version']==tuple(map(int,os.environ.get('UE_IMPORTER_EXPECTED_VERSION','0.10.92').split('.')))
     settings=bpy.context.scene.ueimport_project;settings.project_path=str(project);settings.batch_scope='GEOMETRY';settings.cooked_profile='5.6';settings.job_filter='SM_Door';settings.static_materials=False
     assert bpy.ops.ueimport.refresh_jobs()=={'FINISHED'};assert len(settings.job_items)==3
     assert bpy.ops.ueimport.batch_import()=={'FINISHED'};report=json.loads(bpy.data.texts[settings.batch_report].as_string());assert len(report['results'])==3 and all(x['status']=='reconstructed' for x in report['results']),report

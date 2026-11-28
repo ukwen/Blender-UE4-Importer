@@ -201,3 +201,7 @@ See [landscape source atlas](docs/0.10.88-landscape-atlas.md). Original 64 embed
 ## 0.10.91-dev
 
 See [landscape memory and whole-project acceptance](docs/0.10.91-landscape-memory.md). Lower temporary allocation with exact old/candidate terrain digests; map redirector detection; six-world and three commercial-map regressions.
+
+## 0.10.92-dev
+
+Primary sidebar workflow, project-path and rescan guards, safe inter-map event interval, explicit filesystem confirmation warning. Linux Xvfb actual X11 clipboard and keyboard acceptance, two original maps, original package recovery in disposable copy. See [desktop workflow](docs/0.10.92-desktop-workflow.md).

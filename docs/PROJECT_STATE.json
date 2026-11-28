@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.91-dev",
-  "previous_verified_commit": "26de4be7f97120db9eb3f3ed9d574e7c658161f4",
-  "previous_verified_tree": "41758797d26e643329d7d9ff86423d0f473ace78",
-  "current_commit_resolution": "Match immutable 0.10.91 checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "Reduced landscape construction buffers, exact terrain A/B, map redirector detection and all-world acceptance",
+  "application_version": "0.10.92-dev",
+  "previous_verified_commit": "becb32c00c8e7c253f1d5827fb6275ce30d0d819",
+  "previous_verified_tree": "7b0e2d84149320b626b00d4ce6a99db9ae355f65",
+  "current_commit_resolution": "Match immutable 0.10.92 checkpoint and published development commit/tree to archive hashes.",
+  "milestone": "Primary sidebar simplification, actual Linux desktop clipboard, modal Esc rollback and retry, verified source restore confirmation",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.91_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.91-local.zip",
-    "install_archive": "install-091.zip",
+    "checkpoint": "Unreal_Importer_0.10.92_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.92-local.zip",
+    "install_archive": "install-092.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,7 +30,7 @@
   },
   "tests": {
     "baseline": {
-      "passed": 106,
+      "passed": 109,
       "skipped": 23,
       "failed": 0
     },
@@ -39,260 +39,38 @@
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Fresh baseline source exact tree; source/installer and four original archive hashes verified; reused Blender and decoder",
-    "terrain_ab": {
-      "before_peak_rss": 889815040,
-      "after_peak_rss": 878694400,
-      "before_elapsed": 12.481371638999917,
-      "after_elapsed": 12.834785098999419,
-      "digest_exact": true,
-      "reopen": true,
-      "scope": "Single fresh-process pair, other tests overlapped candidate; no portable speed/RSS claim"
+    "environment_reverified": "Fresh source extraction exact 0.10.91 tree, source/installer hashes and four recovery dependencies verified; reused runtime",
+    "linux_x11_desktop": {
+      "scan": true,
+      "all_none": true,
+      "stale_project_guard": true,
+      "advanced_defaults": true,
+      "external_clipboard_exact": true,
+      "actual_escape": true,
+      "exact_id_rollback": true,
+      "camera_world_preserved": true,
+      "modal_retry": true,
+      "levels": 2,
+      "objects": 94,
+      "advanced_panel_capture": true
     },
-    "whole_project": {
-      "levels": {
-        "MainLevel": {
-          "counts": {
-            "geometry_objects": 1995,
-            "decal_objects": 1110,
-            "brush_operand_objects": 45,
-            "compiled_bsp_objects": 17,
-            "volume_guide_objects": 3,
-            "lighting_objects": 146,
-            "cameras_objects": 24,
-            "objects": 3340,
-            "meshes": 24,
-            "armatures": 6,
-            "lights": 141,
-            "cameras": 6
-          },
-          "scene_digest": "0c8e43b1c3956a0ededa1d7841e59044ab9fe7b88e17c1345bf7d970495fbfe9",
-          "mesh_datablocks": 72
-        },
-        "TestLevel": {
-          "counts": {
-            "geometry_objects": 5,
-            "decal_objects": 0,
-            "brush_operand_objects": 8,
-            "compiled_bsp_objects": 9,
-            "volume_guide_objects": 1,
-            "lighting_objects": 5,
-            "cameras_objects": 4,
-            "objects": 32,
-            "meshes": 10,
-            "armatures": 1,
-            "lights": 1,
-            "cameras": 1
-          },
-          "scene_digest": "ff7ea985f8132ef08874cf3ffb86cd896224c7eb8b5cfa9b9c07bd4c5c91e157",
-          "mesh_datablocks": 19
-        },
-        "Lvl_ThirdPerson": {
-          "counts": {
-            "geometry_objects": 55,
-            "decal_objects": 0,
-            "brush_operand_objects": 0,
-            "compiled_bsp_objects": 0,
-            "volume_guide_objects": 1,
-            "lighting_objects": 6,
-            "cameras_objects": 0,
-            "objects": 62,
-            "meshes": 53,
-            "armatures": 0,
-            "lights": 1,
-            "cameras": 0
-          },
-          "scene_digest": "4ca7eff6735b3751dea2352b202c5c4c2b0de39e29f72c9c5bfc34cff969f275",
-          "mesh_datablocks": 5
-        },
-        "Lvl_Combat": {
-          "counts": {
-            "geometry_objects": 136,
-            "decal_objects": 0,
-            "brush_operand_objects": 0,
-            "compiled_bsp_objects": 0,
-            "volume_guide_objects": 2,
-            "lighting_objects": 6,
-            "cameras_objects": 0,
-            "objects": 144,
-            "meshes": 127,
-            "armatures": 0,
-            "lights": 1,
-            "cameras": 0
-          },
-          "scene_digest": "49ae9436ede1f8f06c86d89727e70b6f2e385ee18267f726d36ff1bb4eefda34",
-          "mesh_datablocks": 11
-        },
-        "Lvl_Platforming": {
-          "counts": {
-            "geometry_objects": 135,
-            "decal_objects": 0,
-            "brush_operand_objects": 0,
-            "compiled_bsp_objects": 0,
-            "volume_guide_objects": 1,
-            "lighting_objects": 6,
-            "cameras_objects": 0,
-            "objects": 142,
-            "meshes": 134,
-            "armatures": 0,
-            "lights": 1,
-            "cameras": 0
-          },
-          "scene_digest": "a00f460b2438d4806679497c969344d921a89d40c1e81b5fcf393b459e378ef7",
-          "mesh_datablocks": 5
-        },
-        "Lvl_SideScrolling": {
-          "counts": {
-            "geometry_objects": 126,
-            "decal_objects": 0,
-            "brush_operand_objects": 0,
-            "compiled_bsp_objects": 0,
-            "volume_guide_objects": 4,
-            "lighting_objects": 6,
-            "cameras_objects": 0,
-            "objects": 136,
-            "meshes": 96,
-            "armatures": 0,
-            "lights": 1,
-            "cameras": 0
-          },
-          "scene_digest": "f10f52834aa9a643cf02ee3937e5a39f2739454f2c69c7e87cba362d2d34ecfa",
-          "mesh_datablocks": 9
-        }
-      },
-      "redirectors": {
-        "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/MyStuff/TestLevel.umap": "/Game/MyStuff/Maps/TestLevel"
-      },
-      "objects": 3856,
-      "meshes": 444,
-      "armatures": 7,
-      "reopen": true,
-      "duplicate_refusal": true,
-      "world_camera_preserved": true,
-      "scope": "All six available original maps in one independent level set. Missing assets remain unresolved; no streaming composition or render parity."
-    },
-    "western": {
-      "levels": {
-        "Demonstration": {
-          "geometry_objects": 2480,
-          "lighting_objects": 2,
-          "objects": 2482,
-          "meshes": 2462,
-          "armatures": 6,
-          "lights": 1,
-          "cameras": 0
-        },
-        "Overview": {
-          "geometry_objects": 415,
-          "lighting_objects": 2,
-          "objects": 417,
-          "meshes": 352,
-          "armatures": 30,
-          "lights": 1,
-          "cameras": 0
-        }
-      },
-      "foliage_instances": 462,
-      "max_foliage_local_error_m": 1.5377651809513707e-05,
-      "reopen": true,
-      "duplicates_refused": true,
-      "strict_gate": true,
-      "late_failure_rollback": true,
-      "active_camera_preserved": true,
-      "material_bound_mesh_objects": 2814,
-      "packed_images": 5,
-      "max_light_position_or_direction_error": 1.6858739404357614e-07,
-      "material_status": {
-        "Demonstration": {
-          "graph_imported_unverified": 10
-        },
-        "Overview": {
-          "graph_imported_unverified": 7
-        }
-      },
-      "unrepresented_classes": {
-        "Demonstration": {
-          "AbstractNavData": 1,
-          "AtmosphericFog": 1,
-          "Brush": 1,
-          "LightmassImportanceVolume": 1,
-          "Model": 2,
-          "Polys": 2,
-          "PostProcessVolume": 1,
-          "WorldSettings": 1
-        },
-        "Overview": {
-          "AbstractNavData": 1,
-          "AtmosphericFog": 1,
-          "Brush": 1,
-          "InstancedFoliageActor": 1,
-          "Model": 2,
-          "Polys": 2,
-          "WorldSettings": 1
-        }
-      },
-      "dependency_gaps": {
-        "Demonstration": 4,
-        "Overview": 5
-      }
-    },
-    "goblin": {
-      "scope": "Partial mixed-version fixture; original UE4.26 map, test-only descriptor",
-      "counts": {
-        "geometry_objects": 1009,
-        "lighting_objects": 2,
-        "objects": 1011,
-        "meshes": 36,
-        "armatures": 30,
-        "lights": 1,
-        "cameras": 0
-      },
-      "static_status": {
-        "missing": 559,
-        "reconstructed": 3
-      },
-      "component_status": {
-        "anchor_only": 16,
-        "reconstructed": 33,
-        "inherited_mesh_unresolved": 1,
-        "missing": 34
-      },
-      "coverage": {
-        "anchor_or_marker": 32,
-        "geometry": 33,
-        "not_reconstructed": 7,
-        "light_preview": 1,
-        "unresolved_geometry": 559
-      },
-      "source_relative_locations_validated": 592,
-      "max_relative_position_error_m": 3.412052258814641e-05,
-      "character_bodies": 15,
-      "sockets": 300,
-      "accessories": {
-        "reconstructed": 3,
-        "missing": 34
-      },
-      "packed_images": 3,
-      "material_status": {
-        "partial_graph_unresolved": 1,
-        "missing_dependencies": 2
-      },
-      "dependency_gaps": 622,
-      "strict_gate": true,
-      "late_rollback": true,
-      "duplicates_refused": true,
-      "reopen": true,
-      "active_camera_preserved": true
+    "linux_x11_restore_confirmation": {
+      "cancelled_without_writes": true,
+      "original_package_restored": true,
+      "source_unchanged": true,
+      "sha256": "4680317a8c87f983e077f6c0a6b93ffaa0ba4dbddbc810960d4553e6ad380a89",
+      "actual_x11_confirmation": true
     },
     "single_level_regression": true,
     "level_set_regression": true,
-    "isolated_install": "See immutable checkpoint"
+    "whole_project_and_commercial": "Previously verified in 0.10.91, not repeated here",
+    "isolated_install": "See immutable checkpoint for final archive acceptance"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Professional desktop/Windows acceptance and remaining feasible import coverage/performance; native unsupported profiles only with positive original evidence. No new downloads.",
+  "next_priority": "Remaining production usability and acceptance on Windows; additional original native profiles only with positive evidence. Improve report navigation and import reliability, no new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -314,7 +92,7 @@
     "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition.",
     "BSP geometry supported for original zero-flag inline compiled profile only. Six explicit material packages unavailable and 76 faces have null source material; lightmap baking, other BSP/volume profiles and runtime CSG/physics/navigation/postprocess not validated.",
     "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
-    "Desktop modal Esc/confirmation and clipboard unverified; only between-map cancellation, no mid-stage interruption. One fresh process per memory budget; no general memory reduction claim. Source recovery bounded to exact monolithic editor Game packages; hard-link filesystem support and Windows acceptance unverified.",
-    "Native desktop/Windows acceptance not verified; measured terrain RSS reduction modest and no speed gain established. Other redirector profiles and automatic redirector resolution unsupported."
+    "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. No mid-map interruption. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
+    "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported."
   ]
 }

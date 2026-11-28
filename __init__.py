@@ -1,9 +1,9 @@
 bl_info = {
-    "name" : "Unreal Engine 4",
+    "name" : "Unreal Project Importer (UE4/UE5)",
     "author" : "Waffle1434",
-    "description" : "Import UE4 meshes, materials, & maps.",
+    "description" : "Reconstruct supported saved Unreal levels, geometry and materials in Blender.",
     "blender" : (4, 2, 0),
-    "version" : (0, 10, 91),
+    "version" : (0, 10, 92),
     "location" : "",
     "warning" : "",
     "category" : "Import-Export",

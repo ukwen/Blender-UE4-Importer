@@ -57,6 +57,11 @@ class UEIMPORT_UL_jobs(bpy.types.UIList):
 
 
 class UEIMPORT_Settings(bpy.types.PropertyGroup):
+    show_recovery: BoolProperty(name='Recover missing assets',default=False)
+    show_environment: BoolProperty(name='Environment previews',default=False)
+    show_options: BoolProperty(name='Import options',default=False)
+    show_batch: BoolProperty(name='Advanced asset batch',default=False)
+    show_tools: BoolProperty(name='Advanced individual tools',default=False)
     project_path: StringProperty(name='Project', subtype='FILE_PATH')
     scanned_project: StringProperty(options={'HIDDEN'})
     engine: StringProperty(options={'HIDDEN'})
@@ -98,6 +103,8 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
     def execute(self, context):
         state = context.scene.ueimport_project
         state.maps.clear()
+        state.job_items.clear();state.job_active=0;state.catalog_key=''
+        state.batch_status=state.batch_report=''
         state.scanned_project = ''
         state.engine = ''
         state.map_redirectors = ''
@@ -127,7 +134,9 @@ class UEIMPORT_OT_import_map(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         state = context.scene.ueimport_project
-        return 0 <= state.active < len(state.maps)
+        if UEIMPORT_OT_level_set._active or UEIMPORT_OT_batch._active or not state.scanned_project or not 0<=state.active<len(state.maps):return False
+        try:return str(Path(bpy.path.abspath(state.project_path)).resolve())==state.scanned_project
+        except (OSError,ValueError,RuntimeError):return False
 
     def execute(self, context):
         state = context.scene.ueimport_project
@@ -272,7 +281,8 @@ class UEIMPORT_OT_restore_sources(bpy.types.Operator):
     @classmethod
     def poll(cls,context):
         return UEIMPORT_OT_import_map.poll(context) and bpy.data.texts.get(context.scene.ueimport_project.source_recovery_plan) is not None
-    def invoke(self,context,event):return context.window_manager.invoke_confirm(self,event)
+    def invoke(self,context,event):
+        return context.window_manager.invoke_confirm(self,event,title='Restore verified original packages?',message='Writes missing files into Content. Blender Undo cannot reverse this.',confirm_text='Restore Files')
     def execute(self,context):
         try:
             s,project,selected,folder=recovery_context(context)
@@ -333,7 +343,18 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
 
 class UEIMPORT_UL_maps(bpy.types.UIList):
     def draw_item(self,context,layout,data,item,icon,active_data,active_propname,index):
-        row=layout.row(align=True);row.prop(item,'enabled',text='');row.label(text=item.name)
+        row=layout.row(align=True);row.prop(item,'enabled',text='');row.label(text=Path(item.name).stem)
+
+
+class UEIMPORT_OT_check_maps(bpy.types.Operator):
+    bl_idname='ueimport.check_maps'
+    bl_label='Check or uncheck all levels'
+    enabled: BoolProperty(default=True)
+    @classmethod
+    def poll(cls,context):return UEIMPORT_OT_import_map.poll(context)
+    def execute(self,context):
+        for item in context.scene.ueimport_project.maps:item.enabled=self.enabled
+        return {'FINISHED'}
 
 
 class UEIMPORT_OT_level_set(bpy.types.Operator):
@@ -389,10 +410,11 @@ class UEIMPORT_OT_level_set(bpy.types.Operator):
     def modal(self,context,event):
         if event.type=='ESC' and event.value=='PRESS':return self.finish('cancelled')
         if event.type=='TIMER' and time.monotonic()>=self.next_tick:
-            self.next_tick=time.monotonic()+.05
             try:
                 result=self.step()
                 if result:return result
+                # Give queued desktop input a chance after a long synchronous map.
+                self.next_tick=time.monotonic()+.25
                 if context.area:context.area.tag_redraw()
             except Exception as exc:return self.finish('failed',str(exc))
         return {'RUNNING_MODAL'}
@@ -734,87 +756,99 @@ class UEIMPORT_PT_project(bpy.types.Panel):
     bl_category = 'Unreal'
 
     def draw(self, context):
-        state = context.scene.ueimport_project
-        layout = self.layout
-        layout.operator('ueimport.native_texture', icon='IMAGE_DATA')
-        layout.operator('ueimport.wind_preview', icon='MOD_NODES')
-        layout.prop(state, 'project_path')
-        layout.operator('ueimport.scan_project', icon='FILE_REFRESH')
-        box=layout.box();box.label(text='Project batch workflow')
-        box.prop(state,'batch_scope');box.prop(state,'job_filter')
-        if state.batch_scope in ('GEOMETRY','MAP_GEOMETRY'):
-            if state.batch_scope=='GEOMETRY': box.prop(state,'geometry_folder')
-            else: box.label(text='Gallery of selected map dependencies')
-            box.prop(state,'geometry_physics')
-            box.prop(state,'static_materials',text='UE5 editor materials')
-            if state.static_materials: box.prop(state,'partial_materials')
-            if state.cooked_profile=='5.6': box.prop(state,'geometry_all_lods')
-        else:
-            box.prop(state,'components');box.prop(state,'static_materials')
-            if state.static_materials: box.prop(state,'partial_materials')
-        box.prop(state,'cooked_profile')
-        box.operator('ueimport.refresh_jobs',icon='FILE_REFRESH')
-        box.prop(state,'use_job_selection')
-        if state.use_job_selection:
-            if state.catalog_key!=catalog_key(state): box.label(text='Refresh the job list',icon='ERROR')
-            else:
-                row=box.row(align=True);row.operator('ueimport.check_jobs',text='All').enabled=True;row.operator('ueimport.check_jobs',text='None').enabled=False
-                box.template_list('UEIMPORT_UL_jobs','asset_jobs',state,'job_items',state,'job_active',rows=5)
-                box.label(text=f'{sum(item.enabled for item in state.job_items)} of {len(state.job_items)} jobs checked')
-        box.operator('ueimport.preflight',icon='VIEWZOOM')
-        box.prop(state,'recovery_copy')
-        box.operator('ueimport.batch_import',icon='PLAY')
-        if state.batch_status: box.label(text=state.batch_status)
-        if state.batch_report: box.label(text=state.batch_report,icon='TEXT')
-        box.label(text='Esc stops between jobs; save to resume')
-        box.label(text='Existing verified jobs are reused')
-        if state.scanned_project:
-            layout.label(text=f'Engine: {state.engine}')
-            layout.label(text=f'Maps: {len(state.maps)}')
-            if state.map_redirectors:layout.label(text=f'{len(json.loads(state.map_redirectors))} map redirector(s) excluded',icon='INFO')
-            layout.template_list('UEIMPORT_UL_maps', 'unreal_maps', state, 'maps', state, 'active', rows=5)
-            layout.prop(state,'partial_materials',text='Allow partial material previews')
+        state=context.scene.ueimport_project
+        layout=self.layout
+        busy=UEIMPORT_OT_level_set._active or UEIMPORT_OT_batch._active
+        if busy:
+            layout.label(text=state.batch_status or 'Import in progress',icon='TIME')
+            layout.label(text='Esc: stop at the next safe boundary')
+            return
+        layout.prop(state,'project_path',text='Project')
+        layout.operator('ueimport.scan_project',icon='FILE_REFRESH')
+        ready=UEIMPORT_OT_import_map.poll(context)
+        if state.scanned_project and not ready:
+            layout.label(text='Project changed or no levels; scan again',icon='INFO')
+        if ready:
+            layout.label(text=f'Engine: {state.engine} | {len(state.maps)} levels')
+            try: redirects=len(json.loads(state.map_redirectors)) if state.map_redirectors else 0
+            except (ValueError,TypeError): redirects=0
+            if redirects:layout.label(text=f'{redirects} redirector(s) excluded',icon='INFO')
+            layout.template_list('UEIMPORT_UL_maps','unreal_maps',state,'maps',state,'active',rows=5)
+            row=layout.row(align=True);row.operator('ueimport.check_maps',text='All').enabled=True;row.operator('ueimport.check_maps',text='None').enabled=False
+            checked=sum(m.enabled for m in state.maps)
+            layout.label(text=f'{checked} of {len(state.maps)} levels checked')
             layout.operator('ueimport.scene_dependencies',icon='VIEWZOOM')
-            if 0<=state.active<len(state.maps) and state.scene_summary_source==state.maps[state.active].filepath:
-                actions=layout.box();actions.label(text=state.scene_summary);actions.operator('ueimport.copy_scene_actions',icon='COPYDOWN')
-            recovery=layout.box();recovery.label(text='Recover missing original assets');recovery.prop(state,'recovery_folder',text='Folder');recovery.operator('ueimport.locate_sources',icon='VIEWZOOM')
-            if state.source_recovery_status:recovery.label(text=state.source_recovery_status)
-            if state.source_recovery_plan:recovery.label(text=state.source_recovery_plan,icon='TEXT');recovery.operator('ueimport.restore_sources',icon='FILE_REFRESH')
-            layout.prop(state,'scene_cache_mib')
-            layout.prop(state,'strict_scene_dependencies')
-            layout.operator('ueimport.full_scene',icon='SCENE_DATA')
-            layout.operator('ueimport.level_set',icon='SCENE_DATA')
-            layout.label(text='Esc between levels rolls back the set')
-            layout.operator('ueimport.activate_level')
-            layout.operator('ueimport.apply_sky_preview',icon='WORLD')
-            layout.operator('ueimport.toggle_fog_preview')
-            layout.prop(state, 'materials')
-            layout.operator('ueimport.import_selected_map', icon='IMPORT')
-            layout.separator()
-            layout.prop(state, 'cooked_profile')
-            layout.prop(state, 'geometry_folder')
-            layout.prop(state, 'geometry_physics')
-            if state.cooked_profile=='5.6': layout.prop(state,'geometry_all_lods')
-            layout.prop(state,'static_materials',text='UE5 editor materials')
-            if state.static_materials: layout.prop(state,'partial_materials')
-            layout.operator('ueimport.geometry_gallery', icon='OUTLINER_OB_ARMATURE')
-            layout.separator()
-            layout.prop(state, 'components')
-            layout.prop(state, 'static_materials')
-            if state.static_materials:
-                layout.prop(state, 'partial_materials')
-            layout.operator('ueimport.reconstruct_static', icon='MESH_DATA')
-            layout.prop(state,'light_preview_scale')
-            layout.operator('ueimport.lighting_preview', icon='LIGHT')
-            layout.operator('ueimport.camera_preview', icon='CAMERA_DATA')
-            layout.operator('ueimport.select_recoverable_meshes',icon='RESTRICT_SELECT_OFF')
-            layout.operator('ueimport.repair_missing_meshes', icon='FILE_REFRESH')
-            layout.label(text='Lighting is a preview, not Unreal rendering.')
-            layout.label(text='Missing meshes remain empties; unresolved materials marked.')
-            layout.label(text='Bounded native formats; unsupported assets reported.')
+            selected=state.maps[state.active].filepath
+            if state.scene_summary_source==selected:
+                actions=layout.box()
+                for line in state.scene_summary.split('; '):actions.label(text=line)
+                actions.operator('ueimport.copy_scene_actions',icon='COPYDOWN')
+            imported=any(c.get('UE_full_scene_source')==selected for c in context.scene.collection.children_recursive)
+            row=layout.row();row.enabled=not imported;row.scale_y=1.3;row.operator('ueimport.full_scene',text='Import Selected Level',icon='SCENE_DATA')
+            row=layout.row();row.enabled=checked>0;row.operator('ueimport.level_set',text='Import Checked Levels',icon='SCENE_DATA')
+            if imported:layout.label(text='Selected level already imported',icon='CHECKMARK')
+            row=layout.row();row.enabled=any(c.get('UE_project_level_set') and any(x.get('UE_full_scene_source')==selected for x in c.children) for c in context.scene.collection.children_recursive);row.operator('ueimport.activate_level',icon='HIDE_OFF')
+        if state.batch_status:layout.label(text=state.batch_status)
+        if state.batch_report:layout.label(text=state.batch_report,icon='TEXT')
+        def fold(prop):
+            section=layout.box();section.prop(state,prop,icon='TRIA_DOWN' if getattr(state,prop) else 'TRIA_RIGHT',emboss=False)
+            return section if getattr(state,prop) else None
+        section=fold('show_options')
+        if section:
+            section.prop(state,'partial_materials',text='Allow partial material previews')
+            section.prop(state,'scene_cache_mib');section.prop(state,'strict_scene_dependencies');section.prop(state,'light_preview_scale')
+        section=fold('show_recovery')
+        if section:
+            section.prop(state,'recovery_folder',text='Folder');section.operator('ueimport.locate_sources',icon='VIEWZOOM')
+            if state.source_recovery_status:section.label(text=state.source_recovery_status)
+            if state.source_recovery_plan:section.label(text=state.source_recovery_plan,icon='TEXT');section.operator('ueimport.restore_sources',icon='FILE_REFRESH')
+            section.operator('ueimport.select_recoverable_meshes',icon='RESTRICT_SELECT_OFF');section.operator('ueimport.repair_missing_meshes',icon='FILE_REFRESH')
+        section=fold('show_environment')
+        if section:
+            section.operator('ueimport.apply_sky_preview',icon='WORLD');section.operator('ueimport.toggle_fog_preview');section.label(text='Approximate sky and fog previews')
+        section=fold('show_batch')
+        if section:
+            box=section
+            box.prop(state,'batch_scope');box.prop(state,'job_filter')
+            if state.batch_scope in ('GEOMETRY','MAP_GEOMETRY'):
+                if state.batch_scope=='GEOMETRY': box.prop(state,'geometry_folder')
+                else: box.label(text='Gallery of selected map dependencies')
+                box.prop(state,'geometry_physics')
+                box.prop(state,'static_materials',text='UE5 editor materials')
+                if state.static_materials: box.prop(state,'partial_materials')
+                if state.cooked_profile=='5.6': box.prop(state,'geometry_all_lods')
+            else:
+                box.prop(state,'components');box.prop(state,'static_materials')
+                if state.static_materials: box.prop(state,'partial_materials')
+            box.prop(state,'cooked_profile')
+            box.operator('ueimport.refresh_jobs',icon='FILE_REFRESH')
+            box.prop(state,'use_job_selection')
+            if state.use_job_selection:
+                if state.catalog_key!=catalog_key(state): box.label(text='Refresh the job list',icon='ERROR')
+                else:
+                    row=box.row(align=True);row.operator('ueimport.check_jobs',text='All').enabled=True;row.operator('ueimport.check_jobs',text='None').enabled=False
+                    box.template_list('UEIMPORT_UL_jobs','asset_jobs',state,'job_items',state,'job_active',rows=5)
+                    box.label(text=f'{sum(item.enabled for item in state.job_items)} of {len(state.job_items)} jobs checked')
+            box.operator('ueimport.preflight',icon='VIEWZOOM')
+            box.prop(state,'recovery_copy')
+            box.operator('ueimport.batch_import',icon='PLAY')
+            if state.batch_status: box.label(text=state.batch_status)
+            if state.batch_report: box.label(text=state.batch_report,icon='TEXT')
+            box.label(text='Esc stops between jobs; save to resume')
+            box.label(text='Existing verified jobs are reused')
+        section=fold('show_tools')
+        if section:
+            section.operator('ueimport.native_texture',icon='IMAGE_DATA');section.operator('ueimport.wind_preview',icon='GEOMETRY_NODES')
+            section.prop(state,'materials');section.operator('ueimport.import_selected_map',icon='IMPORT')
+            section.prop(state,'cooked_profile');section.prop(state,'geometry_folder');section.prop(state,'geometry_physics')
+            if state.cooked_profile=='5.6':section.prop(state,'geometry_all_lods')
+            section.prop(state,'components');section.prop(state,'static_materials');section.prop(state,'partial_materials')
+            section.operator('ueimport.geometry_gallery',icon='OUTLINER_OB_ARMATURE');section.operator('ueimport.reconstruct_static',icon='MESH_DATA')
+            section.operator('ueimport.lighting_preview',icon='LIGHT');section.operator('ueimport.camera_preview',icon='CAMERA_DATA')
+        layout.label(text='Unsupported source data is reported.',icon='INFO')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_copy_scene_actions, UEIMPORT_OT_locate_sources, UEIMPORT_OT_restore_sources, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_select_recoverable_meshes, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_check_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_copy_scene_actions, UEIMPORT_OT_locate_sources, UEIMPORT_OT_restore_sources, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_select_recoverable_meshes, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():
