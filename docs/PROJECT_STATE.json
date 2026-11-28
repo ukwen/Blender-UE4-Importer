@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.118-dev",
-  "previous_verified_commit": "b191b5a2bbc81e60e29fc785f148c3354c8b037c",
-  "previous_verified_tree": "48094fe74ada9f43953a7a638292ef7ab6edb650",
+  "application_version": "0.10.119-dev",
+  "previous_verified_commit": "58a1eb9bd1fd2f71cf62eb4eb21b5eddf61fed1b",
+  "previous_verified_tree": "6b261e009121058784713123c470399e36207978",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Cooked material source catalog and native material boundary",
+  "milestone": "Opt-in native cooked UE4.18 direct surface preview",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.118_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.118-local.zip",
-    "install_archive": "install-118.zip",
+    "checkpoint": "Unreal_Importer_0.10.119_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.119-local.zip",
+    "install_archive": "install-119.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -64,7 +64,7 @@
       "installed": true,
       "imported": 3,
       "reopen_reuse": true,
-      "archive_sha256": "e9f65ae1f01621d3ec8c7f960d1ae8bd5a33695cd094bead34d9d07173a241ae",
+      "archive_sha256": "6543296b48d808c81bcc32228659d74ccf42a34986338f2df3c26e7d649bd6c5",
       "launcher_platform": "linux"
     },
     "versioned_split518": {
@@ -165,6 +165,7 @@
       },
       "source_graph_418": {
         "blend": "BLEND_Translucent",
+        "direct_uv0_preview_eligible": true,
         "edges": {
           "BaseColor": {
             "expression": "MaterialExpressionTextureSample_1",
@@ -212,13 +213,27 @@
       "missing_dependency": true,
       "rollback": true,
       "inherited_import_attempts": []
+    },
+    "cooked_surface_preview": {
+      "profile": "4.18",
+      "source": "M_Worm",
+      "preview_links": 14,
+      "raw_images_unchanged": 3,
+      "packed_normal_sha256": "f45cfaee61624015506f4934addfc3bb190331065fc18688403c80470a5bd95e",
+      "reopen": true,
+      "reuse": true,
+      "missing_refusal": true,
+      "colorspace_refusal": true,
+      "rollback": true,
+      "inherited_import_attempts": [],
+      "render_equivalence": false
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Translate genuine UE4.18 filtered source links with verified sampler/channel semantics; replace shared package identity and remaining explicit legacy backends, preserve original feature parity and legal provenance; Windows acceptance.",
+  "next_priority": "Integrate bounded cooked material preview with exact native mesh slot identities and replace remaining explicit legacy map/mesh/material and shared reference identity dependencies with source-backed feature parity; Windows acceptance.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -250,7 +265,8 @@
     "0.10.115: four inherited files and 25 literal sites remain. Unsupported older monolithic mesh/table profiles have no independently validated decoder; native gallery/static resolver and preflight now report these explicitly rather than trying legacy automatically. Standalone explicit compatibility remains. Native material fallback and remaining map-related legacy consumers still present.",
     "0.10.116: four inherited files, 22 literal production sites. Historical foliage reader retained only for test comparison. Native texture menu refuses unvalidated profiles; older material compatibility reader remains.",
     "0.10.117: four inherited files and 16 literal production references remain. Older unverified classic map/component and Blueprint default profiles are explicitly unsupported/unresolved in native preview; legacy map menu remains. Rollback is for newly allocated IDs only.",
-    "0.10.118: four inherited files and 14 literal import sites remain. Cooked material catalog preserves raw channels and three UE4.18 exact source edges, not a rendered shader. Unsupported intermediate editor texture compatibility removed; general legacy graph, map, geometry and material formats remain unsupported or explicit legacy. No commercial clearance."
+    "0.10.118: four inherited files and 14 literal import sites remain. Cooked material catalog preserves raw channels and three UE4.18 exact source edges, not a rendered shader. Unsupported intermediate editor texture compatibility removed; general legacy graph, map, geometry and material formats remain unsupported or explicit legacy. No commercial clearance.",
+    "0.10.119: opt-in UE4.18 direct surface is a bounded Blender approximation; exact UE rendering, tangent basis, arbitrary cooked shader graphs, native cooked mesh slot binding to this preview, older profiles, four inherited files/14 sites, Windows and rights clearance remain outstanding."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

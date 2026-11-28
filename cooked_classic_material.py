@@ -25,10 +25,11 @@ def read_source_edges(path):
     r=Reader(expr.data);indices=[r.i() for _ in range(r.count(4096))]
     require(r.pos==len(r.data) and len(set(indices))==len(indices),'Invalid expression array')
     expressions={}
+    direct_uv0=True
     for i in indices:
         require(1<=i<=len(exports),'Invalid expression export index')
         e=exports[i-1];unsupported(e[0]=='MaterialExpressionTextureSample' and e[2]==root[0],'Unsupported cooked expression class or owner')
-        q=properties(e);require(object_index(q,'Material')==root[0],'Invalid expression owner')
+        q=properties(e);direct_uv0 &= set(q)<= {'Material','Texture','SamplerType'};require(object_index(q,'Material')==root[0],'Invalid expression owner')
         tex=object_index(q,'Texture');require(-len(imports)<=tex<0,'Invalid texture import index')
         imp=imports[-tex-1];outer=imp[2]
         require(imp[1]=='Texture2D' and -len(imports)<=outer<0,'Invalid texture import')
@@ -48,4 +49,4 @@ def read_source_edges(path):
         require(source in expressions,'Unknown source expression name')
         result[field]=dict(expression=source,output=output,mask=list(mask),**expressions[source])
     unsupported(bool(result),'No supported filtered surface edges')
-    return dict(blend=name(p,'BlendMode',names,'BLEND_Opaque'),edges=result,shader_status='source_edges_only')
+    return dict(blend=name(p,'BlendMode',names,'BLEND_Opaque'),edges=result,shader_status='source_edges_only',direct_uv0_preview_eligible=bool(direct_uv0 and set(p)<= {'BaseColor','Normal','Opacity','BlendMode','TranslucencyLightingMode','bUsedWithSkeletalMesh','EditorX','EditorY','Expressions','bCanMaskedBeAssumedOpaque','StateId'}))

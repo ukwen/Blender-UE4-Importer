@@ -1,6 +1,6 @@
 # Unreal Project Importer — independent component migration
 
-Internal development candidate **0.10.118-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
+Internal development candidate **0.10.119-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
 
 Active development takes place directly on `development`; independent component replacement and feature advancement are parallel engineering priorities. The former migration branch is a historical rollback checkpoint only. This candidate replaces the inherited registration helper and binary shader library and removes the bundled external texture executable. Native supported editor texture profiles are used; cooked textures retain their explicit-profile operator. This is not yet a complete independent implementation.
 
@@ -39,3 +39,6 @@ Versioned UE4.25 tagged split package inventory and native cooked material depen
 **Native preview transaction:** classic and modern static-scene preview rolls back newly allocated IDs on late failure; older unverified classic map and Blueprint defaults are explicitly unsupported or unresolved.
 
 **Native cooked material catalog:** File > Import > UE Material (.uasset), choose UE4.18, UE4.27 or UE5.0 cooked dependencies. Packs available source texture channels and reports unresolved shader bindings. Original UE4.18 source expression associations are preserved as node annotations; no cooked shader appearance is asserted. Legacy graph import is an explicit profile; unverified older editor texture layouts now report unsupported.
+
+
+**Opt-in UE4.18 cooked surface preview:** select UE4.18 cooked dependencies and enable Allow partial material preview. Original direct M_Worm texture links produce an editable approximate UV0 surface; default remains dependency-only, raw images remain unchanged and unverified shader semantics remain explicit.

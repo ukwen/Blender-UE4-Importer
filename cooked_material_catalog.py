@@ -6,7 +6,7 @@ from cooked_material_dependencies import inspect_asset, recover_material_depende
 PROFILES=('4.18','4.27','5.0')
 
 
-def import_cooked_material(path,profile):
+def import_cooked_material(path,profile,allow_partial=False):
     import bpy
     from project_session import new_ids, rollback_new
     if profile not in PROFILES: raise NotImplementedError('Unsupported cooked material dependency profile')
@@ -44,6 +44,9 @@ def import_cooked_material(path,profile):
                     if fields:
                         node['UE_cooked_source_inputs']=json.dumps(fields)
                         node.label+=' → '+', '.join(fields)
+                if allow_partial:
+                    from cooked_material_preview import build_preview
+                    build_preview(mat,project,graph)
         mat.use_fake_user=True
         return mat
     except Exception:
