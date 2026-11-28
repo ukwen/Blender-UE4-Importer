@@ -47,3 +47,5 @@ Goal: direct one-operation import of original Unreal project level into a faithf
 ## Independent component migration (user priority)
 
 0.10.96: registration helper, binary shader library and texture executable removed. Next: independently implemented package parser (bounded typed data, fixture-backed conformance), then geometry, material and scene import integration. Audit remaining code and dependency rights, restore missing texture/function parity from permitted evidence, run full fixture and platform acceptance. Existing source/Windows blockers remain. See INDEPENDENCE.md.
+
+0.10.97: typed package-table reader and adapter for UE5 editor profiles; UE4 522 preflight no longer uses inherited UAsset object tables. 872 matching original packages accepted; controlled corruption refused. Next: independent UE4 tagged property and project path readers, then remaining geometry/material/scene callers.

@@ -17,35 +17,10 @@ def read_tables(path):
 
 
 def _read_tables(path):
-    path=Path(path); meta=inspect_package(path)
-    require(meta.get('status')=='tables_inspected' and meta['ue4']==522 and 1012 <= meta['ue5'] <= 1018 and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected UE5 1012–1018 tagged monolithic editor package')
-    require(not meta.get('cell_export_count',0) and not meta.get('cell_import_count',0),'Verse cell tables unsupported')
-    raw=path.read_bytes(); names=meta['names']; ic,ec=meta['import_count'],meta['export_count']; io,eo=meta['import_offset'],meta['export_offset']
-    require(0<ic<=100000 and 0<ec<=100000 and io+40*ic==eo and eo+112*ec<=meta['header_end'],'Unsupported UE5 table extents')
-    r=Reader(raw,io); imports=[]; exports=[]
-    for _ in range(ic):
-        cp,cls,outer,name,pkg,optional=r.name(names),r.name(names),r.i(),r.name(names),r.name(names),r.i()
-        require(-ic<=outer<=ec and optional in (0,1),'Invalid import record')
-        imports.append(dict(class_package=cp,kind=cls,outer=outer,name=name,package_name=pkg,optional=bool(optional)))
-    for _ in range(ec):
-        ci,si,ti,outer=r.unpack('4i'); name=r.name(names); flags=r.unpack('I')[0]; size,off=r.unpack('qq')
-        bits=r.unpack('4i'); pkg=r.unpack('I')[0]; more=r.unpack('3i'); deps=r.unpack('5i'); start,end=r.unpack('2q')
-        require(all(-ic<=x<=ec for x in (ci,si,ti,outer)) and all(x in (0,1) for x in bits+more),'Invalid export record')
-        require(meta['header_end']<=off<=len(raw) and 0<=size<=len(raw)-off and 0<=start<=end<=size,'Invalid export or script extent')
-        exports.append(dict(name=name,class_index=ci,super_index=si,template=ti,outer=outer,offset=off,size=size,script_start=start,script_end=end,inherited=bool(bits[3])))
-    def ref(idx):
-        require(-ic<=idx<=ec,'Invalid package index')
-        return imports[-idx-1] if idx<0 else exports[idx-1] if idx>0 else None
-    def package(idx):
-        seen=set()
-        while idx:
-            require(idx not in seen,'Package index cycle'); seen.add(idx); item=ref(idx)
-            if idx<0 and item['kind']=='Package' and item['name'].startswith(('/Game/','/Engine/')): return item['name']
-            idx=item['outer']
-        return ''
-    for e in exports:
-        cls=ref(e['class_index']); e['kind']=cls['name'] if cls else ''
-    return meta,raw,imports,exports,ref,package
+    from package_records import compatibility_tables
+    meta, raw, imports, exports, ref, package = compatibility_tables(path)
+    require(meta['ue5'] is not None and 1012 <= meta['ue5'] <= 1018, 'Expected UE5 1012–1018 tagged editor package')
+    return meta, raw, imports, exports, ref, package
 
 
 def read_properties(raw,e,names):

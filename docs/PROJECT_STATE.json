@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "feature/independent-importer",
-  "application_version": "0.10.96-dev",
-  "previous_verified_commit": "8afb826f9a63f92a7e6c67d4cbfde7d820764de3",
-  "previous_verified_tree": "954982b398cdbcf672cf7efea7d5c7ea485142a8",
-  "current_commit_resolution": "Match immutable 0.10.95 checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "Independent registration, generated shader groups and native editor texture boundary; commercial migration incomplete",
+  "application_version": "0.10.97-dev",
+  "previous_verified_commit": "26379f434fa3099fd6735565465554339ba09f4d",
+  "previous_verified_tree": "a2a6e052eee02c0b1e846d80f3e874c0d4b38ce4",
+  "current_commit_resolution": "Match 0.10.97 immutable checkpoint to feature/independent-importer commit/tree and hashes.",
+  "milestone": "Bounded typed package table reader; UE5 table consumers and UE4 522 preflight migration",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.96_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.96-local.zip",
-    "install_archive": "install-096.zip",
+    "checkpoint": "Unreal_Importer_0.10.97_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.97-local.zip",
+    "install_archive": "install-097.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,32 +30,33 @@
   },
   "tests": {
     "python": {
-      "passed": 125,
+      "passed": 128,
       "skipped": 10,
       "failed": 0
     },
-    "generated_shader_groups": {
-      "groups": 22,
-      "render_evaluations": 7,
-      "max_abs_error": 2.3841858e-08,
-      "reopen": true,
-      "same_name_isolation": true
+    "original_table_corpus": {
+      "matching_original_packages": 872,
+      "accepted": 872,
+      "by_version": {
+        "1017": 853,
+        "1016": 2,
+        "1013": 4,
+        "1004": 3,
+        "1015": 2,
+        "UE4_522": 3,
+        "1018": 5
+      },
+      "failures": []
     },
-    "native_texture_bridge": {
-      "original_texture": true,
-      "missing_refused": true,
-      "source_unchanged": true,
-      "reopen": true
-    },
-    "registration_smoke": true,
-    "long_original_material_regression": "timed out before final reopen acceptance",
-    "isolated_install": "see checkpoint"
+    "isolated_install": "See immutable checkpoint",
+    "original_level_set": "See immutable checkpoint",
+    "previously_verified": "0.10.96 generated shader groups and native texture boundary not repeated; long material reopen previously timed out"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Independent package parser and typed records; replace inherited mesh, material and map integration; audit all code and dependencies",
+  "next_priority": "Replace inherited UE4 tagged property decoder and project resolver, then remaining UAsset consumers and mesh/material/map integration; audit all rights.",
   "restrictions": [
     "CPU only",
     "preserve master",

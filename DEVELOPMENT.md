@@ -221,3 +221,7 @@ Cooperative UE5.6 full-scene and checked-level reconstruction with safe in-map a
 ## 0.10.96-dev — independent component migration
 
 Separate `feature/independent-importer` branch, preserving development 0.10.95. Remove three inherited files; generated shader groups, registration lifecycle, native editor texture boundary. See [provenance and remaining replacements](docs/INDEPENDENCE.md). Not a clean-room or commercial release claim.
+
+## 0.10.97-dev — typed editor package table migration
+
+See [independence](docs/INDEPENDENCE.md) and [tests](docs/TEST_REPORT.md). Modern UE5 and UE4 522 preflight use bounded typed records; remaining inherited parser and import integration are still pending.

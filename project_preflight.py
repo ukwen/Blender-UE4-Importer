@@ -60,7 +60,14 @@ def read_record(path,project):
         return record
     if meta.get('status')!='tables_inspected' or meta['sidecars']: return record
     try:
-        if meta['ue5'] is None and meta['legacy']==-7:
+        if meta['ue5'] is None and meta['ue4']==522 and meta['legacy']==-7:
+            from package_records import read_package, soft_references_522
+            summary, raw, tables = read_package(path)
+            classes={e.kind for e in tables.exports if not e.outer}
+            refs={i.name for i in tables.imports if i.kind=='Package' and i.name.startswith('/') and not i.name.startswith('/Script/')}
+            try: record.update(soft_references=soft_references_522(summary,raw,tables),soft_coverage='summary_table')
+            except ValueError as exc: record['soft_detail']=str(exc)
+        elif meta['ue5'] is None and meta['legacy']==-7:
             from uasset import UAsset
             with UAsset(str(path),False,project) as a:
                 classes={e.export_class_type for e in a.exports if not e.outer_index}

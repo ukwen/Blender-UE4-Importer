@@ -81,6 +81,8 @@ def inspect_package(path):
                 if ue5==1018:
                     hierarchy_count,hierarchy_offset=i32(),i32()
                     extra.update(import_hierarchy_count=hierarchy_count,import_hierarchy_offset=hierarchy_offset)
+            if ue5 is None and ue4 == 522:
+                extra.update(depends_offset=i32(), soft_package_count=i32(), soft_package_offset=i32(), searchable_offset=i32(), thumbnail_offset=i32())
             for n, o in ((names_count,names_offset),(export_count,export_offset),(import_count,import_offset)):
                 if not 0 <= n <= 2000000 or (n and not f.tell() <= o < header_end):
                     raise ValueError('invalid package table')

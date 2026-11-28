@@ -11,33 +11,10 @@ from ue5_blueprint import require
 
 
 def read_tables(path):
-    path=Path(path); m=inspect_package(path)
-    require(m.get('status')=='tables_inspected' and m['ue4']==522 and m['ue5']==1004 and not m['sidecars'] and not m['flags']&0x80002000 and m['size']<=128*1024*1024,'Expected tagged UE5 1004 monolithic editor package')
-    b=path.read_bytes(); names=m['names']; ic,ec=m['import_count'],m['export_count'];io,eo=m['import_offset'],m['export_offset']
-    require(0<ic<=100000 and 0<ec<=100000 and io+40*ic==eo and eo+108*ec<=m['header_end'],'Invalid legacy table extent')
-    r=Reader(b,io); im=[]; ex=[]
-    for _ in range(ic):
-        cp,cls,outer,name,pkg,opt=r.name(names),r.name(names),r.i(),r.name(names),r.name(names),r.i()
-        require(-ic<=outer<=ec and opt in (0,1),'Invalid legacy import')
-        im.append(dict(class_package=cp,kind=cls,outer=outer,name=name,package_name=pkg,optional=bool(opt)))
-    for _ in range(ec):
-        ci,si,ti,outer=r.unpack('4i');name=r.name(names);flags=r.unpack('I')[0];size,off=r.unpack('qq');bits=r.unpack('3i');r.take(16);pkg=r.unpack('I')[0];more=r.unpack('3i');deps=r.unpack('5i')
-        require(all(-ic<=x<=ec for x in (ci,si,ti,outer)) and all(x in (0,1) for x in bits+more),'Invalid legacy export')
-        require(m['header_end']<=off<=len(b) and 0<=size<=len(b)-off,'Invalid legacy export extent')
-        ex.append(dict(name=name,class_index=ci,super_index=si,template=ti,outer=outer,offset=off,size=size))
-    spans=sorted((x['offset'],x['offset']+x['size']) for x in ex if x['size'])
-    require(all(a[1]<=c[0] for a,c in zip(spans,spans[1:])),'Overlapping legacy exports')
-    def ref(i):
-        require(-ic<=i<=ec,'Invalid package index');return im[-i-1] if i<0 else ex[i-1] if i>0 else None
-    def package(i):
-        seen=set()
-        while i:
-            require(i not in seen,'Package index cycle');seen.add(i);x=ref(i)
-            if i<0 and x['kind']=='Package' and x['name'].startswith(('/Game/','/Engine/')):return x['name']
-            i=x['outer']
-        return ''
-    for x in ex:x['kind']=ref(x['class_index'])['name'] if x['class_index'] else ''
-    return m,b,im,ex,ref,package
+    from package_records import compatibility_tables
+    result = compatibility_tables(path)
+    require(result[0]['ue5'] == 1004, 'Expected UE5 1004 editor package')
+    return result
 
 
 def tags(r,names):
