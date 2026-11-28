@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.83-dev",
-  "previous_verified_commit": "3b5d9dee614a00b37eaaf59b1d4e221c823b16cd",
-  "previous_verified_tree": "b1bbcdbc20b0622ab97e43bc8ebd08b08d64b96d",
-  "current_commit_resolution": "Compare exact published development commit and tree with source archive and commit message SHA-256. If Library quota prevents a separate checkpoint or archive, recover verified 0.10.81 source archive plus exact GitHub changed blobs; verify reconstructed Git tree.",
-  "milestone": "Material instance provenance and unclamped scalar-factor RGB interpolation",
+  "application_version": "0.10.84-dev",
+  "previous_verified_commit": "896848b1b2ecfee04fa26882660baa434125a9f8",
+  "previous_verified_tree": "bb539ded9294ba70d9e9d032865ec31cb0f9419c",
+  "current_commit_resolution": "Verify immutable 0.10.84 checkpoint or exact GitHub commit message against source tree and archives; if Library throttled use 0.10.83 archive plus changed GitHub blobs.",
+  "milestone": "Explicit base-property audit, bounded RGB vector interpolation and opt-in finite height fog preview",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.83_checkpoint.json (if upload permitted)",
-    "source_archive": "Blender-UE4-Importer-0.10.83-local.zip (if upload permitted)",
-    "install_archive": "install-083.zip (if upload permitted)",
+    "checkpoint": "Unreal_Importer_0.10.84_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.84-local.zip",
+    "install_archive": "install-084.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,50 +30,65 @@
   },
   "tests": {
     "baseline": {
-      "passed": 81,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 82,
       "skipped": 23,
       "failed": 0
     },
-    "fresh_environment": true,
-    "original_instance_audit": {
-      "materials": 5,
-      "enemy_unmatched": 5,
-      "shared_static_bindings": 7,
-      "reopen": true
+    "current": {
+      "passed": 86,
+      "skipped": 23,
+      "failed": 0
     },
-    "cpu_rgb_lerp": {
-      "factors": [
-        -0.5,
-        0.25,
-        1.5
+    "environment_reverified": "Verified original archive hashes and baseline source/installer hashes; reused restored Blender and decoder; no fresh runtime extraction",
+    "fog_plan_original_levels": 4,
+    "fog_and_vector_probe": {
+      "original_map": "Lvl_ThirdPerson.umap",
+      "source_density": 0.04360000044107437,
+      "reopen": true,
+      "toggle": true,
+      "clear": [
+        1.0,
+        1.0,
+        1.0
       ],
-      "max_error": 4.768371586472142e-08,
-      "scope": "emission-only diagnostic, edited parameters in original graph"
+      "scatter": [
+        0.9479788737371564,
+        0.9479788737371564,
+        0.9479788737371564
+      ],
+      "absorption": [
+        0.9391107596457005,
+        0.9391107596457005,
+        0.9391107596457005
+      ],
+      "analytic_absorption": 0.9371088881367227,
+      "rgb_vector_expected": [
+        0.19999999999999998,
+        0.45,
+        0.7999999999999999
+      ],
+      "rgb_vector_observed": [
+        0.20000047981739044,
+        0.4499989449977875,
+        0.8000019192695618
+      ],
+      "rgb_max_error": 1.9192695618341915e-06,
+      "scope": "original level toggle and controlled CPU volume and RGB probe; no UE rendering parity"
     },
-    "material_gallery": true,
-    "grid_preview": true,
-    "grid_channels": true,
-    "translucency": true,
-    "masked": true,
-    "sampler_fidelity": true,
+    "original_instance_regression": true,
+    "sky_regression": true,
     "two_level_blender_ue5_regression": true,
-    "legacy_and_goblin": "Previously verified, not rerun",
+    "legacy_and_goblin": "Previously verified; not rerun",
     "isolated_install": {
       "imported": 3,
-      "reopen_reuse": true,
-      "scope": "identical runtime code before final report update"
+      "reopen_reuse": true
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Bounded fog conversion or additional original material function coverage, then streaming; native UE5 instancing only with positive source evidence. No new assets.",
+  "next_priority": "Saved level streaming and level instance coverage, modern UE5 instancing only with positive original payload evidence; improve UI and performance. No new downloads.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -89,8 +104,8 @@
     "Unreal runtime and Windows acceptance unverified",
     "103 missing decal material packages; native receiver projection and rendering unsupported",
     "Goblin incomplete mixed-version fixture: 559 static placements and 34 accessory mesh references missing; original descriptor absent; incomplete material graphs and no same-version project parity.",
-    "Legacy sky, UE fog rendering, sky capture/radiance equivalence, EEVEE not validated.",
     "Runtime tangent basis, normal compression and arbitrary normal expressions, mixed sampler mip/anisotropic behavior and exact material appearance unverified. Library quota may require GitHub-only incremental recovery.",
-    "Material base overrides, vector interpolation factors, float4 and exact shader parity unresolved."
+    "Legacy sky, actual UE fog scattering/capture/radiance equivalence, missing fog defaults/unsupported fields and EEVEE not validated.",
+    "Active base-property flags without serialized values (MI_GlowNT BlendMode and ShadingModel), float4 alpha, arbitrary vector widths and missing material functions remain unresolved."
   ]
 }

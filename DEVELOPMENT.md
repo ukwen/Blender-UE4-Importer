@@ -169,3 +169,7 @@ See [editor sampler fidelity](docs/0.10.82-sampler-fidelity.md). Explicit UV0, s
 ## 0.10.83-dev
 
 See [instance fidelity](docs/0.10.83-instance-fidelity.md): preserve selected/shadowed instance overrides and unresolved bindings; unclamped scalar-factor RGB interpolation validated in actual Blender CPU render.
+
+## 0.10.84-dev
+
+See [fog and material semantics](docs/0.10.84-fog-and-material.md). Explicit base property flags, bounded RGB-factor Lerp and opt-in finite fog. Original map toggle/reopen and controlled CPU render verified; no engine parity claim.

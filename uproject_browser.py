@@ -239,6 +239,29 @@ class UEIMPORT_OT_apply_sky_preview(bpy.types.Operator):
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 
+class UEIMPORT_OT_toggle_fog_preview(bpy.types.Operator):
+    bl_idname = 'ueimport.toggle_fog_preview'
+    bl_label = 'Toggle Selected Level Fog Preview'
+    bl_description = 'Opt-in finite Blender volume from supported saved fog density; not calibrated Unreal fog'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return UEIMPORT_OT_import_map.poll(context)
+
+    def execute(self, context):
+        try:
+            from ue5_fog_preview import toggle
+            state=context.scene.ueimport_project
+            project,_,maps=discover_maps(bpy.path.abspath(state.project_path));selected=state.maps[state.active].filepath
+            if project!=state.scanned_project or selected not in {p for _,p in maps}:raise ValueError('Project or map changed; scan again')
+            obj,enabled=toggle(context.scene,selected)
+            self.report({'INFO'},('Enabled' if enabled else 'Disabled')+' finite fog approximation')
+            return {'FINISHED'}
+        except Exception as exc:
+            self.report({'ERROR'},str(exc));return {'CANCELLED'}
+
+
 class UEIMPORT_OT_repair_missing(bpy.types.Operator):
     bl_idname = 'ueimport.repair_missing_meshes'
     bl_label = 'Repair Selected Missing Meshes'
@@ -523,6 +546,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.prop(state,'strict_scene_dependencies')
             layout.operator('ueimport.full_scene',icon='SCENE_DATA')
             layout.operator('ueimport.apply_sky_preview',icon='WORLD')
+            layout.operator('ueimport.toggle_fog_preview')
             layout.prop(state, 'materials')
             layout.operator('ueimport.import_selected_map', icon='IMPORT')
             layout.separator()
@@ -548,7 +572,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():

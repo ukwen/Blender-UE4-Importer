@@ -7,7 +7,7 @@ from skeleton_native import Reader
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
-EDITOR_MATERIAL_REVISION = "editor_material_083"
+EDITOR_MATERIAL_REVISION = "editor_material_084"
 
 
 def read_material(path):
@@ -52,7 +52,7 @@ def read_material(path):
                 require(r.pos==len(r.data),'Unexpected static switch array tail')
         if 'BasePropertyOverrides' in t:
             overrides=read_tags(t['BasePropertyOverrides']['data'],names);out['base_overrides']={k:dict(type=v['type'],flags=v['flags'],data=v['data'].hex()) for k,v in overrides.items()}
-            if any(k.startswith('bOverride') and boolval(overrides,k) for k in overrides):out['unsupported'].append('BasePropertyOverrides')
+            # Active flags are resolved after traversing the complete instance chain.
         require(len({(p['name'],p['kind']) for p in out['parameters']})==len(out['parameters']),'Duplicate parameter override')
         return out
     def edge(data):
@@ -220,7 +220,10 @@ def resolve_material(content,package):
     # GUIDs only when the override GUID matches a member of that exact group.
     expand_local_functions(data,content,unsupported)
     audit=apply_overrides(data['nodes'],overrides,unsupported)
-    data.update(package=package,chain=chain,parameters=list(overrides.values()),parameter_history=history,parameter_audit=audit,base_override_history=base_override_history,unsupported=unsupported);return data
+    from ue5_material_semantics import base_property_audit
+    base_audit,base_issues=base_property_audit(base_override_history,data)
+    if base_issues:unsupported.extend(['BasePropertyOverrides',*base_issues])
+    data.update(package=package,chain=chain,parameters=list(overrides.values()),parameter_history=history,parameter_audit=audit,base_override_history=base_override_history,base_property_audit=base_audit,unsupported=unsupported);return data
 
 
 def unlit_translucent_profile(data):
@@ -296,13 +299,9 @@ def build_material(content,package,allow_partial=False):
         if d['kind']=='FunctionInput':return static_value(d['bound_input']['index'],(*seen,i))
         raise NotImplementedError('Nonconstant static switch input')
     def mix(a,b,f,label):
-        # Unreal lerp is a+(b-a)*f, including extrapolation. MixRGB's
-        # factor is clamped independently of its output clamp option.
-        require(f.type=='VALUE','Non-scalar interpolation factor unsupported')
-        def lerp(x,y):return mathop('ADD',x,mathop('MULTIPLY',mathop('SUBTRACT',y,x),f),label)
-        if a.type==b.type=='VALUE':return lerp(a,b)
-        require(a.type in ('VALUE','RGBA','VECTOR') and b.type in ('VALUE','RGBA','VECTOR'),'Unsupported interpolation operands')
-        result=combine([lerp(x,y) for x,y in zip(components(a),components(b))],label+' (unclamped RGB)');result.node['UE_unclamped_lerp']=True;return result
+        from ue5_material_semantics import rgb_lerp
+        if f.type!='VALUE':issues.append('RGB vector interpolation preview; float4 alpha and exact vector width not verified')
+        return rgb_lerp(a,b,f,components=components,combine=combine,mathop=mathop,label=label)
     def configure_sampler(n,d,coordinates):
         from uv_semantics import uv_source,set_address,connect_sample
         image=n.image;n['UE_sampler_source']=d['sampler_source']
