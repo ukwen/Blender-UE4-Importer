@@ -71,8 +71,13 @@ def source_png(data, width, height, fmt, mips, compressed):
 
 def read_editor_texture(filepath, project=None):
     """Return (PNG, metadata); use export and source bulk offsets, never thumbnails."""
+    from package_inspector import inspect_package
+    meta=inspect_package(filepath)
+    if meta.get('ue4') in (508,522) and meta.get('ue5') is None:
+        from classic_texture import read_source
+        return read_source(filepath)
     import uasset
-    from umesh import DecodeCompressedRawMesh
+    from source_compression import decompress_chunks
     path=Path(filepath); size=path.stat().st_size
     if size>MAX_BYTES: raise ValueError('Editor package size limit')
     if any(path.with_suffix(ext).exists() for ext in ('.uexp','.ubulk','.uptnl')):
@@ -126,7 +131,7 @@ def read_editor_texture(filepath, project=None):
         f.ReadBytes(2)
         if f.ReadInt32()!=0: raise NotImplementedError('Cooked Texture2D is not editor source')
         if flags&2:
-            try: data=DecodeCompressedRawMesh(data,count)
+            try: data=decompress_chunks(data,count)
             except zlib.error as exc: raise ValueError('Invalid compressed editor source') from exc
         elif len(data)!=count: raise ValueError('Source bulk size mismatch')
         png=source_png(data,w,h,fmt,mips,compressed)

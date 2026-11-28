@@ -5,16 +5,21 @@ from collections import Counter, defaultdict
 from pathlib import Path
 import json
 import bpy
-import uasset
-import umap
+from classic_map_records import MapRecords, owned_export, apply_component_transform
 from blueprint_defaults import BlueprintResolver
-from material_stage import package_reference
+from reference_identity import package_reference
 
 MESH_TYPES={'StaticMeshComponent','SkeletalMeshComponent','InstancedStaticMeshComponent','HierarchicalInstancedStaticMeshComponent'}
 
 
 def extend_components(filepath,collection,resolver):
-    with uasset.UAsset(filepath) as asset:
+    from package_inspector import inspect_package
+    meta=inspect_package(filepath)
+    if meta.get("ue4") in (508,522) and meta.get("ue5") is None:
+        return build_components(MapRecords(filepath),collection,resolver)
+    # Preserve older profiles until separately validated.
+    from uasset import UAsset
+    with UAsset(filepath) as asset:
         return build_components(asset,collection,resolver)
 
 
@@ -36,7 +41,7 @@ def build_components(asset,collection,resolver):
         try:
             actor.ReadProperties(False)
             root=actor.properties.TryGetValue('RootComponent')
-            if not isinstance(root,uasset.Export) or root.outer_index!=index:
+            if not owned_export(root,asset) or root.outer_index!=index:
                 raise ValueError('Missing map-owned RootComponent')
             selected={id(root):root}
             selected.update({id(c):c for c in children[index] if c.export_class_type in MESH_TYPES})
@@ -45,7 +50,7 @@ def build_components(asset,collection,resolver):
             while pending:
                 c=pending.pop(); c.ReadProperties(False); props[id(c)]=c.properties
                 parent=c.properties.TryGetValue('AttachParent')
-                if isinstance(parent,uasset.Export) and parent.outer_index==index and id(parent) not in selected:
+                if owned_export(parent,asset) and parent.outer_index==index and id(parent) not in selected:
                     selected[id(parent)]=parent; pending.append(parent)
             actor_count[kind if kind=='SkeletalMeshActor' else 'BlueprintActor']+=1
             label=actor.properties.TryGetValue('ActorLabel',actor.object_name)
@@ -59,7 +64,7 @@ def build_components(asset,collection,resolver):
         collection.objects.link(anchor); anchor.empty_display_type='ARROWS'; anchor.empty_display_size=.15
         anchor['UE_component']=c.object_name; anchor['UE_component_actor']=actor.object_name; anchor['UE_component_class']=c.export_class_type
         anchor['UE_component_anchor']=True; anchor['UE_blueprint_defaults_unresolved']=kind.endswith('_C')
-        anchor.rotation_mode='YXZ'; umap.Transform(c,anchor); nodes[id(c)]=anchor
+        anchor.rotation_mode='YXZ'; apply_component_transform(c,anchor); nodes[id(c)]=anchor
     # Determine parent edges and refuse cycles, missing parents, absolute flags and socket placement.
     edges={}; reasons={}
     for c in plans:
@@ -125,7 +130,7 @@ def build_components(asset,collection,resolver):
                 import math
                 body_component,body_rig=body_rigs[id(actor)]
                 parent=p.TryGetValue('AttachParent'); socket=p.TryGetValue('AttachSocketName','None')
-                if not isinstance(parent,uasset.Export) or id(parent) not in nodes or parent.outer_index!=c.outer_index:
+                if not owned_export(parent,asset) or id(parent) not in nodes or parent.outer_index!=c.outer_index:
                     raise ValueError('No map-owned accessory parent')
                 if binding.get('parent') not in (None,'','None',parent.object_name): raise ValueError('Template/map parent mismatch')
                 if binding.get('socket') not in (None,'','None',socket): raise ValueError('Template/map socket mismatch')

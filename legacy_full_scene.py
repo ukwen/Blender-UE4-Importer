@@ -24,37 +24,36 @@ def validate_tables(meta):
 
 
 def inventory(path, content):
-    from uasset import UAsset
+    from classic_map_records import MapRecords
     rows=[]; lights=[]; skipped=[]
     source=path.relative_to(content).as_posix()
-    with UAsset(str(path)) as asset:
-        if asset.summary.compression_flags: raise ValueError('Compressed legacy map unsupported')
-        if not any(e.export_class_type=='World' and not e.outer_index for e in asset.exports): raise ValueError('Expected legacy editor World')
-        for i,e in enumerate(asset.exports,1):
-            if not 0<e.outer_index<=len(asset.exports): continue
-            parent=asset.GetExport(e.outer_index)
-            if parent.export_class_type!='Level' or parent.object_name!='PersistentLevel': continue
-            kind=e.export_class_type
-            rows.append(dict(source=source,actor=e.object_name,kind=kind))
-            if kind not in ('DirectionalLight','SkyLight'): continue
-            try:
-                e.ReadProperties(False); root=e.properties.TryGetValue('RootComponent')
-                expected={'DirectionalLight':'DirectionalLightComponent','SkyLight':'SkyLightComponent'}[kind]
-                if root is None or root is not e.properties.TryGetValue('LightComponent') or root.outer_index!=i or root.export_class_type!=expected: raise ValueError('Invalid saved light component association')
-                root.ReadProperties(False); p=root.properties
-                if p.TryGetValue('AttachParent') is not None or any(p.TryGetValue(k,False) for k in ('bAbsoluteLocation','bAbsoluteRotation','bAbsoluteScale')): raise ValueError('Attached or absolute light unsupported')
-                fields={}
-                for k,default in [('RelativeLocation',(0.,0.,0.)),('RelativeRotation',(0.,0.,0.)),('RelativeScale3D',(1.,1.,1.))]:
-                    v=p.TryGetValue(k); fields[k]=(v.x,v.y,v.z) if v is not None else default
-                if not all(math.isfinite(v) for f in fields.values() for v in f) or any(v==0 for v in fields['RelativeScale3D']): raise ValueError('Invalid light transform')
-                props={}
-                for k in ('Intensity','CastShadows','bVisible','bAffectsWorld'):
-                    if k in p: props[k]=p.TryGetValue(k)
-                if 'Intensity' in props and (not math.isfinite(props['Intensity']) or props['Intensity']<0): raise ValueError('Invalid intensity')
-                color=p.TryGetValue('LightColor')
-                if color is not None: props['LightColor']=(color.r,color.g,color.b,color.a)
-                lights.append(dict(source=source,actor=e.object_name,kind=kind,label=e.properties.TryGetValue('ActorLabel',e.object_name),fields=fields,properties=props))
-            except Exception as exc: skipped.append(dict(actor=e.object_name,kind=kind,detail=str(exc)))
+    asset=MapRecords(path)
+    if not any(e.export_class_type=='World' and not e.outer_index for e in asset.exports): raise ValueError('Expected legacy editor World')
+    for i,e in enumerate(asset.exports,1):
+        if not 0<e.outer_index<=len(asset.exports): continue
+        parent=asset.GetExport(e.outer_index)
+        if parent.export_class_type!='Level' or parent.object_name!='PersistentLevel': continue
+        kind=e.export_class_type
+        rows.append(dict(source=source,actor=e.object_name,kind=kind))
+        if kind not in ('DirectionalLight','SkyLight'): continue
+        try:
+            e.ReadProperties(False); root=e.properties.TryGetValue('RootComponent')
+            expected={'DirectionalLight':'DirectionalLightComponent','SkyLight':'SkyLightComponent'}[kind]
+            if root is None or root is not e.properties.TryGetValue('LightComponent') or root.outer_index!=i or root.export_class_type!=expected: raise ValueError('Invalid saved light component association')
+            root.ReadProperties(False); p=root.properties
+            if p.TryGetValue('AttachParent') is not None or any(p.TryGetValue(k,False) for k in ('bAbsoluteLocation','bAbsoluteRotation','bAbsoluteScale')): raise ValueError('Attached or absolute light unsupported')
+            fields={}
+            for k,default in [('RelativeLocation',(0.,0.,0.)),('RelativeRotation',(0.,0.,0.)),('RelativeScale3D',(1.,1.,1.))]:
+                v=p.TryGetValue(k); fields[k]=(v.x,v.y,v.z) if v is not None else default
+            if not all(math.isfinite(v) for f in fields.values() for v in f) or any(v==0 for v in fields['RelativeScale3D']): raise ValueError('Invalid light transform')
+            props={}
+            for k in ('Intensity','CastShadows','bVisible','bAffectsWorld'):
+                if k in p: props[k]=p.TryGetValue(k)
+            if 'Intensity' in props and (not math.isfinite(props['Intensity']) or props['Intensity']<0): raise ValueError('Invalid intensity')
+            color=p.TryGetValue('LightColor')
+            if color is not None: props['LightColor']=(color.r,color.g,color.b,color.a)
+            lights.append(dict(source=source,actor=e.object_name,kind=kind,label=e.properties.TryGetValue('ActorLabel',e.object_name),fields=fields,properties=props))
+        except Exception as exc: skipped.append(dict(actor=e.object_name,kind=kind,detail=str(exc)))
     if len({r['actor'] for r in rows})!=len(rows): raise ValueError('Ambiguous legacy level actor identity')
     return rows,lights,skipped
 

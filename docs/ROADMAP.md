@@ -63,3 +63,8 @@ Use development as the sole active branch. Continue ordinary feature, performanc
 0.10.101: legacy-free supported classic 508 static and foliage map reconstruction; all 2318 placements and 462 foliage instances validated. Next: typed Blueprint defaults and component extension, other legacy static profiles, material translation, and full integrated commercial and modern project acceptance.
 
 0.10.102: typed classic UE4.27 Blueprint local default and body template reader; 17 original packages, 86 bindings and five body templates exact to baseline; mixed Goblin level report exact and reopen; completed prior Western integrated skeletal/foliage regression with 36 rigs. Next: migrate map-owned component references and transform reading, legacy skeletal payload boundary, and material/scene integration; continue fidelity/performance and fixture-backed compatibility on development.
+
+### 0.10.103 — complete inherited removal acceptance
+
+- Completed: typed classic map components/lighting inventory, 508 skeletal/texture package boundary, modern MeshDescription builder, basic 508 surface graph. Original integrated Western scene imports with all four inherited modules blocked.
+- Required: eliminate remaining four inherited core files and every dependent path, including older profiles, advanced materials/layers, wind, direct import operators and add-on registration. Preserve supported feature parity; no false fallback deletion or rename. Run the removal gate, supported original asset regressions and provenance/dependency review. Continue ordinary feature/fidelity/performance work on development.

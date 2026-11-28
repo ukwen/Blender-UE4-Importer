@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.102-dev",
-  "previous_verified_commit": "b6f53b421a5edfcfd51ed5fd41692c8451622c0f",
-  "previous_verified_tree": "5fb2e8300631b7b09f51d5c312e5692245d845d3",
+  "application_version": "0.10.103-dev",
+  "previous_verified_commit": "0535d8858b07d32f7ec0ffddb0bc549c557af7a3",
+  "previous_verified_tree": "b722a61ab8ecc308541a426a5e4b932ac7b46efc",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Typed UE4.27 Blueprint local defaults and body templates; original mixed level and Western integrated acceptance",
+  "milestone": "Independent classic map component, skeletal and texture boundaries; basic material translation; inherited-free original Western integrated scene",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.102_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.102-local.zip",
-    "install_archive": "install-102.zip",
+    "checkpoint": "Unreal_Importer_0.10.103_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.103-local.zip",
+    "install_archive": "install-103.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,37 +30,33 @@
   },
   "tests": {
     "python": {
-      "passed": 149,
+      "passed": 151,
       "failed": 0,
       "skipped": 10
     },
-    "blueprint_parity": {
-      "packages": 17,
-      "ue4": 6,
-      "ue5": 11,
-      "bindings": 86,
-      "body_templates": 5,
+    "classic_payload_parity": {
+      "skeletal": 31,
+      "textures": 14,
       "exact": true,
-      "inherited_imports_blocked": true
+      "digest": "9caa50ef83aac0ada52ef70eacb71c360b383a410b1fc973a4248fbda3a90fe4"
+    },
+    "western_independent": {
+      "static_resolved": 2316,
+      "foliage": 462,
+      "rigs": 36,
+      "verified_mesh_objects": 2814,
+      "materials": 10,
+      "packed_images": 5,
+      "reopen": true,
+      "inherited_imports_blocked": true,
+      "material_render_equivalence": false
     },
     "mixed_goblin": {
       "objects": 646,
       "components": 84,
       "bindings": 52,
-      "inspected": 16,
-      "missing_blueprints": 1,
       "exact_report": true,
       "reopen": true
-    },
-    "integrated_western": {
-      "static_resolved": 2316,
-      "foliage": 462,
-      "rigs": 36,
-      "vertices": 208021,
-      "triangles": 105329,
-      "bones": 1275,
-      "reopen": true,
-      "max_foliage_error_m": 1.5377651809513707e-05
     },
     "modern_level_set": {
       "objects": 94,
@@ -68,13 +64,23 @@
       "reopen": true,
       "rollback": true
     },
-    "isolated_install": "See external checkpoint"
+    "isolated_install": "See external checkpoint",
+    "removal_gate": {
+      "passed": false,
+      "remaining_files": [
+        "uasset.py",
+        "umap.py",
+        "umat.py",
+        "umesh.py"
+      ],
+      "literal_import_sites": 30
+    }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Migrate map-owned component property and transform readers, legacy skeletal package boundary, and remaining material/scene integration alongside feature and performance development. Preserve evidence-gated profiles and provenance.",
+  "next_priority": "Complete inherited removal: replace remaining static/legacy package profiles, general material functions/instances/layers, wind and legacy direct operators; replace add-on registration and delete uasset.py, umesh.py, umat.py, umap.py only after supported-profile regression. Require removal gate and provenance/dependency review; continue normal product development on development.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -97,7 +103,8 @@
     "BSP geometry supported for original zero-flag inline compiled profile only. Six explicit material packages unavailable and 76 faces have null source material; lightmap baking, other BSP/volume profiles and runtime CSG/physics/navigation/postprocess not validated.",
     "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
     "Linux Xvfb desktop clipboard, Esc and confirmation verified; native Windows and physical desktop usability remain unverified. Safe UE5.6 in-map stage cancellation verified; individual synchronous/native calls and legacy maps remain indivisible. Source recovery requires hard-link filesystem support and exact monolithic editor Game packages.",
-    "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported."
+    "Measured landscape memory reduction in 0.10.91 modest; no speed gain established. Other redirector profiles and automatic redirector resolution unsupported.",
+    "Four inherited core files remain in the development installer; 30 direct/literal import sites. Basic classic surface graph is unverified visually; legacy advanced material expressions and other profiles remain dependent. Complete provenance and rights review required."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

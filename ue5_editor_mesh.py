@@ -152,10 +152,8 @@ def read_static(path,decoder=None):
 
 def build_static(data):
     import bpy,json
-    from types import SimpleNamespace
-    from umesh import BuildMeshDescription
-    fake=SimpleNamespace(object_name=data['name'],asset=SimpleNamespace(f=SimpleNamespace(byte_stream=SimpleNamespace(name=data['source']))))
-    mesh=BuildMeshDescription(fake,data); created=[]
+    from mesh_description_blender import build_description
+    mesh=build_description(data,data['name'],data['source']); created=[]
     try:
         for slot,pkg in data['materials']:
             mat=bpy.data.materials.new(slot);created.append(mat);mat['UE_unresolved_material']=True

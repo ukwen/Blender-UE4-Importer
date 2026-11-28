@@ -54,33 +54,8 @@ def ReadFMultisizeIndexContainer(f:uasset.ByteStream, summary:uasset.USummary):
     size = f.ReadUInt8()
     return f.ReadBulkArray(c_uint16 if size == 2 else c_uint32)
 def DecodeCompressedRawMesh(payload, expected_size):
-    """Unreal SerializeCompressed, 64-bit little-endian chunk table, zlib only."""
-    max_size = 256 * 1024 * 1024
-    if not 0 < expected_size <= max_size or len(payload) < 32:
-        raise ValueError("Invalid compressed raw mesh size")
-    magic, block_size, compressed_size, total_size = struct.unpack_from('<QQQQ', payload)
-    if magic != 0x9E2A83C1 or not 0 < block_size <= max_size or total_size != expected_size:
-        raise ValueError("Invalid Unreal compressed raw mesh header")
-    blocks = (total_size + block_size - 1) // block_size
-    table_end = 32 + 16 * blocks
-    if table_end > len(payload) or compressed_size != len(payload) - table_end:
-        raise ValueError("Invalid compressed chunk table length")
-    result = bytearray()
-    offset = table_end
-    for i in range(blocks):
-        packed, unpacked = struct.unpack_from('<QQ', payload, 32 + i * 16)
-        expected = min(block_size, total_size - len(result))
-        if unpacked != expected or not packed or packed > len(payload) - offset:
-            raise ValueError("Invalid compressed chunk size")
-        decoder = zlib.decompressobj()
-        data = decoder.decompress(payload[offset:offset+packed], expected + 1)
-        if len(data) != expected or not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
-            raise ValueError("Invalid zlib chunk")
-        result.extend(data)
-        offset += packed
-    if offset != len(payload) or len(result) != total_size:
-        raise ValueError("Compressed mesh size mismatch")
-    return bytes(result)
+    from source_compression import decompress_chunks
+    return decompress_chunks(payload,expected_size)
 
 
 def ReadMeshBulkData(self:Export, asset:UAsset, f:uasset.ByteStream):
@@ -108,55 +83,8 @@ def ReadMeshBulkData(self:Export, asset:UAsset, f:uasset.ByteStream):
 
 
 def BuildMeshDescription(export, data):
-    # UE uses left-handed winding; swapping X/Y reflects it into Blender space.
-    vertex_ids = sorted(data['vertices'])
-    index = {v: i for i,v in enumerate(vertex_ids)}
-    verts = [(y*.01, x*.01, z*.01) for x,y,z in (data['vertices'][v] for v in vertex_ids)]
-    triangles = data['triangles']
-    faces = [tuple(index[data['instances'][c]] for c in corners) for _,corners in triangles]
-    mesh = bpy.data.meshes.new(export.object_name)
-    try:
-        mesh.from_pydata(verts, [tuple(index[v] for v in edge) for edge in data['edges'].values()], faces)
-        if mesh.validate(verbose=False): raise ValueError('Blender rejected source topology')
-        mesh.update()
-        if len(mesh.polygons) != len(triangles): raise ValueError('Triangle count mismatch')
-        slot_ids = sorted(data['slots'])
-        mesh['UE_material_slots'] = [data['slots'][g] for g in slot_ids]
-        group_attr = mesh.attributes.new('UE_polygon_group', 'INT', 'FACE')
-        group_attr.data.foreach_set('value', [g for g,_ in triangles])
-        mesh['UE_polygon_group_ids'] = slot_ids
-        mesh['UE_source_format'] = 'Legacy FMeshDescription'
-        mesh['UAsset'] = export.asset.f.byte_stream.name
-        loop_instances = []
-        for poly,(group,corners) in zip(mesh.polygons,triangles):
-            if tuple(poly.vertices) != tuple(index[data['instances'][c]] for c in corners):
-                raise ValueError('Unexpected Blender polygon order')
-            poly.use_smooth = True
-            loop_instances.extend(corners)
-        for channel,values in enumerate(data['uvs']):
-            uv = mesh.uv_layers.new(name=f'UV{channel}')
-            uv.data.foreach_set('uv', [x for c in loop_instances for x in (values[c][0],1-values[c][1])])
-        if data['colors'] is not None:
-            color = mesh.color_attributes.new(name='Color', type='FLOAT_COLOR', domain='CORNER')
-            color.data.foreach_set('color',[x for c in loop_instances for x in data['colors'][c]])
-        if data.get('tangents') is not None:
-            attr = mesh.attributes.new('UE_source_tangent', 'FLOAT_VECTOR', 'CORNER')
-            attr.data.foreach_set('vector', [v for c in loop_instances for v in (data['tangents'][c][1],data['tangents'][c][0],data['tangents'][c][2])])
-        if data.get('signs') is not None:
-            attr = mesh.attributes.new('UE_source_binormal_sign', 'FLOAT', 'CORNER')
-            attr.data.foreach_set('value', [data['signs'][c][0] for c in loop_instances])
-        if data.get('hard_edges') is not None:
-            hard = {tuple(sorted(index[v] for v in data['edges'][i])):flag for i,flag in data['hard_edges'].items()}
-            if any(tuple(sorted(e.vertices)) not in hard for e in mesh.edges):
-                raise ValueError('MeshDescription edge topology mismatch')
-            attr = mesh.attributes.new('UE_source_hard_edge', 'BOOLEAN', 'EDGE')
-            attr.data.foreach_set('value', [hard[tuple(sorted(e.vertices))] for e in mesh.edges])
-            for edge in mesh.edges: edge.use_edge_sharp = hard[tuple(sorted(edge.vertices))]
-        mesh.normals_split_custom_set([(y,x,z) for x,y,z in (data['normals'][c] for c in loop_instances)])
-        return mesh
-    except Exception:
-        bpy.data.meshes.remove(mesh)
-        raise
+    from mesh_description_blender import build_description
+    return build_description(data,export.object_name,export.asset.f.byte_stream.name)
 
 
 def DecodeRawMesh(self, asset, f):

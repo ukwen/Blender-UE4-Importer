@@ -101,6 +101,11 @@ def reconstruct_foliage(filepath, collection, resolver):
     if meta.get('ue4') == 508 and meta.get('ue5') is None:
         from classic_foliage import reconstruct_classic_foliage
         return reconstruct_classic_foliage(filepath, collection, resolver)
+    if meta.get('ue4') == 522 and meta.get('ue5') is None:
+        from package_records import read_package
+        _,_,table=read_package(filepath)
+        records=[dict(component=e.name,package='',instances=0,status='unsupported',detail='Unsupported foliage export profile') for e in table.exports if e.kind=='FoliageInstancedStaticMeshComponent']
+        return dict(components=len(records),status={'unsupported':len(records)} if records else {},instances=0,records=records)
     import bpy
     import uasset
     from umap import Transform

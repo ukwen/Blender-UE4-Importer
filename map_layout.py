@@ -7,7 +7,7 @@ def import_layout(filepath, mesh_resolver=None):
     """Read static actors, optionally resolving their mesh data before object creation."""
     from package_inspector import inspect_package
     meta = inspect_package(filepath)
-    if meta.get('ue4') == 508 and meta.get('ue5') is None:
+    if meta.get('ue4') in (508,522) and meta.get('ue5') is None:
         from classic_layout_blender import import_classic_layout
         return import_classic_layout(filepath, mesh_resolver)
     # Earlier/later unvalidated actor layouts retain their existing route.

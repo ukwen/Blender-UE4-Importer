@@ -118,7 +118,7 @@ def read_placement(raw, table, index, actor):
 
 def inspect_layout(path):
     meta, raw, table = read_package(path)
-    require(meta['ue4'] == 508 and meta['ue5'] is None and meta['licensee'] == 0,
+    require(meta['ue4'] in (508,522) and meta['ue5'] is None and meta['licensee'] == 0,
             'Unsupported classic layout profile')
     actors, skipped = [], []
     for index, actor in enumerate(table.exports, 1):

@@ -2,18 +2,7 @@
 import json
 from pathlib import Path
 import bpy
-import uasset
-
-
-def package_reference(ref):
-    """Return the outer package of a native object import, never a basename guess."""
-    seen = set()
-    while isinstance(ref, uasset.Import) and id(ref) not in seen:
-        seen.add(id(ref))
-        if ref.object_name.startswith(('/Game/', '/Engine/')):
-            return ref.object_name
-        ref = ref.import_ref
-    return ''
+from reference_identity import package_reference
 
 
 def incomplete_graph(tree, seen=None):
@@ -71,11 +60,18 @@ class MaterialResolver:
                 if not path.is_file():
                     missing.add(ref)
                     return
-                asset = uasset.UAsset(str(path), False, self.project)
-                asset.Read(False)
-                for imp in asset.imports:
-                    if imp.class_name == 'Package' and imp.object_name.startswith(('/Game/', '/Engine/')):
-                        visit(imp.object_name)
+                from package_inspector import inspect_package
+                meta=inspect_package(path)
+                if meta.get('ue4') in (508,522) and meta.get('ue5') is None and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
+                    from package_records import read_package
+                    _,_,table=read_package(path)
+                    refs=[i.name for i in table.imports if i.kind=='Package']
+                else:
+                    from uasset import UAsset
+                    asset=UAsset(str(path),False,self.project);asset.Read(False)
+                    refs=[i.object_name for i in asset.imports if i.class_name=='Package']
+                for name in refs:
+                    if name.startswith(('/Game/','/Engine/')): visit(name)
             except FileNotFoundError:
                 missing.add(ref)
             except Exception as exc:
@@ -95,13 +91,23 @@ class MaterialResolver:
         mat = None
         status = 'unbound' if not package else 'missing_dependencies' if record['missing'] else 'unsupported_dependencies' if record['errors'] else 'graph_failed'
         if package and not record['errors'] and (not record['missing'] or (self.allow_partial and package not in record['missing'])):
-            import umat
-            # Keep the bundled node library out of the failed-import transaction.
-            umat.TryAppendNodeGroups()
             stores = (bpy.data.materials, bpy.data.node_groups, bpy.data.images)
             before = {item.as_pointer() for store in stores for item in store}
             try:
-                mat, _ = umat.ImportNodeGraph(self.project.resolve_package(package), self.project)
+                path=self.project.resolve_package(package)
+                from package_inspector import inspect_package
+                meta=inspect_package(path); classic=None
+                if meta.get('ue4')==508 and meta.get('ue5') is None:
+                    from classic_material import read_material
+                    try: classic=read_material(path)
+                    except NotImplementedError: pass  # preserve other supported legacy graph paths
+                if classic is not None:
+                    from classic_material import build_material
+                    mat=build_material(self.project,path,classic)
+                else:
+                    import umat
+                    umat.TryAppendNodeGroups()
+                    mat,_=umat.ImportNodeGraph(path,self.project)
                 if not isinstance(mat, bpy.types.Material) or not mat.node_tree:
                     raise ValueError('Not a material graph')
                 if incomplete_graph(mat.node_tree) or record['missing']:

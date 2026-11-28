@@ -3,7 +3,7 @@ References are recovered separately from placement; construction scripts are nev
 """
 from pathlib import Path
 def package_reference(ref):
-    from material_stage import package_reference as resolve
+    from reference_identity import package_reference as resolve
     return resolve(ref)
 
 
