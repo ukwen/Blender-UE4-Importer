@@ -267,3 +267,7 @@ Direct supported static packages now use typed readers for material-bearing and 
 ## 0.10.107-dev — classic particle surface and native skeletal entrypoints
 
 Two original classic particle surface graphs decoded with explicit 508 expression-input FString layout; partial previews and strict metadata behavior shared with the modern builder. Three original editor skeletal profiles use the direct menu with native skinning and material bindings. See docs/TEST_REPORT.md and docs/INDEPENDENCE.md.
+
+## 0.10.108-dev — typed layer records and detached snapshots
+
+Bounded UE4.27 default layers, detached snapshot GUID and link-state records; controlled independent compositing, scalar GUID replay and rollback; existing legacy graph path retains compatibility. See docs/TEST_REPORT.md.

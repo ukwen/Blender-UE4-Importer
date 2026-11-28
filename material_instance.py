@@ -1,6 +1,7 @@
 """Typed global material-instance overrides; unsupported scopes remain explicit."""
 import math
 import json
+from material_layers import NATIVE_UNREAD
 
 KINDS = {'ScalarParameterValues': 'scalar', 'VectorParameterValues': 'vector',
          'TextureParameterValues': 'texture', 'StaticSwitchParameters': 'switch',
@@ -89,11 +90,11 @@ def read_overrides(props, scoped=False, layers_handled=False):
     return records, issues
 
 
-def apply_overrides(mat, graph, props, load_texture, set_texture):
+def apply_overrides(mat, graph, props, load_texture, set_texture, native_snapshot=NATIVE_UNREAD):
     from material_layers import explicit_override, replace_snapshot
     handled=False; topology_issues=[]
     try:
-        snapshot=explicit_override(props,graph)
+        snapshot=explicit_override(props,graph,native_snapshot)
         if snapshot:
             replace_snapshot(mat,graph,*snapshot)
             handled=True

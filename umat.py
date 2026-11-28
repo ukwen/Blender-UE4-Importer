@@ -258,7 +258,23 @@ def CreateNode(exp:Export, node_tree, nodes_data:dict[str,NodeData], graph_data:
     from material_attributes import KINDS as ATTRIBUTE_KINDS, build as build_attributes
     if classname == 'MaterialExpressionMaterialAttributeLayers':
         from material_layers import build
-        node=build(node_tree,node_data,graph_data,ImportMaterialFunction,mesh)
+        records=None; loader=ImportMaterialFunction
+        # Real versioned UE4.27 layer topology uses typed bytes, not legacy UProperty arrays.
+        owner=getattr(exp,'asset',None)
+        path=getattr(owner,'filepath',None)
+        if path and pathlib.Path(path).is_file() and owner.summary.version_ue4==522:
+            from package_inspector import inspect_package
+            meta=inspect_package(path)
+            if meta.get('ue5') is None and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
+                from layer_records import read_stack
+                records=read_stack(path,name)
+                graph_data.native_layer_topology=True
+                def loader(ref,mesh,stack):
+                    if not isinstance(ref,str): return ImportMaterialFunction(ref,mesh,stack)
+                    group, graph=ImportNodeGraph(owner.ToProjectPath(ref),owner.uproject,mesh=mesh,_stack=stack)
+                    if not isinstance(group,bpy.types.ShaderNodeTree): raise ValueError('Referenced package is not a material function')
+                    return group,graph
+        node=build(node_tree,node_data,graph_data,loader,mesh,records=records)
         SetNodePos(node,params)
         return node_data
     if classname == 'MaterialExpressionFunctionInput' and params.TryGetValue('InputType') == 'FunctionInput_MaterialAttributes':
@@ -594,7 +610,15 @@ def _ImportNodeGraph(filepath, uproject, name, mesh, log, stack):
                     if not isinstance(mat, bpy.types.Material):
                         raise ValueError('Material instance parent is not a material')
                     out = mat
-                    apply_overrides(mat, graph_data, params, TryGetExtractedImport, SetNodeTexture)
+                    from material_layers import NATIVE_UNREAD
+                    native_snapshot=NATIVE_UNREAD
+                    if getattr(graph_data,'native_layer_topology',False) and hasattr(graph_data,'layer_context') and pathlib.Path(filepath).is_file() and asset.summary.version_ue4==522:
+                        from package_inspector import inspect_package
+                        meta=inspect_package(filepath)
+                        if meta.get('ue5') is None and not meta.get('sidecars') and not meta.get('flags',0)&0x80002000:
+                            from layer_records import read_override
+                            native_snapshot=read_override(filepath,exp.object_name)
+                    apply_overrides(mat, graph_data, params, TryGetExtractedImport, SetNodeTexture,native_snapshot)
                     import json
                     chain = json.loads(mat.get('UE_instance_chain', '[]'))
                     chain.append(str(pathlib.Path(filepath).resolve()))

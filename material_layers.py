@@ -1,6 +1,7 @@
 """Bounded UE4 layer stacks and detached snapshots with conservative typed replay."""
 import json
 from material_attributes import FIELDS, by_id, bundle_source, fail
+from layer_records import LayerStack, DetachedSnapshot, validate_guids
 
 
 def stack_records(props):
@@ -13,13 +14,7 @@ def stack_records(props):
             raise ValueError('Missing or invalid layer array: '+key)
         return [entry.value for entry in prop.value]
     layers, blends, states = (values(k) for k in ('Layers','Blends','LayerStates'))
-    if not 1 <= len(layers) <= 32 or len(blends)!=len(layers)-1 or len(states)!=len(layers):
-        raise ValueError('Invalid layer stack lengths')
-    if any(type(v) is not bool for v in states) or not states[0] or layers[0] is None:
-        raise ValueError('Unsupported disabled or missing background layer')
-    if any(enabled and ref is None for ref,enabled in zip(layers,states)):
-        raise ValueError('Missing active layer')
-    return layers,blends,states
+    return LayerStack(tuple(layers), tuple(blends), tuple(states)).legacy_view()
 
 
 def build(tree,data,graph,load,mesh,records=None):
@@ -37,7 +32,8 @@ def build(tree,data,graph,load,mesh,records=None):
         if getattr(graph,'inside_function',False): raise ValueError('Layer stack inside function unsupported')
         if getattr(graph,'layer_stack_present',False): raise ValueError('Multiple layer stacks unsupported')
         graph.layer_stack_present=True
-        layers,blends,states=records if records is not None else stack_records(data.export.properties)
+        layers,blends,states=(records.legacy_view() if isinstance(records, LayerStack) else records) if records is not None else stack_records(data.export.properties)
+        LayerStack(tuple(layers), tuple(blends), tuple(states))
         def call(ref,scope,index,sources):
             fn,fg=load(ref,mesh,graph.stack)
             expected='MaterialLayer' if scope=='LayerParameter' else 'MaterialLayerBlend'
@@ -87,8 +83,20 @@ def connect(tree,nodes,data):
     except (ValueError,KeyError,AttributeError) as exc: fail(tree,data.node,str(exc))
 
 
-def explicit_override(props, graph):
+NATIVE_UNREAD = object()
+
+
+def explicit_override(props, graph, native=NATIVE_UNREAD):
     """Accept only one complete, detached snapshot, not parent-link reconciliation."""
+    if native is None or native is False: return native
+    if isinstance(native, DetachedSnapshot):
+        if not hasattr(graph, "layer_context"): raise ValueError("No default layer stack")
+        expected=graph.layer_context[0].export.properties.TryGetValue("ParameterName")
+        if not isinstance(expected,str) or expected.casefold()!=native.name.casefold(): raise ValueError("Layer parameter name mismatch")
+        snapshot=native.stack.legacy_view(); guids=list(native.guids)
+        remap_overrides(graph,snapshot,guids)
+        return snapshot,guids
+    if native is not NATIVE_UNREAD: raise ValueError("Invalid native layer snapshot")
     from types import SimpleNamespace
     from uuid import UUID
     containers=[props]
@@ -183,6 +191,8 @@ def replace_snapshot(mat,graph,snapshot,guids):
     import bpy
     from types import SimpleNamespace
     from material_stage import incomplete_graph
+    validated=LayerStack(*(tuple(x) for x in snapshot))
+    validate_guids(tuple(guids),len(validated.layers))
     replay=remap_overrides(graph,snapshot,guids)
     data,load,mesh,_=graph.layer_context
     tree=mat.node_tree; old=data.node
