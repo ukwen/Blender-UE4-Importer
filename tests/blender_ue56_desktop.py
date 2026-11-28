@@ -36,7 +36,7 @@ def setup():
     assert bpy.ops.ueimport.check_maps(enabled=False)=={'FINISHED'} and not any(m.enabled for m in s.maps)
     s.active=next(i for i,m in enumerate(s.maps) if m.name.endswith('Lvl_ThirdPerson.umap'))
     original=s.project_path;s.project_path=str(project.parent/'absent.uproject');assert not bpy.ops.ueimport.full_scene.poll();s.project_path=original;assert bpy.ops.ueimport.full_scene.poll()
-    assert bpy.ops.ueimport.scene_dependencies()=={'FINISHED'};assert bpy.ops.ueimport.copy_scene_actions()=={'FINISHED'}
+    assert bpy.ops.ueimport.scene_dependencies()=={'FINISHED'};assert bpy.ops.ueimport.report(kind='ACTIONS',copy=True)=={'FINISHED'}
     mark('clipboard_expected',bpy.data.texts[s.scene_action_report].as_string())
     result.update(scan=True,all_none=True,stale_project_guard=True,advanced_defaults=not any(getattr(s,k) for k in ('show_options','show_recovery','show_environment','show_batch','show_tools')))
     baseline=set(new_ids());browser.UEIMPORT_OT_level_set.step=step
@@ -69,6 +69,11 @@ def tick():
             assert len(group.children)==2
             assert scene.camera==camera and scene.world==world
             result.update(modal_retry=True,levels=len(group.children),objects=sum(len(c.all_objects) for c in group.children))
+            target=next(c for c in group.children if c['UE_full_scene_source']==s.maps[s.active].filepath)
+            with bpy.context.temp_override(window=win,area=area):
+                assert bpy.ops.ueimport.report(kind='LEVEL')=={'FINISHED'}
+            assert area.type=='TEXT_EDITOR' and area.spaces.active.text.name==target['UE_report']
+            area.type='VIEW_3D';result['selected_level_report_open']=True
             # Expand all folds for an actual draw pass; test screenshot is external.
             for k in ('show_options','show_recovery','show_environment','show_batch','show_tools'):setattr(s,k,True)
             area.tag_redraw();mark('expanded_ready');phase='expanded';return .1

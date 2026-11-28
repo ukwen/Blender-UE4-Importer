@@ -205,3 +205,7 @@ See [landscape memory and whole-project acceptance](docs/0.10.91-landscape-memor
 ## 0.10.92-dev
 
 Primary sidebar workflow, project-path and rescan guards, safe inter-map event interval, explicit filesystem confirmation warning. Linux Xvfb actual X11 clipboard and keyboard acceptance, two original maps, original package recovery in disposable copy. See [desktop workflow](docs/0.10.92-desktop-workflow.md).
+
+## 0.10.93-dev
+
+Selected-level, level-set, source-action and last-operation report navigation and copy. Original two-level Blender and X11 acceptance; see [report navigation](docs/0.10.93-report-navigation.md).

@@ -208,6 +208,62 @@ def publish_scene_actions(state, selected, dependencies, performance=None):
     if performance:state.scene_summary+=f" | {performance['elapsed_seconds']:.1f}s"
 
 
+def resolve_report(context, kind):
+    """Resolve selected level reports by collection identity, never the last batch name."""
+    state=context.scene.ueimport_project
+    if UEIMPORT_OT_level_set._active or UEIMPORT_OT_batch._active:return None
+    if kind=='LATEST':return bpy.data.texts.get(state.batch_report)
+    if not UEIMPORT_OT_import_map.poll(context):return None
+    source=state.maps[state.active].filepath
+    if kind=='ACTIONS':
+        return bpy.data.texts.get(state.scene_action_report) if state.scene_summary_source==source else None
+    if kind=='LEVEL':
+        matches=[c for c in context.scene.collection.children_recursive if c.get('UE_full_scene_source')==source]
+    elif kind=='SET':
+        matches=[c for c in context.scene.collection.children_recursive if c.get('UE_project_level_set')==state.scanned_project and any(x.get('UE_full_scene_source')==source for x in c.children)]
+    else:return None
+    return bpy.data.texts.get(matches[0].get('UE_report','')) if len(matches)==1 else None
+
+
+class UEIMPORT_OT_report(bpy.types.Operator):
+    bl_idname='ueimport.report'
+    bl_label='Read Import Report'
+    bl_description='Open a stored report in a Text Editor or copy its complete contents; no source files are modified'
+    kind: EnumProperty(items=[('LEVEL','Selected level',''),('SET','Selected level set',''),('ACTIONS','Selected source actions',''),('LATEST','Last operation','')],default='LEVEL')
+    copy: BoolProperty(default=False)
+
+    def execute(self,context):
+        text=resolve_report(context,self.kind)
+        if text is None:
+            self.report({'WARNING'},'Report missing, ambiguous or no longer matches the selection');return {'CANCELLED'}
+        # Verify selected transfer reports on demand, not in the frequently redrawn panel.
+        if self.kind in ('LEVEL','SET'):
+            state=context.scene.ueimport_project;source=state.maps[state.active].filepath
+            try:
+                data=json.loads(text.as_string())
+                valid=(data.get('source')==source if self.kind=='LEVEL' else data.get('project')==state.scanned_project and any(x.get('source')==source for x in data.get('levels',[])))
+            except (ValueError,TypeError,AttributeError):valid=False
+            if not valid:
+                self.report({'WARNING'},'Report contents do not match the selected level');return {'CANCELLED'}
+        if self.copy:
+            context.window_manager.clipboard=text.as_string()
+            self.report({'INFO'},'Report copied');return {'FINISHED'}
+        screen=context.screen
+        area=next((a for a in screen.areas if a.type=='TEXT_EDITOR'),None) if screen else None
+        area=area or context.area
+        if area is None:
+            self.report({'WARNING'},'Open from a Blender editor, or use Copy');return {'CANCELLED'}
+        area.type='TEXT_EDITOR';area.spaces.active.text=text
+        return {'FINISHED'}
+
+
+def draw_report_row(layout,context,kind,label):
+    if resolve_report(context,kind) is None:return
+    row=layout.row(align=True)
+    op=row.operator('ueimport.report',text=label,icon='TEXT');op.kind=kind
+    op=row.operator('ueimport.report',text='',icon='COPYDOWN');op.kind=kind;op.copy=True
+
+
 class UEIMPORT_OT_copy_scene_actions(bpy.types.Operator):
     bl_idname='ueimport.copy_scene_actions'
     bl_label='Copy Source Action Report'
@@ -782,14 +838,16 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             if state.scene_summary_source==selected:
                 actions=layout.box()
                 for line in state.scene_summary.split('; '):actions.label(text=line)
-                actions.operator('ueimport.copy_scene_actions',icon='COPYDOWN')
+                draw_report_row(actions,context,'ACTIONS','Read Source Actions')
             imported=any(c.get('UE_full_scene_source')==selected for c in context.scene.collection.children_recursive)
             row=layout.row();row.enabled=not imported;row.scale_y=1.3;row.operator('ueimport.full_scene',text='Import Selected Level',icon='SCENE_DATA')
             row=layout.row();row.enabled=checked>0;row.operator('ueimport.level_set',text='Import Checked Levels',icon='SCENE_DATA')
             if imported:layout.label(text='Selected level already imported',icon='CHECKMARK')
+            draw_report_row(layout,context,'LEVEL','Read Selected Level Report')
+            draw_report_row(layout,context,'SET','Read Level Set Report')
             row=layout.row();row.enabled=any(c.get('UE_project_level_set') and any(x.get('UE_full_scene_source')==selected for x in c.children) for c in context.scene.collection.children_recursive);row.operator('ueimport.activate_level',icon='HIDE_OFF')
         if state.batch_status:layout.label(text=state.batch_status)
-        if state.batch_report:layout.label(text=state.batch_report,icon='TEXT')
+        draw_report_row(layout,context,'LATEST','Read Last Operation Report')
         def fold(prop):
             section=layout.box();section.prop(state,prop,icon='TRIA_DOWN' if getattr(state,prop) else 'TRIA_RIGHT',emboss=False)
             return section if getattr(state,prop) else None
@@ -833,7 +891,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             box.prop(state,'recovery_copy')
             box.operator('ueimport.batch_import',icon='PLAY')
             if state.batch_status: box.label(text=state.batch_status)
-            if state.batch_report: box.label(text=state.batch_report,icon='TEXT')
+            draw_report_row(box,context,'LATEST','Read Last Operation Report')
             box.label(text='Esc stops between jobs; save to resume')
             box.label(text='Existing verified jobs are reused')
         section=fold('show_tools')
@@ -848,7 +906,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
         layout.label(text='Unsupported source data is reported.',icon='INFO')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_check_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_copy_scene_actions, UEIMPORT_OT_locate_sources, UEIMPORT_OT_restore_sources, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_select_recoverable_meshes, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_check_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_copy_scene_actions, UEIMPORT_OT_report, UEIMPORT_OT_locate_sources, UEIMPORT_OT_restore_sources, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_select_recoverable_meshes, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():
