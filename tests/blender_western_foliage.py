@@ -7,7 +7,14 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from uasset import UAsset
 from legacy_foliage_oracle import read_component
 from foliage_legacy import build_instances, instance_matrix, decode_instances
-from umap import Transform
+from classic_layout_blender import apply_transform
+
+def Transform(export,obj):
+    fields=[]
+    for name,default in (("RelativeLocation",(0.,0.,0.)),("RelativeRotation",(0.,0.,0.)),("RelativeScale3D",(1.,1.,1.))):
+        v=export.properties.TryGetValue(name)
+        fields.append((v.x,v.y,v.z) if v is not None else default)
+    apply_transform(obj,*fields)
 root=pathlib.Path(os.environ['UE_WESTERN_PROJECT']); out=pathlib.Path(os.environ['UE_FOLIAGE_OUTPUT'])
 bpy.ops.wm.read_factory_settings(use_empty=True)
 # Archived reader recovery harness: reuse the published 0.10.41 FRawMesh layout

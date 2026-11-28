@@ -66,7 +66,7 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     source_recovery_status: StringProperty(options={'HIDDEN'})
     source_recovery_scope: StringProperty(options={'HIDDEN'})
     geometry_folder: StringProperty(name='Content subfolder',description='Relative to Content; empty imports all supported geometry assets')
-    materials: BoolProperty(name='Materials', default=True)
+    materials: BoolProperty(name='Materials (required for saved level)', default=True, description='Use Reconstruct Static Geometry for a geometry-only preview')
     components: BoolProperty(name='Include Blueprint and skeletal components', default=False, description='Reconstruct map-owned component hierarchies; unresolved defaults and sockets stay diagnostic')
     static_materials: BoolProperty(name='Bind materials (experimental)', default=False)
     partial_materials: BoolProperty(name='Keep incomplete surface previews', default=False, description='Keep connected material graphs with resolved surface images; missing functions and unsupported effects remain marked')
@@ -107,7 +107,8 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
 
 class UEIMPORT_OT_import_map(bpy.types.Operator):
     bl_idname = 'ueimport.import_selected_map'
-    bl_label = 'Import Selected Map (Legacy Compatibility)'
+    bl_label = 'Import Selected Saved Level'
+    bl_description = 'Native saved-level reconstruction; use individual geometry tools for selective previews'
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -128,12 +129,14 @@ class UEIMPORT_OT_import_map(bpy.types.Operator):
                 raise ValueError('Map changed or is missing; scan again')
             if any(c.get('UE_full_scene_source')==selected for c in context.scene.collection.children_recursive):
                 raise ValueError('Level already imported as a full scene')
-            import umap
-            umap.LoadUMap(selected, umap.UMapImportSettings(materials=state.materials))
+            if not state.materials:
+                raise ValueError('Historical materials-off map import is no longer supported; enable Materials for saved-level import or use Reconstruct Static Geometry without Bind materials')
+            from asset_entrypoints import import_saved_levels
+            group,report=import_saved_levels([selected],state.partial_materials,state.strict_scene_dependencies,state.light_preview_scale,state.cooked_profile)
         except Exception as exc:
             self.report({'ERROR'}, f'Import failed: {exc}')
             return {'CANCELLED'}
-        self.report({'INFO'}, 'Map import completed; inspect console for asset warnings')
+        self.report({'INFO'}, f"Native saved-level import complete; report: {group['UE_report']}")
         return {'FINISHED'}
 
 

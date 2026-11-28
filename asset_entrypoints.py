@@ -254,34 +254,45 @@ class ImportSavedLevel(bpy.types.Operator, ImportHelper):
 
 
 class ImportLevel(bpy.types.Operator, ImportHelper):
+    """Retained historical operator ID; no inherited map implementation."""
     bl_idname='import.umap'
-    bl_label='Import Unreal Level (compatibility)'
+    bl_label='Import Unreal Saved Level (script alias)'
+    bl_description='Native saved-level import; historical actor filters are not supported'
+    bl_options={'REGISTER','UNDO'}
     filename_ext='.umap'
     filter_glob: StringProperty(default='*.umap',options={'HIDDEN'},maxlen=255)
     files: CollectionProperty(type=bpy.types.OperatorFileListElement,options={'HIDDEN','SKIP_SAVE'})
     directory: StringProperty(options={'HIDDEN'})
-    folders: BoolProperty(name='Collections',default=True)
-    meshes: BoolProperty(name='Meshes',default=True)
-    materials: BoolProperty(name='Materials',default=True)
-    cameras: BoolProperty(name='Cameras',default=True)
-    lights_point: BoolProperty(name='Point Lights',default=False)
-    lights_spot: BoolProperty(name='Spot Lights',default=True)
-    lights_dir: BoolProperty(name='Directional Lights',default=True)
-    cubemaps: BoolProperty(name='Cubemaps',default=True)
-    lightprobes: BoolProperty(name='Irradiance Volumes',default=True)
-    force_shadows: BoolProperty(name='Force Shadows',default=False)
-    light_intensity: FloatProperty(name='Light Brightness',default=1,min=0)
-    light_angle_coef: FloatProperty(name='Light Angle',default=1,min=0)
+    allow_partial: BoolProperty(name='Keep incomplete surface previews',default=False)
+    strict_dependencies: BoolProperty(name='Require resolved source dependencies',default=False)
+    preview_scale: FloatProperty(name='Light preview multiplier',default=1.,min=.001,max=1000.)
+    cooked_profile: EnumProperty(name='Cooked asset profile',items=[('4.18','UE4.18','Legacy buffers'),('4.27','UE4.27','Separate buffers'),('5.0','UE5.0','Bounded cooked geometry'),('5.4','UE5.4','Bounded cooked static'),('5.5','UE5.5','Bounded cooked static'),('5.6','UE5.6','Bounded cooked geometry')],default='4.27')
+    # Preserve RNA names so scripts receive a meaningful refusal instead of
+    # silently importing a different selection of actors or changing lighting.
+    folders: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    meshes: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    materials: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    cameras: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    lights_point: BoolProperty(default=False,options={'HIDDEN','SKIP_SAVE'})
+    lights_spot: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    lights_dir: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    cubemaps: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    lightprobes: BoolProperty(default=True,options={'HIDDEN','SKIP_SAVE'})
+    force_shadows: BoolProperty(default=False,options={'HIDDEN','SKIP_SAVE'})
+    light_intensity: FloatProperty(default=1,min=0,options={'HIDDEN','SKIP_SAVE'})
+    light_angle_coef: FloatProperty(default=1,min=0,options={'HIDDEN','SKIP_SAVE'})
 
     def execute(self,context):
-        from umap import UMapImportSettings, LoadUMap
-        names=('folders','meshes','materials','cameras','lights_point','lights_spot','lights_dir','cubemaps','lightprobes','force_shadows','light_intensity','light_angle_coef')
-        return run_files(self,lambda path:LoadUMap(str(path),UMapImportSettings(**{key:getattr(self,key) for key in names})))
+        old=('folders','meshes','materials','cameras','lights_point','lights_spot','lights_dir','cubemaps','lightprobes','force_shadows','light_intensity','light_angle_coef')
+        supplied=[name for name in old if self.properties.is_property_set(name)]
+        if supplied:
+            self.report({'ERROR'},'Historical map filters are not supported by native saved-level import: '+', '.join(supplied)+'. Use the individual native geometry, light or camera tools where applicable.')
+            return {'CANCELLED'}
+        return ImportSavedLevel.execute(self,context)
 
 
 def draw_menu(self,context):
     self.layout.operator(ImportSavedLevel.bl_idname,text='UE Saved Level (.umap)')
-    self.layout.operator(ImportLevel.bl_idname,text='UE Map — Legacy Compatibility (.umap)')
     self.layout.operator(ImportMesh.bl_idname,text='UE Mesh (.uasset)')
     self.layout.operator(ImportMaterial.bl_idname,text='UE Material (.uasset)')
     self.layout.operator('ueimport.native_texture',text='UE Texture (.uasset)')

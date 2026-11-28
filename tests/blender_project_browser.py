@@ -21,12 +21,25 @@ with tempfile.TemporaryDirectory() as temp:
         assert state.engine == '4.27'
         print('PASS scan, sorted map list, external actor exclusion')
         calls = []
-        sys.modules['umap'] = types.SimpleNamespace(LoadUMap=lambda path, cfg: calls.append((path, cfg)), UMapImportSettings=lambda **kw: kw)
+        import asset_entrypoints
+        def record(paths,partial,strict,scale,profile):
+            calls.append((paths,partial,strict,scale,profile))
+            return {'UE_report':'mock report'},{}
+        asset_entrypoints.import_saved_levels=record
         state.active = 1
-        state.materials = False
+        state.materials = True
         assert bpy.ops.ueimport.import_selected_map() == {'FINISHED'}
-        assert calls == [(str(root / 'Content/Maps/Z.umap'), {'materials':False})]
-        print('PASS selected map routing (mock legacy reader)')
+        assert calls == [([str(root / 'Content/Maps/Z.umap')],False,False,1.,'4.27')]
+        print('PASS selected map routing (mock native transaction)')
+        state.materials=False
+        try:
+            bpy.ops.ueimport.import_selected_map()
+        except RuntimeError as exc:
+            assert 'Historical materials-off' in str(exc)
+        else:
+            raise AssertionError('Unsupported historical material filter accepted')
+        assert len(calls)==1
+        state.materials=True
         state.project_path = str(root / 'missing.uproject')
         try:
             bpy.ops.ueimport.import_selected_map()

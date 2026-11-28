@@ -2,7 +2,15 @@ import sys,pathlib,collections,json,os,traceback
 import bpy
 from mathutils import Vector
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]))
-import uasset,umap,legacy_static as ls
+import uasset,legacy_static as ls
+from classic_layout_blender import apply_transform
+
+def apply_record_transform(export,obj):
+    values=[]
+    for key,default in (("RelativeLocation",(0.,0.,0.)),("RelativeRotation",(0.,0.,0.)),("RelativeScale3D",(1.,1.,1.))):
+        v=export.properties.TryGetValue(key)
+        values.append((v.x,v.y,v.z) if v is not None else default)
+    apply_transform(obj,*values)
 root=pathlib.Path(os.environ['UE_WESTERN_PROJECT']).resolve(); output=os.environ['UE_WESTERN_OUTPUT']
 bpy.ops.wm.read_factory_settings(use_empty=True)
 cache={}; stats=[]; errors=[]
@@ -25,7 +33,7 @@ for p in sorted(root.rglob('*.umap')):
   for e in a.exports:
    if e.export_class_type!='StaticMeshActor':continue
    try:
-    e.ReadProperties(True);r=e.properties.TryGetValue('RootComponent');c=e.properties.TryGetValue('StaticMeshComponent');r.ReadProperties(False);c.ReadProperties(False);ref=c.properties.TryGetValue('StaticMesh');key=ref.import_ref.object_name;referenced.add(key);m=cache.get(key);o=bpy.data.objects.new(e.properties.TryGetValue('ActorLabel',e.object_name),m);coll.objects.link(o);o.rotation_mode='YXZ';umap.Transform(r,o);o['UE_actor']=e.object_name;o['UE_mesh_package']=key;o['UE_geometry_status']='reconstructed' if m else 'missing';status[o['UE_geometry_status']]+=1;actors.append((r,o));roots[id(r)]=o
+    e.ReadProperties(True);r=e.properties.TryGetValue('RootComponent');c=e.properties.TryGetValue('StaticMeshComponent');r.ReadProperties(False);c.ReadProperties(False);ref=c.properties.TryGetValue('StaticMesh');key=ref.import_ref.object_name;referenced.add(key);m=cache.get(key);o=bpy.data.objects.new(e.properties.TryGetValue('ActorLabel',e.object_name),m);coll.objects.link(o);o.rotation_mode='YXZ';apply_record_transform(r,o);o['UE_actor']=e.object_name;o['UE_mesh_package']=key;o['UE_geometry_status']='reconstructed' if m else 'missing';status[o['UE_geometry_status']]+=1;actors.append((r,o));roots[id(r)]=o
     v=r.properties.TryGetValue('RelativeLocation');
     if v:location_error=max(location_error,(o.location-Vector((v.y*.01,v.x*.01,v.z*.01))).length)
    except Exception as exc:status['failed']+=1;unresolved.append([e.object_name,str(exc)])

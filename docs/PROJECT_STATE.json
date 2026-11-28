@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.121-dev",
-  "previous_verified_commit": "0bbe5b0cfbdeab2d4ed6b289269a92896573040c",
-  "previous_verified_tree": "5d0acef38e00916c603c17f0bd87b1367d88b1fa",
+  "application_version": "0.10.122-dev",
+  "previous_verified_commit": "9fbb26390f9afe3aab7037d363d2fb4fada88838",
+  "previous_verified_tree": "4963a20eb5ecb055303b741b9c27891479b84392",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Typed native package references and cooked scene material binding",
+  "milestone": "Physical inherited map backend removal and native alias/browser migration",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.121_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.121-local.zip",
-    "install_archive": "install-121.zip",
+    "checkpoint": "Unreal_Importer_0.10.122_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.122-local.zip",
+    "install_archive": "install-122.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -64,7 +64,7 @@
       "installed": true,
       "imported": 3,
       "reopen_reuse": true,
-      "archive_sha256": "26b3a953d1dfa7b0e6de2e192bbf4583733c782022e427a0a93689880ef0da08",
+      "archive_sha256": "106a7a67905379897152df3e730017aa9a6e677b8a809ef8d725e7fa1206b2fb",
       "launcher_platform": "linux"
     },
     "versioned_split518": {
@@ -87,16 +87,20 @@
       "inherited_import_attempts": []
     },
     "evidence_files": [
-      "python120.log",
-      "slots120.log",
-      "cooked120.log",
-      "editor-material120.log",
-      "native-level120.log",
-      "native-level120.json",
-      "west120.log",
-      "west120.json",
-      "inherited-audit120.json",
-      "install120.json"
+      "python122.log",
+      "map-alias122.log",
+      "map-alias122.json",
+      "browser122.log",
+      "native-level122.log",
+      "native-level122.json",
+      "west122.log",
+      "west122.json",
+      "foliage122.log",
+      "foliage122.json",
+      "west-oracle122.log",
+      "west-oracle122.json",
+      "inherited-audit122.json",
+      "install122.json"
     ],
     "native_geometry_boundary": {
       "reconstructed": 3,
@@ -131,7 +135,7 @@
       "max_local_point_error_m": 1.5377651809513707e-05,
       "corruption_refusals": 8,
       "reopen": true,
-      "oracle": "historical inherited reader (test only)"
+      "oracle": "historical package reader (test only), native typed transform builder; no separate inherited map transform comparison"
     },
     "native_preview_transaction": {
       "classic_preview_objects": 415,
@@ -261,13 +265,41 @@
       "polygon_indices": true,
       "reopen": true,
       "inherited_import_attempts": []
+    },
+    "native_map_alias": {
+      "original_levels": 2,
+      "objects": 449,
+      "meshes": 362,
+      "armatures": 31,
+      "historical_filter_refusals": 5,
+      "duplicate_refusals": 2,
+      "reopen": true,
+      "world_camera_preserved": true,
+      "inherited_import_attempts": [],
+      "browser_registration_routing": true
+    },
+    "current_regressions": [
+      "python",
+      "native_map_alias",
+      "native_level_menu",
+      "western_full_regression",
+      "foliage",
+      "historical_western_geometry",
+      "installer"
+    ],
+    "historical_western_geometry": {
+      "meshes": 325,
+      "vertices": 130412,
+      "triangles": 228484,
+      "reopen": true,
+      "reader": "historical package reader (test only), native typed transform builder"
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Replace explicit inherited mesh/map/material compatibility backends with source-backed feature parity, then Windows acceptance and provenance review.",
+  "next_priority": "Replace remaining explicit inherited mesh/material compatibility backends and package-reader dependencies; restore source-backed native selective map options; Windows acceptance and provenance review.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -302,7 +334,8 @@
     "0.10.118: four inherited files and 14 literal import sites remain. Cooked material catalog preserves raw channels and three UE4.18 exact source edges, not a rendered shader. Unsupported intermediate editor texture compatibility removed; general legacy graph, map, geometry and material formats remain unsupported or explicit legacy. No commercial clearance.",
     "0.10.119: opt-in UE4.18 direct surface is a bounded Blender approximation; exact UE rendering, tangent basis, arbitrary cooked shader graphs, native cooked mesh slot binding to this preview, older profiles, four inherited files/14 sites, Windows and rights clearance remain outstanding.",
     "0.10.120: cooked slot integration supports staged UE4.18/4.27/5.0 assets in a project Content directory; preview only UE4.18 direct UV0. Four inherited files and 14 sites remain; no cooked map material integration, Windows/Goblin rerun or commercial clearance.",
-    "0.10.121: 4 inherited core files/13 literal production references. Controlled cooked scene collections are not original cooked maps; broader profiles, exact shader semantics, original Goblin and Windows acceptance remain unverified."
+    "0.10.121: 4 inherited core files/13 literal production references. Controlled cooked scene collections are not original cooked maps; broader profiles, exact shader semantics, original Goblin and Windows acceptance remain unverified.",
+    "0.10.122: umap.py deleted; 3 core files/7 literal production import sites remain. Historical selective map switches and unsupported older map profiles explicitly rejected; native replacements for selective options, Windows/Goblin and commercial review remain pending."
   ],
   "reference_development_branch": "feature/independent-importer",
   "provenance": "docs/INDEPENDENCE.md",

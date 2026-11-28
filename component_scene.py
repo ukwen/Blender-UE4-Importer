@@ -17,7 +17,7 @@ def extend_components(filepath,collection,resolver):
     meta=inspect_package(filepath)
     if meta.get("ue4") in (508,522) and meta.get("ue5") is None:
         return build_components(MapRecords(filepath),collection,resolver)
-    raise NotImplementedError('Unsupported native classic map component profile; use explicit Legacy Compatibility if required')
+    raise NotImplementedError('Unsupported native classic map component profile; no validated native decoder for this profile')
 
 
 def build_components(asset,collection,resolver):
