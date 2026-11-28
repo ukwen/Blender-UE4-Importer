@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.88-dev",
-  "previous_verified_commit": "7bce7b2c5852a2929c1df7eb0eea94b8022ed550",
-  "previous_verified_tree": "48e0e375ceade8af5ba07696ae2f8d6a647a537e",
-  "current_commit_resolution": "Match immutable 0.10.88 Library checkpoint and published development commit/tree to archive hashes.",
-  "milestone": "Original landscape finest-mip RGBA atlas, derived corner UV and component material binding audit",
+  "application_version": "0.10.89-dev",
+  "previous_verified_commit": "5d324b2feb7ac167caa42d9956980e69a7c9d48c",
+  "previous_verified_tree": "f1b711084681cb7ae24b15d5a9003b55ce386298",
+  "current_commit_resolution": "Match immutable 0.10.89 checkpoint and published development commit/tree to archive hashes.",
+  "milestone": "Bounded operation-local package cache, stage performance and source action report",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.88_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.88-local.zip",
-    "install_archive": "install-088.zip",
+    "checkpoint": "Unreal_Importer_0.10.89_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.89-local.zip",
+    "install_archive": "install-089.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,69 +30,142 @@
   },
   "tests": {
     "baseline": {
-      "passed": 99,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 100,
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Existing local 0.10.87 tree exact, source and installer and four dependency archive hashes rechecked; reused restored Blender and decoder",
-    "original_landscape_atlas": {
-      "before": {
-        "corners": 4064256,
-        "max_uv_error": 0.0,
-        "auxiliary_seam_differences": 16193,
-        "atlas_sha256": "f4cd488a03bbf31c9011da6045930ed0bf1d28d9449af69830719931e5ebf839",
-        "packed_png_sha256": "7317ff8a240a6d3da99b04f056e29719ae4802223f6b8b32c52e47b27eeb705e",
-        "component_bindings": 64,
-        "max_decoded_rgba_error": 5.960464477539063e-08,
-        "weight_layers_status": "not_serialized_in_supported_profile"
+    "current": {
+      "passed": 104,
+      "skipped": 23,
+      "failed": 0
+    },
+    "environment_reverified": "Existing local tree matches 0.10.88; archive and dependency hashes checked; restored runtime reused",
+    "workflow": {
+      "thirdperson": {
+        "uncached": {
+          "elapsed_seconds": 1.0995922219999557,
+          "stage_seconds": {
+            "Dependencies": 0.6634632069999498,
+            "Actor inventory": 0.021462735000113753,
+            "Level layout": 0.022586646000036126,
+            "Light records": 0.020663836000039737,
+            "Camera records": 0.019591103000038856,
+            "Geometry and materials": 0.26968998400025157,
+            "Decals": 0.020313175999945088,
+            "Brushes": 0.0005583749998550047,
+            "Compiled BSP": 0.0005375740001909435,
+            "Volumes": 0.021103971999764326,
+            "Lighting": 0.028470351999658305,
+            "Environment": 0.0006420009999601461
+          },
+          "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
+          "table_hits": 0,
+          "table_reads": 1019,
+          "raw_bytes_read": 194039075,
+          "estimated_cache_peak_bytes": 0,
+          "cache_budget_bytes": 0,
+          "evictions": 0
+        },
+        "cached": {
+          "elapsed_seconds": 0.8108219450000433,
+          "stage_seconds": {
+            "Dependencies": 0.5261269310003627,
+            "Actor inventory": 0.021615067000311683,
+            "Level layout": 0.007777798999995866,
+            "Light records": 0.008078814999862516,
+            "Camera records": 0.006862013000045408,
+            "Geometry and materials": 0.21020461900025111,
+            "Decals": 0.008164124000359152,
+            "Brushes": 0.0001669630000833422,
+            "Compiled BSP": 0.00010074200008602929,
+            "Volumes": 0.008183492999705777,
+            "Lighting": 0.009316446999946493,
+            "Environment": 0.0004611180002029869
+          },
+          "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
+          "table_hits": 805,
+          "table_reads": 214,
+          "raw_bytes_read": 112885567,
+          "estimated_cache_peak_bytes": 67101396,
+          "cache_budget_bytes": 67108864,
+          "evictions": 97
+        },
+        "reports_exact": true,
+        "scene_exact": true,
+        "reopen": true,
+        "action_report": true,
+        "map": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/ThirdPerson/Lvl_ThirdPerson.umap",
+        "scope": "Original map, sequential in-process A/B; OS cache and timing order may influence wall clock; exact mesh vertex/topology/UV/material-index digests"
       },
-      "after": {
-        "corners": 4064256,
-        "max_uv_error": 0.0,
-        "auxiliary_seam_differences": 16193,
-        "atlas_sha256": "f4cd488a03bbf31c9011da6045930ed0bf1d28d9449af69830719931e5ebf839",
-        "packed_png_sha256": "7317ff8a240a6d3da99b04f056e29719ae4802223f6b8b32c52e47b27eeb705e",
-        "component_bindings": 64,
-        "max_decoded_rgba_error": 5.960464477539063e-08,
-        "weight_layers_status": "not_serialized_in_supported_profile"
-      },
-      "reopen": true,
-      "controlled_corrupt_atlas_fallback": true,
-      "scope": "Original source RGBA and derived atlas texel-center UV; no terrain material or normal parity",
-      "scene_counts": {
-        "geometry_objects": 1995,
-        "decal_objects": 1110,
-        "brush_operand_objects": 45,
-        "compiled_bsp_objects": 17,
-        "volume_guide_objects": 3,
-        "lighting_objects": 146,
-        "cameras_objects": 24,
-        "objects": 3340,
-        "meshes": 24,
-        "armatures": 6,
-        "lights": 141,
-        "cameras": 6
+      "mainlevel": {
+        "uncached": {
+          "elapsed_seconds": 12.909867013000166,
+          "stage_seconds": {
+            "Dependencies": 0.31344315599972106,
+            "Actor inventory": 0.11676008799986448,
+            "Level layout": 0.05328864099965358,
+            "Light records": 0.12152043200012486,
+            "Camera records": 0.1069759840002007,
+            "Geometry and materials": 11.080518726000264,
+            "Decals": 0.22971975699965697,
+            "Brushes": 0.07354466399965531,
+            "Compiled BSP": 0.1190999139998894,
+            "Volumes": 0.05396219200019914,
+            "Lighting": 0.12427774000025238,
+            "Cameras": 0.1102817710002455,
+            "Environment": 5.1888000143662794e-05
+          },
+          "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
+          "table_hits": 0,
+          "table_reads": 166,
+          "raw_bytes_read": 634541933,
+          "estimated_cache_peak_bytes": 0,
+          "cache_budget_bytes": 0,
+          "evictions": 0
+        },
+        "cached": {
+          "elapsed_seconds": 10.557703935000063,
+          "stage_seconds": {
+            "Dependencies": 0.2074404949999007,
+            "Actor inventory": 0.056113197000286164,
+            "Level layout": 0.0029318160000002536,
+            "Light records": 0.010903889000019262,
+            "Camera records": 0.0046626850003121945,
+            "Geometry and materials": 9.570103461999679,
+            "Decals": 0.1826288420002129,
+            "Brushes": 0.02342485500003022,
+            "Compiled BSP": 0.07003136700041068,
+            "Volumes": 0.0031899069999781204,
+            "Lighting": 0.03322036700001263,
+            "Cameras": 0.00898643800019272,
+            "Environment": 5.267000005915179e-05
+          },
+          "scope": "Wall-clock synchronous stages; excludes final report serialization; not a cancellation guarantee",
+          "table_hits": 90,
+          "table_reads": 76,
+          "raw_bytes_read": 187798217,
+          "estimated_cache_peak_bytes": 66964003,
+          "cache_budget_bytes": 67108864,
+          "evictions": 57
+        },
+        "reports_exact": true,
+        "scene_exact": true,
+        "reopen": true,
+        "action_report": true,
+        "map": "/mnt/data/ue083-runtime/runtime/ShooterSam/Content/MyStuff/Maps/MainLevel.umap",
+        "scope": "Original map, sequential in-process A/B; OS cache and timing order may influence wall clock; exact mesh vertex/topology/UV/material-index digests"
       }
     },
-    "original_landscape_position_regression": {
-      "max_world_position_component_error_m": 0.000171661376953125,
-      "reopen": true
-    },
     "single_level_regression": true,
-    "mainlevel_late_rollback": true,
-    "legacy_and_goblin": "Previously verified; not rerun",
-    "isolated_install": "See final immutable checkpoint"
+    "level_set_regression": true,
+    "isolated_install": "See immutable checkpoint",
+    "legacy_and_goblin": "Previously verified, not rerun"
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Professional import coverage diagnostics and large-scene performance; remaining visual features only with positive original evidence. No new downloads.",
+  "next_priority": "Professional source repair workflow, memory profiling and larger multi-map benchmarks, safe cancellation boundaries; native formats only with positive evidence; no new assets.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -113,6 +186,7 @@
     "Active base-property flags without serialized values (MI_GlowNT BlendMode and ShadingModel), float4 alpha, arbitrary vector widths and missing material functions remain unresolved.",
     "All four original partition maps explicitly disable runtime streaming; no positive saved LevelStreaming or LevelInstance records. Independent map transfer is not native streaming composition.",
     "BSP geometry supported for original zero-flag inline compiled profile only. Six explicit material packages unavailable and 76 faces have null source material; lightmap baking, other BSP/volume profiles and runtime CSG/physics/navigation/postprocess not validated.",
-    "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent."
+    "Landscape parent material absent; no serialized painted layer textures/allocations in supported profile. Source auxiliary channels preserved, not translated to runtime normals. All 103 distinct MainLevel decal packages remain absent.",
+    "No measured total RSS improvement, no mid-stage cancellation or actual headless OS clipboard validation; no timing portability claim."
   ]
 }

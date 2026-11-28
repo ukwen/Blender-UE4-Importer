@@ -71,6 +71,9 @@ class UEIMPORT_Settings(bpy.types.PropertyGroup):
     job_filter: StringProperty(name='Asset name filter', description='Case-insensitive package path substring; blank selects all jobs')
     batch_status: StringProperty(options={'HIDDEN'})
     batch_report: StringProperty(options={'HIDDEN'})
+    scene_summary: StringProperty(options={'HIDDEN'})
+    scene_summary_source: StringProperty(options={'HIDDEN'})
+    scene_action_report: StringProperty(options={'HIDDEN'})
     geometry_folder: StringProperty(name='Content subfolder',description='Relative to Content; empty imports all supported geometry assets')
     materials: BoolProperty(name='Materials', default=True)
     components: BoolProperty(name='Include Blueprint and skeletal components', default=False, description='Reconstruct map-owned component hierarchies; unresolved defaults and sockets stay diagnostic')
@@ -88,6 +91,7 @@ class UEIMPORT_OT_scan(bpy.types.Operator):
         state.scanned_project = ''
         state.engine = ''
         state.active = 0
+        state.scene_summary = state.scene_summary_source = state.scene_action_report = ''
         try:
             project, engine, maps = discover_maps(bpy.path.abspath(state.project_path))
         except (OSError, ValueError) as exc:
@@ -163,6 +167,37 @@ class UEIMPORT_OT_reconstruct_static(bpy.types.Operator):
         return {'FINISHED'}
 
 
+def publish_scene_actions(state, selected, dependencies, performance=None):
+    from import_workflow import dependency_actions
+    actions=dependencies.get('actions') or dependency_actions(dependencies)
+    lines=[str(selected), 'Source availability (not visual completeness)',
+           f"{actions['unresolved_packages']} unresolved packages; {len(actions['unknown_tables'])} unknown tables"]
+    for r in actions['packages']:
+        lines.append(f"{r['package']} | {r['status']} | hard: {r['hard_references']}, soft: {r['soft_references']} | {r['action']}")
+    if actions['unknown_tables']:
+        lines.append('Unknown package tables:');lines.extend(actions['unknown_tables'])
+    if performance:
+        lines.append(f"Import: {performance['elapsed_seconds']:.2f}s; {performance['table_reads']} table reads; {performance['table_hits']} cache hits")
+        lines.extend(f"{name}: {seconds:.3f}s" for name,seconds in performance['stage_seconds'].items())
+    text=bpy.data.texts.new(Path(selected).stem+' — source actions.txt');text.write('\n'.join(lines)+'\n')
+    state.scene_summary_source=str(selected);state.scene_action_report=text.name
+    state.scene_summary=f"{actions['unresolved_packages']} missing/invalid packages; {len(actions['unknown_tables'])} unknown tables"
+    if performance:state.scene_summary+=f" | {performance['elapsed_seconds']:.1f}s"
+
+
+class UEIMPORT_OT_copy_scene_actions(bpy.types.Operator):
+    bl_idname='ueimport.copy_scene_actions'
+    bl_label='Copy Source Action Report'
+    @classmethod
+    def poll(cls,context):
+        s=context.scene.ueimport_project
+        return UEIMPORT_OT_import_map.poll(context) and s.scene_summary_source==s.maps[s.active].filepath and bpy.data.texts.get(s.scene_action_report) is not None
+    def execute(self,context):
+        s=context.scene.ueimport_project
+        context.window_manager.clipboard=bpy.data.texts[s.scene_action_report].as_string()
+        self.report({'INFO'},'Source action report copied');return {'FINISHED'}
+
+
 class UEIMPORT_OT_scene_dependencies(bpy.types.Operator):
     bl_idname = 'ueimport.scene_dependencies'
     bl_label = 'Analyze Level Dependencies'
@@ -181,6 +216,7 @@ class UEIMPORT_OT_scene_dependencies(bpy.types.Operator):
             from ue5_scene_dependencies import audit
             report=audit(UProject(project),selected)
             text=bpy.data.texts.new(Path(selected).stem+' — source dependencies.json');text.write(json.dumps(report,indent=2));state.batch_report=text.name
+            publish_scene_actions(state,selected,report)
             self.report({'INFO'},f"{report['scanned_packages']} inspected; {report['unresolved_hard']} hard and {report['unresolved_soft_only']} soft-only unresolved; {len(report['unknown_tables'])} unknown tables. See report.")
         except Exception as exc:
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
@@ -209,10 +245,21 @@ class UEIMPORT_OT_full_scene(bpy.types.Operator):
                 collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies,state.cooked_profile)
             else:
                 from ue5_full_scene import reconstruct
-                collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies)
+                wm=context.window_manager;step=0
+                def progress(name):
+                    nonlocal step
+                    step+=1;wm.progress_update(min(step,13))
+                wm.progress_begin(0,14)
+                try:
+                    collection,report=reconstruct(selected,state.partial_materials,state.light_preview_scale,state.strict_scene_dependencies,progress=progress)
+                    wm.progress_update(14)
+                finally:wm.progress_end()
         except Exception as exc:
             self.report({'ERROR'},str(exc));return {'CANCELLED'}
         state.batch_report=collection['UE_report'];counts=report['counts']
+        if 'source_dependencies' in report:
+            try:publish_scene_actions(state,selected,report['source_dependencies'],report.get('performance'))
+            except Exception as exc:self.report({'WARNING'},f'Level imported; source action summary unavailable: {exc}')
         self.report({'INFO'},f"Saved level preview: {counts['meshes']} meshes, {counts['armatures']} rigs, {counts['lights']} lights, {counts['cameras']} cameras. Inspect scene transfer report for gaps.")
         return {'FINISHED'}
 
@@ -581,6 +628,8 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.template_list('UEIMPORT_UL_maps', 'unreal_maps', state, 'maps', state, 'active', rows=5)
             layout.prop(state,'partial_materials',text='Allow partial material previews')
             layout.operator('ueimport.scene_dependencies',icon='VIEWZOOM')
+            if 0<=state.active<len(state.maps) and state.scene_summary_source==state.maps[state.active].filepath:
+                actions=layout.box();actions.label(text=state.scene_summary);actions.operator('ueimport.copy_scene_actions',icon='COPYDOWN')
             layout.prop(state,'strict_scene_dependencies')
             layout.operator('ueimport.full_scene',icon='SCENE_DATA')
             layout.operator('ueimport.level_set',icon='SCENE_DATA')
@@ -612,7 +661,7 @@ class UEIMPORT_PT_project(bpy.types.Panel):
             layout.label(text='Bounded native formats; unsupported assets reported.')
 
 
-CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
+CLASSES = (UEIMPORT_Map, UEIMPORT_UL_maps, UEIMPORT_OT_level_set, UEIMPORT_OT_activate_level, UEIMPORT_Job, UEIMPORT_UL_jobs, UEIMPORT_Settings, UEIMPORT_OT_scan, UEIMPORT_OT_import_map, UEIMPORT_OT_reconstruct_static, UEIMPORT_OT_scene_dependencies, UEIMPORT_OT_copy_scene_actions, UEIMPORT_OT_full_scene, UEIMPORT_OT_apply_sky_preview, UEIMPORT_OT_toggle_fog_preview, UEIMPORT_OT_repair_missing, UEIMPORT_OT_lighting_preview, UEIMPORT_OT_camera_preview, UEIMPORT_OT_geometry_gallery, UEIMPORT_OT_refresh_jobs, UEIMPORT_OT_check_jobs, UEIMPORT_OT_preflight, UEIMPORT_OT_batch, UEIMPORT_PT_project)
 
 
 def register():

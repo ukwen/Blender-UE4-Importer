@@ -189,3 +189,7 @@ See [compiled BSP and volume bounds](docs/0.10.87-compiled-bsp.md). Original com
 ## 0.10.88-dev
 
 See [landscape source atlas](docs/0.10.88-landscape-atlas.md). Original 64 embedded finest-mip textures, exact lossless RGBA, 4,064,256 derived corner UVs, component material ancestry and Heightmap bindings. Painted layers and missing material graphs are not reconstructed.
+
+## 0.10.89-dev
+
+[Workflow performance and source actions](docs/0.10.89-workflow.md). No persistent package cache, measured table reuse and original geometry digests.

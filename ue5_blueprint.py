@@ -12,6 +12,11 @@ def require(ok,message):
 
 
 def read_tables(path):
+    from import_workflow import cached_tables
+    return cached_tables(path, _read_tables)
+
+
+def _read_tables(path):
     path=Path(path); meta=inspect_package(path)
     require(meta.get('status')=='tables_inspected' and meta['ue4']==522 and 1012 <= meta['ue5'] <= 1018 and not meta['sidecars'] and not meta['flags']&0x80002000 and meta['size']<=128*1024*1024,'Expected UE5 1012–1018 tagged monolithic editor package')
     require(not meta.get('cell_export_count',0) and not meta.get('cell_import_count',0),'Verse cell tables unsupported')

@@ -50,7 +50,13 @@ def coverage(inventory,objects):
     return dict(serialized_level_exports=len(rows),representation_counts=dict(counts),records=rows,unrepresented_classes=dict(Counter(r['kind'] for r in rows if r['representation']==['not_reconstructed'])),scope='Counts overlap; markers and unresolved anchors are not reconstructed geometry. Direct saved level exports only, not runtime actors.')
 
 
-def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=False):
+def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=False,progress=None):
+    from import_workflow import table_scope, Stages
+    with table_scope() as cache:
+        return _reconstruct(filepath,partial,preview_scale,strict_dependencies,Stages(progress),cache)
+
+
+def _reconstruct(filepath,partial,preview_scale,strict_dependencies,stages_timer,cache):
     import bpy
     from mathutils import Matrix
     from uasset import UProject
@@ -63,38 +69,38 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
     keys=('UE_full_scene_source','UE_source_map_path','UE_lighting_source','UE_camera_source')
     require(not any(str(path)==c.get(k) for c in scene.collection.children_recursive for k in keys),'Level already imported (full or separate stages); remove the prior import explicitly before retrying')
     from ue5_scene_dependencies import audit
-    dependencies=audit(project,path)
+    dependencies=stages_timer.run("Dependencies",audit,project,path)
     require(not strict_dependencies or dependencies['ready_for_strict_import'],
             f"Source dependency check failed: {dependencies['unresolved_hard']} hard, {dependencies['unresolved_soft_only']} soft-only unresolved, {len(dependencies['unknown_tables'])} unknown tables. Run Analyze Level Dependencies or disable strict mode.")
     instance_records=[]
-    inventory,errors=actor_inventory(content,path,instance_records)
+    inventory,errors=stages_timer.run("Actor inventory",actor_inventory,content,path,instance_records)
     from ue5_instance_inventory import summarize
     instance_report=summarize(instance_records,errors)
     from ue5_level_layout import inventory as layout_inventory
-    try:layout=layout_inventory(content,path)
+    try:layout=stages_timer.run("Level layout",layout_inventory,content,path)
     except ValueError as exc:layout=dict(status="unsupported",detail=str(exc))
-    light_data=lights(content,path);camera_data=cameras(content,path)
+    light_data=stages_timer.run("Light records",lights,content,path);camera_data=stages_timer.run("Camera records",cameras,content,path)
     before=set(new_ids());old_camera=scene.camera
     try:
         root=bpy.data.collections.new('UE Scene — '+path.stem);scene.collection.children.link(root)
         def nest(c,name):
             root.children.link(c);scene.collection.children.unlink(c);c.name=name
-        geo,gr=geometry(str(path),materials=True,components=True,partial=partial);nest(geo,path.stem+' — Geometry and characters')
+        geo,gr=stages_timer.run("Geometry and materials",geometry,str(path),materials=True,components=True,partial=partial);nest(geo,path.stem+' — Geometry and characters')
         stages={'geometry':gr};counts={'geometry_objects':len(geo.all_objects)}
         from ue5_editor_decals import extend_decals
-        stages['decals']=extend_decals(content,path,root);counts['decal_objects']=stages['decals']['projector_anchors']+stages['decals']['size_guides']
+        stages['decals']=stages_timer.run("Decals",extend_decals,content,path,root);counts['decal_objects']=stages['decals']['projector_anchors']+stages['decals']['size_guides']
         from ue5_editor_brushes import extend_brushes
-        stages['brushes']=extend_brushes(content,path,root);counts['brush_operand_objects']=stages['brushes']['operands']
+        stages['brushes']=stages_timer.run("Brushes",extend_brushes,content,path,root);counts['brush_operand_objects']=stages['brushes']['operands']
         from ue5_editor_bsp import extend_bsp
-        stages['compiled_bsp']=extend_bsp(content,path,root,partial=partial);counts['compiled_bsp_objects']=stages['compiled_bsp']['components']
+        stages['compiled_bsp']=stages_timer.run("Compiled BSP",extend_bsp,content,path,root,partial=partial);counts['compiled_bsp_objects']=stages['compiled_bsp']['components']
         from ue5_editor_volumes import extend_volumes
-        stages['volumes']=extend_volumes(content,path,root);counts['volume_guide_objects']=stages['volumes']['volumes']
+        stages['volumes']=stages_timer.run("Volumes",extend_volumes,content,path,root);counts['volume_guide_objects']=stages['volumes']['volumes']
         for name,data,build in [('lighting',light_data,lambda:lighting(str(path),preview_scale)),('cameras',camera_data,lambda:camera(str(path)))]:
             if not data['records']:
                 stages[name]=dict(data,status='no_supported_records');counts[name+'_objects']=0;continue
-            c,r=build();nest(c,path.stem+' — '+name.title());stages[name]=dict(r,status='preview');counts[name+'_objects']=len(c.all_objects)
+            c,r=stages_timer.run(name.title(),build);nest(c,path.stem+' — '+name.title());stages[name]=dict(r,status='preview');counts[name+'_objects']=len(c.all_objects)
         from ue5_environment_preview import build as environment
-        stages['environment']=environment(root,light_data['records'])
+        stages['environment']=stages_timer.run("Environment",environment,root,light_data['records'])
         from ue5_fog_preview import plan as fog_plan
         stages['environment']['fog_preview']=fog_plan(light_data['records'])
         # Match exact source actor identity and the saved root transform before attaching the preview.
@@ -112,6 +118,7 @@ def reconstruct(filepath,partial=False,preview_scale=1.,strict_dependencies=Fals
         objects=list(root.all_objects);require(objects,'No supported scene objects reconstructed')
         material_counts=Counter(v['status'] for v in gr.get('material_report',{}).values())
         report=dict(source=str(path),status='bounded_scene_preview',stages=stages,counts=dict(counts,objects=len(objects),meshes=sum(o.type=='MESH' and not o.get('UE_brush_operand') and not o.get('UE_volume_guide') for o in objects),armatures=sum(o.type=='ARMATURE' for o in objects),lights=sum(o.type=='LIGHT' for o in objects),cameras=sum(o.type=='CAMERA' for o in objects)),coverage=coverage(inventory,objects),source_dependencies=dependencies,strict_dependencies=strict_dependencies,inventory_errors=errors,instance_inventory=instance_report,level_layout=layout,material_status=dict(material_counts),linked_character_cameras=linked,unlinked_character_cameras=unlinked,scope='Saved geometry, supported components, material subset, light and camera previews. Saved landscape heightfield subset and non-rendering decal guides and CSG brush operands; saved compiled BSP render polygon subset and non-rendering volume guides; opt-in analytical sky where supported; opt-in finite fog preview separately available; no Unreal fog equivalence, runtime spawning, foliage or streaming completeness, Unreal rendering parity or animation binding claimed.')
+        report["performance"]=dict(stages_timer.report(),**cache.stats())
         text=bpy.data.texts.new(root.name+' - scene transfer.json');text.write(json.dumps(report,indent=2));root['UE_report']=text.name;root['UE_full_scene_source']=str(path);root['UE_preview_only']=True
         return root,report
     except Exception:

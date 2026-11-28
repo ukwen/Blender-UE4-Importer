@@ -23,6 +23,14 @@ def external_objects(content, level):
 
 
 def audit(project, level, limit=10000, reader=None):
+    from import_workflow import table_scope, dependency_actions
+    with table_scope() as cache:
+        report = _audit(project, level, limit, reader)
+        report["actions"] = dependency_actions(report)
+        return report
+
+
+def _audit(project, level, limit=10000, reader=None):
     """Traverse known hard/soft package references, including map-owned actor/object packages.
 
     This is conservative source availability, not actual runtime use. No scene mutations.
