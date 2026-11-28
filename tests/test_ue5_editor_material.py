@@ -37,6 +37,11 @@ class MaterialTests(unittest.TestCase):
         _,flare=read_texture(self.path('T_Lensflare_01'));self.assertEqual(flare['delta_regions'],[(0,512,64)])
     def test_nested_instances(self):
         d=self.resolve('MI_ThirdPersonColWay');self.assertEqual(len(d['chain']),3);nodes={n['parameter']:n for n in d['nodes'].values()};self.assertAlmostEqual(nodes['Roughness']['value'],.268,places=6);self.assertAlmostEqual(nodes['Base Color']['value'][1],.527115,places=6)
+    def test_parameter_provenance_and_missing_bindings(self):
+        d=self.resolve('MI_ThirdPersonColWay');audit={x['name']:x for x in d['parameter_audit']};self.assertEqual(audit['Roughness']['status'],'applied');self.assertEqual(audit['Roughness']['source_package'],d['chain'][1]);self.assertEqual(audit['Base Color']['source_package'],d['chain'][0]);self.assertEqual(audit['RefractionDepthBias']['status'],'engine_parameter_not_translated');self.assertEqual([x['selected'] for x in d['parameter_history'] if x['name']=='RefractionDepthBias'],[True,False]);self.assertFalse(d['unsupported'])
+        d=self.resolve('MI_Enemy_Face');self.assertEqual({x['name'] for x in d['parameter_audit'] if x['status']=='unmatched'},{'Roughness','Flake Color Power','Final Flake Brightness','BaseColorDiv','Base Color'});self.assertIn('Unmatched material parameter: Roughness',d['unsupported'])
+        d=self.resolve('MI_PrototypeGrid_TopDark');a={x['name']:x for x in d['parameter_audit']};self.assertEqual(len(a['TopSurfaceColor']['matched_nodes']),3);self.assertEqual(len(a['ObjectAligned']['matched_nodes']),4);self.assertTrue(a['ObjectAligned']['value'])
+        d=self.resolve('MI_GlowNT');self.assertEqual(d['base_override_history'][0]['source_package'],d['chain'][0]);self.assertIn('bOverride_BlendMode',d['base_override_history'][0]['properties']);self.assertIn('BasePropertyOverrides',d['unsupported'])
     def test_direct_normal_source_tags(self):
         for stem in ('MI_Quinn_01','MI_Manny_02_New'):
             data=self.resolve(stem);self.assertTrue(data['tangent_space_normal']);a=data['outputs']['Normal'];node=data['nodes'][a['index']];self.assertEqual(node['sampler_type'],'SAMPLERTYPE_Normal');self.assertEqual(a['output'],0);self.assertFalse(node['inputs'].get('Coordinates',{}).get('index'));self.assertTrue(node['texture'].startswith('/Game/'))

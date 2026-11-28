@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.82-dev",
-  "previous_verified_commit": "618991ebcf7d377337a3909cdb7f466951a15905",
-  "previous_verified_tree": "2e7ab1705822b42dc225da7b8087e37c029894ea",
+  "application_version": "0.10.83-dev",
+  "previous_verified_commit": "3b5d9dee614a00b37eaaf59b1d4e221c823b16cd",
+  "previous_verified_tree": "b1bbcdbc20b0622ab97e43bc8ebd08b08d64b96d",
   "current_commit_resolution": "Compare exact published development commit and tree with source archive and commit message SHA-256. If Library quota prevents a separate checkpoint or archive, recover verified 0.10.81 source archive plus exact GitHub changed blobs; verify reconstructed Git tree.",
-  "milestone": "Explicit UE5 UV0 sampler and direct normal source-art convention preview",
+  "milestone": "Material instance provenance and unclamped scalar-factor RGB interpolation",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.82_checkpoint.json (if upload permitted)",
-    "source_archive": "Blender-UE4-Importer-0.10.82-local.zip (if upload permitted)",
-    "install_archive": "install-082.zip (if upload permitted)",
+    "checkpoint": "Unreal_Importer_0.10.83_checkpoint.json (if upload permitted)",
+    "source_archive": "Blender-UE4-Importer-0.10.83-local.zip (if upload permitted)",
+    "install_archive": "install-083.zip (if upload permitted)",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json"
@@ -30,39 +30,50 @@
   },
   "tests": {
     "baseline": {
-      "passed": 80,
-      "skipped": 23,
-      "failed": 0
-    },
-    "current": {
       "passed": 81,
       "skipped": 23,
       "failed": 0
     },
-    "environment_reverified": "Fresh source extraction, exact 0.10.81 tree and source/installer hashes; four recovery archive hashes rechecked; reused Blender and decoder",
-    "sampler": {
-      "original_materials": 2,
-      "packed_images": 7,
-      "max_linear_rgba_error": 5.960464477539063e-08,
-      "scope": "CPU emission-only source-art texel test, active UV1 differs from UV0",
+    "current": {
+      "passed": 82,
+      "skipped": 23,
+      "failed": 0
+    },
+    "fresh_environment": true,
+    "original_instance_audit": {
+      "materials": 5,
+      "enemy_unmatched": 5,
+      "shared_static_bindings": 7,
       "reopen": true
     },
+    "cpu_rgb_lerp": {
+      "factors": [
+        -0.5,
+        0.25,
+        1.5
+      ],
+      "max_error": 4.768371586472142e-08,
+      "scope": "emission-only diagnostic, edited parameters in original graph"
+    },
     "material_gallery": true,
-    "procedural": true,
+    "grid_preview": true,
+    "grid_channels": true,
+    "translucency": true,
     "masked": true,
+    "sampler_fidelity": true,
     "two_level_blender_ue5_regression": true,
-    "legacy_and_goblin": "Previously verified; not rerun",
+    "legacy_and_goblin": "Previously verified, not rerun",
     "isolated_install": {
       "imported": 3,
       "reopen_reuse": true,
-      "scope": "Identical runtime code before final documentation updates"
+      "scope": "identical runtime code before final report update"
     }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Continue material expression/instance fidelity and bounded fog conversion; streaming; native UE5 instancing only with positive original evidence. No new assets.",
+  "next_priority": "Bounded fog conversion or additional original material function coverage, then streaming; native UE5 instancing only with positive source evidence. No new assets.",
   "restrictions": [
     "CPU only",
     "preserve master",
@@ -79,6 +90,7 @@
     "103 missing decal material packages; native receiver projection and rendering unsupported",
     "Goblin incomplete mixed-version fixture: 559 static placements and 34 accessory mesh references missing; original descriptor absent; incomplete material graphs and no same-version project parity.",
     "Legacy sky, UE fog rendering, sky capture/radiance equivalence, EEVEE not validated.",
-    "Runtime tangent basis, normal compression and arbitrary normal expressions, mixed sampler mip/anisotropic behavior and exact material appearance unverified. Library quota may require GitHub-only incremental recovery."
+    "Runtime tangent basis, normal compression and arbitrary normal expressions, mixed sampler mip/anisotropic behavior and exact material appearance unverified. Library quota may require GitHub-only incremental recovery.",
+    "Material base overrides, vector interpolation factors, float4 and exact shader parity unresolved."
   ]
 }

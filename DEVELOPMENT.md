@@ -165,3 +165,7 @@ See [opt-in sky preview](docs/0.10.81-environment-preview.md). Separate saved-wo
 ## 0.10.82-dev
 
 See [editor sampler fidelity](docs/0.10.82-sampler-fidelity.md). Explicit UV0, shared address helper and bounded direct tangent normal source-art preview; no runtime tangent/compression parity claim.
+
+## 0.10.83-dev
+
+See [instance fidelity](docs/0.10.83-instance-fidelity.md): preserve selected/shadowed instance overrides and unresolved bindings; unclamped scalar-factor RGB interpolation validated in actual Blender CPU render.

@@ -7,7 +7,7 @@ from skeleton_native import Reader
 from ue5_blueprint import read_tables,require
 from ue5_editor_tags import export_tags,read_tag_stream,read_tags
 
-EDITOR_MATERIAL_REVISION = "editor_material_082"
+EDITOR_MATERIAL_REVISION = "editor_material_083"
 
 
 def read_material(path):
@@ -180,18 +180,30 @@ def apply_overrides(nodes,overrides,unsupported):
     for n in nodes.values():
         kind={'ScalarParameter':'scalar','VectorParameter':'vector','TextureSampleParameter2D':'texture','StaticSwitchParameter':'switch'}.get(n['kind'])
         if kind and n['parameter']:groups.setdefault((kind,n['parameter']),[]).append(n)
-    for key,group in groups.items():
-        v=overrides.get(key)
-        if not v:continue
+    audit=[]
+    for key,v in overrides.items():
+        group=groups.get(key,[])
+        entry=dict(kind=key[0],name=key[1],source_package=v.get('source_package'),guid=v['guid'],value=v['value'],matched_nodes=[])
+        audit.append(entry)
+        if not group:
+            # This serialized engine bias is not a graph parameter in the
+            # tested materials; retain it without inventing a graph binding.
+            intrinsic=(key==('scalar','RefractionDepthBias') and v['guid']=='00'*16)
+            entry['status']='engine_parameter_not_translated' if intrinsic else 'unmatched'
+            if not intrinsic:unsupported.append('Unmatched material parameter: '+key[1])
+            continue
         guid=v['guid'];field='texture' if key[0]=='texture' else 'value'
         if guid and any(bytes.fromhex(guid)) and not any(n['guid']==guid for n in group):
-            unsupported.append('Parameter GUID mismatch: '+key[1]);continue
+            entry['status']='guid_mismatch';unsupported.append('Parameter GUID mismatch: '+key[1]);continue
+        entry['status']='applied'
         for n in group:
-            n[field]=v['value'];n['override_guid']=guid;n['override_resolution']='exact_guid' if n['guid']==guid else 'shared_global_parameter'
+            previous=n.get(field);n[field]=v['value'];n['override_guid']=guid;n['override_resolution']='exact_guid' if n['guid']==guid else 'shared_global_parameter';n['override_source_package']=v.get('source_package')
+            entry['matched_nodes'].append(dict(name=n['name'] if 'name' in n else n['parameter'],guid=n['guid'],resolution=n['override_resolution'],previous_value=previous,source_function=n.get('source_function'),source_export_index=n.get('source_export_index')))
+    return audit
 
 
 def resolve_material(content,package):
-    content=Path(content).resolve();seen=set();chain=[];overrides={};unsupported=[]
+    content=Path(content).resolve();seen=set();chain=[];overrides={};unsupported=[];history=[];base_override_history=[]
     def path(p):
         require(p.startswith('/Game/'),'Material dependency is outside project: '+p);f=(content/(p[6:]+'.uasset')).resolve();require(f.is_relative_to(content) and f.is_file(),'Missing material package '+p);return f
     p=package
@@ -199,14 +211,16 @@ def resolve_material(content,package):
         require(p not in seen and len(seen)<32,'Material inheritance cycle or depth limit');seen.add(p);data=read_material(path(p));chain.append(p);unsupported.extend(data['unsupported'])
         if data['kind']=='material':break
         require(data['kind']=='instance','Expected material or instance')
-        for v in data['parameters']:overrides.setdefault((v['kind'],v['name']),v)
+        if data.get('base_overrides'):base_override_history.append(dict(source_package=p,properties=data['base_overrides']))
+        for v in data['parameters']:
+            v=dict(v,source_package=p);key=(v['kind'],v['name']);history.append(dict(v,selected=key not in overrides));overrides.setdefault(key,v)
         p=data['parent']
     # A global parameter with identical name and type is shared by all its
     # expressions (Epic Material Expressions Reference). Accept duplicate
     # GUIDs only when the override GUID matches a member of that exact group.
     expand_local_functions(data,content,unsupported)
-    apply_overrides(data['nodes'],overrides,unsupported)
-    data.update(package=package,chain=chain,parameters=list(overrides.values()),unsupported=unsupported);return data
+    audit=apply_overrides(data['nodes'],overrides,unsupported)
+    data.update(package=package,chain=chain,parameters=list(overrides.values()),parameter_history=history,parameter_audit=audit,base_override_history=base_override_history,unsupported=unsupported);return data
 
 
 def unlit_translucent_profile(data):
@@ -231,7 +245,7 @@ def build_material(content,package,allow_partial=False):
     import bpy
     from texture_blender import load_editor_texture
     data=resolve_material(content,package);mat=bpy.data.materials.new(package.rsplit('/',1)[-1]);mat.use_nodes=True;mat['UE_material_package']=package
-    mat['UE_editor_graph']=json.dumps(data,sort_keys=True); nt=mat.node_tree;nodes=nt.nodes;links=nt.links;bs=next(n for n in nodes if n.type=='BSDF_PRINCIPLED');bs.location=(650,0);built={};texture_nodes={};texture_alpha={};active=set();issues=list(data['unsupported']);connected=[];surface_inputs={}
+    mat['UE_editor_graph']=json.dumps(data,sort_keys=True);mat['UE_parameter_audit']=json.dumps(data['parameter_audit'],sort_keys=True); nt=mat.node_tree;nodes=nt.nodes;links=nt.links;bs=next(n for n in nodes if n.type=='BSDF_PRINCIPLED');bs.location=(650,0);built={};texture_nodes={};texture_alpha={};active=set();issues=list(data['unsupported']);connected=[];surface_inputs={}
     def node(typ,label):
         n=nodes.new(typ);n.label=label;n.location=(-600+(len(nodes)%4)*220,-240*(len(nodes)//4));return n
     def constant(value,label):
@@ -282,10 +296,13 @@ def build_material(content,package,allow_partial=False):
         if d['kind']=='FunctionInput':return static_value(d['bound_input']['index'],(*seen,i))
         raise NotImplementedError('Nonconstant static switch input')
     def mix(a,b,f,label):
-        if a.type==b.type=='VALUE':return mathop('ADD',a,mathop('MULTIPLY',mathop('SUBTRACT',b,a),f),label)
-        n=node('ShaderNodeMixRGB',label);n.blend_type='MIX';n.use_clamp=False
-        for j,v in enumerate((f,a,b)):links.new(v,n.inputs[j])
-        return n.outputs[0]
+        # Unreal lerp is a+(b-a)*f, including extrapolation. MixRGB's
+        # factor is clamped independently of its output clamp option.
+        require(f.type=='VALUE','Non-scalar interpolation factor unsupported')
+        def lerp(x,y):return mathop('ADD',x,mathop('MULTIPLY',mathop('SUBTRACT',y,x),f),label)
+        if a.type==b.type=='VALUE':return lerp(a,b)
+        require(a.type in ('VALUE','RGBA','VECTOR') and b.type in ('VALUE','RGBA','VECTOR'),'Unsupported interpolation operands')
+        result=combine([lerp(x,y) for x,y in zip(components(a),components(b))],label+' (unclamped RGB)');result.node['UE_unclamped_lerp']=True;return result
     def configure_sampler(n,d,coordinates):
         from uv_semantics import uv_source,set_address,connect_sample
         image=n.image;n['UE_sampler_source']=d['sampler_source']
