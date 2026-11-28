@@ -44,6 +44,13 @@ def read_record(path,project):
     from package_inspector import inspect_package
     meta=inspect_package(path)
     record={'format':meta.get('status'),'ue4':meta.get('ue4'),'ue5':meta.get('ue5'),'sidecars':meta['sidecars'],'classes':[],'references':[],'coverage':'unknown','soft_references':[],'soft_coverage':'unknown'}
+    if meta.get('legacy')==-7 and meta.get('status')=='unversioned_requires_context' and '.uexp' in meta['sidecars']:
+        try:
+            from project_geometry import split_package_inventory
+            cls,refs=split_package_inventory(path)
+            record.update(classes=[cls],references=refs,coverage='ue4_cooked_import_table',format='unversioned_ue4_split_profile')
+        except (ValueError,OSError,NotImplementedError) as exc: record['detail']=str(exc)
+        return record
     if meta.get('legacy') in (-8,-9) and meta.get('status')=='unversioned_requires_context' and '.uexp' in meta['sidecars']:
         try:
             from ue5_cooked_geometry import package
@@ -168,4 +175,4 @@ def preflight(descriptor,scope='ALL_MAPS',selected=None,subfolder='',job_filter=
             edge['referenced_by'].append(k)
             if ref in records[k]['references']: edge['hard_referenced_by'].append(k)
             if ref in records[k]['soft_references']: edge['soft_referenced_by'].append(k)
-    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),source_map=root_seeds[0] if scope=='MAP_GEOMETRY' else None,jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 and UE5 1012–1018 soft-summary and UE5.6 external actor references; does not prove required runtime dependencies. Supported UE5.0 and modern UE5 split import tables are inspected; other split/unsupported tables are unknown. Engine packages are not recursively inspected.')
+    return dict(project=descriptor,engine=engine,scope=scope,folder=subfolder,job_filter=job_filter,seeds=sorted(seeds),source_map=root_seeds[0] if scope=='MAP_GEOMETRY' else None,jobs=[str(index[k]) for k in sorted(seeds)],inventory_count=len(index),closure_count=len(visited),coverage_counts=dict(Counter(records[k]['coverage'] for k in visited)),soft_coverage_counts=dict(Counter(records[k]['soft_coverage'] for k in visited)),dependency_counts=dict(Counter(x['status'] for x in edges.values())),dependencies=edges,records={k:records[k] for k in sorted(visited)},note='Conservative package import-table and supported UE4 and UE5 1012–1018 soft-summary and UE5.6 external actor references; does not prove required runtime dependencies. Supported UE4, UE5.0 and modern UE5 split import tables are inspected; other split/unsupported tables are unknown. Engine packages are not recursively inspected.')

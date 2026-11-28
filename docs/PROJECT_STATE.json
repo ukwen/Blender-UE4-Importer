@@ -5,18 +5,18 @@
   "stable_branch": "master",
   "stable_sha_at_baseline": "95f19676ca8c76b14bfc445c1ef2fe28348a1ad0",
   "development_branch": "development",
-  "application_version": "0.10.112-dev",
-  "previous_verified_commit": "6ded6ad8391b4ef6064c68ca87ce5a4b38d49518",
-  "previous_verified_tree": "a62ce0fa64a099c983931d29f9904a4760e30b6e",
+  "application_version": "0.10.113-dev",
+  "previous_verified_commit": "d0ceb50f88bb3ba57e48b8cd76a73bf9bbb5ad6a",
+  "previous_verified_tree": "3af1dce6c33477c53408084e1b44f3e97655d9ee",
   "current_commit_resolution": "Match current development head and external immutable checkpoint; recover prior verified archive and exact Git changes if Library unavailable.",
-  "milestone": "Native saved-level file menu and objective refocus",
+  "milestone": "Consolidated native cooked mesh workflow and UE4 split dependency inventory",
   "library": {
     "reference_root": "/Development Tools/Unreal Importer/Reference Sources/",
     "blender_root": "/Development Tools/Blender/",
     "supplemental_root": "/Development Tools/Unreal Importer/Goblin War Camp/",
-    "checkpoint": "Unreal_Importer_0.10.112_checkpoint.json",
-    "source_archive": "Blender-UE4-Importer-0.10.112-local.zip",
-    "install_archive": "install-112.zip",
+    "checkpoint": "Unreal_Importer_0.10.113_checkpoint.json",
+    "source_archive": "Blender-UE4-Importer-0.10.113-local.zip",
+    "install_archive": "install-113.zip",
     "hash_manifest": "docs/RECOVERY_ASSETS.sha256",
     "legacy_fixture_root": "/Development Tools/Unreal Importer/Western Frontier/",
     "goblin_fixture_manifest": "docs/GOBLIN_FIXTURE.json",
@@ -30,50 +30,49 @@
     "setup": "bash tools/restore_development.sh ASSET_DIRECTORY NEW_WORK_DIRECTORY"
   },
   "tests": {
-    "native_level_menu": {
-      "levels": {
-        "/mnt/data/work108/runtime/ShooterSam/Content/MyStuff/Maps/TestLevel.umap": {
-          "geometry_objects": 5,
-          "decal_objects": 0,
-          "brush_operand_objects": 8,
-          "compiled_bsp_objects": 9,
-          "volume_guide_objects": 1,
-          "lighting_objects": 5,
-          "cameras_objects": 4,
-          "objects": 32,
-          "meshes": 10,
-          "armatures": 1,
-          "lights": 1,
-          "cameras": 1
-        },
-        "/mnt/data/west108/POLYGON - Western Frontier Pack 4.27/PolygonWestFrontier/Content/PolygonWesternFrontier/Maps/Overview.umap": {
-          "geometry_objects": 415,
-          "lighting_objects": 2,
-          "objects": 417,
-          "meshes": 352,
-          "armatures": 30,
-          "lights": 1,
-          "cameras": 0
-        }
-      },
-      "reopen": true,
-      "duplicate_refusal": true,
-      "mixed_project_refusal": true,
-      "inherited_import_attempts": [],
-      "world_camera_preserved": true
-    },
     "python": {
-      "passed": 180,
-      "skipped": 10,
+      "passed": 182,
+      "skipped": 11,
       "failed": 0
     },
-    "previously_verified": "Prior 0.10.111 reports retained in historical checkpoint; full scene corpus and layer tests not repeated for this UI entrypoint change."
+    "native_cooked_mesh": {
+      "worm_meshes": 6,
+      "worm_rigs": 3,
+      "modern_cubes": 3,
+      "quinn_lods": 3,
+      "quinn_bones": 89,
+      "reopen": true,
+      "rollback": true,
+      "inherited_import_attempts": []
+    },
+    "ue4_split_inventory": {
+      "original_packages": 16,
+      "geometry_jobs": 2,
+      "available_dependencies": 6,
+      "missing_dependency_reported": true
+    },
+    "native_level_menu": {
+      "objects": 449,
+      "meshes": 362,
+      "armatures": 31,
+      "reopen": true,
+      "inherited_import_attempts": []
+    },
+    "installer": {
+      "platform": "linux",
+      "blender": "4.2.4 LTS",
+      "installed": true,
+      "imported": 3,
+      "reopen_reuse": true,
+      "archive_sha256": "666b81b88f446448e9dee52a0f9252f276bd872b2240ff29982229148f4902f2",
+      "launcher_platform": "linux"
+    }
   },
   "roadmap": "docs/ROADMAP.md",
   "handoff": "docs/HANDOFF.md",
   "test_report": "docs/TEST_REPORT.md",
   "dependencies": "docs/DEPENDENCIES.md",
-  "next_priority": "Prioritize elimination of remaining inherited production callers, source-backed older package/mesh/map compatibility and professional end-to-end workflows. Material graph work only where it blocks previously supported features or has original evidence. No commercial release until complete removal, original-project parity, platform and provenance gates.",
+  "next_priority": "Eliminate remaining inherited production callers using source-backed older monolithic package, geometry and legacy map evidence; retain explicit unsupported-profile behavior and advance real project-level acceptance. No commercial clearance.",
   "restrictions": [
     "CPU only",
     "preserve master",

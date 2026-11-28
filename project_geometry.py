@@ -8,8 +8,8 @@ from pathlib import Path
 from skeleton_native import Reader, MAGIC
 
 
-def split_root_class(path):
-    """Inspect the root class of a supported tagged, unversioned split header."""
+def split_package_inventory(path):
+    """Inspect the class and direct package imports of a supported split header."""
     path=Path(path)
     if path.stat().st_size>16*1024*1024: raise ValueError('Split header exceeds size limit')
     raw=path.read_bytes(); r=Reader(raw)
@@ -17,9 +17,12 @@ def split_root_class(path):
         from ue5_cooked_geometry import package
         from ue5_modern_static import package as modern_package
         if raw[4:8]==b'\xf8\xff\xff\xff':
-            try: return package(path)[0]
+            try:
+                kind,_,_,imports,_=package(path)
+                return kind,split_import_paths(imports)
             except (ValueError,NotImplementedError): pass
-        return modern_package(path)[0]
+        kind,_,_,imports,_,_=modern_package(path)
+        return kind,split_import_paths(imports)
     if r.take(4)!=MAGIC or r.unpack('5i')!=(-7,0,0,0,0):
         raise NotImplementedError('Unsupported split package header')
     if r.i()!=len(raw) or r.string()!='None': raise ValueError('Invalid split header')
@@ -40,7 +43,15 @@ def split_root_class(path):
             raise NotImplementedError('Unsupported root class reference')
         classes.append(imports[-ci-1][3])
     if len(classes)!=1: raise NotImplementedError('Expected one root asset class')
-    return classes[0]
+    return classes[0],split_import_paths(imports)
+
+
+def split_import_paths(imports):
+    return sorted({i[3] for i in imports if i[1]=='Package' and i[3].startswith('/') and not i[3].startswith('/Script/')})
+
+
+def split_root_class(path):
+    return split_package_inventory(path)[0]
 
 
 def load_static(path,project,profile):

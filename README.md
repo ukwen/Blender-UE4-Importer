@@ -1,6 +1,6 @@
 # Unreal Project Importer — independent component migration
 
-Internal development candidate **0.10.112-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
+Internal development candidate **0.10.113-dev**, Blender 4.2.4. Direct saved Unreal project reconstruction in Blender without requiring FBX/USD conversion. This repository originated as a fork of [Waffle1434/Blender-UE4-Importer](https://github.com/Waffle1434/Blender-UE4-Importer). Original authorship is retained in the add-on metadata pending a complete rights and provenance audit. The candidate is not approved for commercial redistribution.
 
 Active development takes place directly on `development`; independent component replacement and feature advancement are parallel engineering priorities. The former migration branch is a historical rollback checkpoint only. This candidate replaces the inherited registration helper and binary shader library and removes the bundled external texture executable. Native supported editor texture profiles are used; cooked textures retain their explicit-profile operator. This is not yet a complete independent implementation.
 
@@ -27,3 +27,5 @@ The UE4.27 native layer bridge now reads bounded typed scalar, vector, texture a
 The controlled UE4.27 layer-function compiler supports a bounded bundle graph subset (scalar values, bundle inputs/outputs, make/blend). Unsupported expressions retain the compatibility backend; original layer-package validation is still pending.
 
 **Primary saved-level file menu:** File > Import > UE Saved Level (.umap). Select a saved map inside its original project (or multiple maps from one project). The native project transaction preserves independent levels and reports unresolved dependencies. UE Map — Legacy Compatibility retains the old menu options; it is not the primary workflow.
+
+**Primary mesh menu:** UE Mesh (.uasset) supports original editor assets and explicit native cooked profiles with adjacent sidecars. Cooked surfaces retain unresolved material slot identities, not reconstructed shaders. For unmigrated split formats, choose Legacy compatibility explicitly; older monolithic fallback remains.

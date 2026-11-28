@@ -18,3 +18,13 @@ Primary objective: a professional, independently implemented direct Unreal UE4/U
 Python suite and isolated installation results: see external checkpoint and acceptance logs.
 
 Final Python discovery: 190 tests, 180 pass, 10 fixture-dependent skips, zero failures.
+
+## 0.10.113 — Consolidated native cooked mesh workflow and UE4 dependency inventory
+
+- Main `import.umesh` now uses native static/skeletal decoders for split cooked assets with an explicit profile. Existing specialized entrypoints are unchanged. UE5.6 shared-rig LODs are available via All supported source LODs. Unsupported native profiles fail without automatic inherited fallback; explicit Legacy compatibility preserves the previous split route (not newly certified). Cooked materials are marked unresolved with source slot identities; no shader equivalence claim.
+- `project_preflight` recognizes bounded UE4 -7 tagged split headers, inventories their direct non-script package references, filters geometry jobs and reports missing dependencies. Header inventory is not payload validation or soft/runtime dependency completeness.
+- Actual original Matya UE4.18/4.27 and UE5.0: six meshes (640 vertices/572 triangles each), three 6-bone rigs. Original UAssetAPI UE5.4/5.5/5.6: three 24-vertex/12-triangle cubes and Quinn three LODs (45993/14865/7421 vertices; 87280/26998/12998 triangles) on one 89-bone rig. Save/reopen, LOD switching, refusal and rollback passed; inherited imports blocked throughout. Preflight verified 16 UE4 original packages, 2 geometry jobs and 6 dependencies in staged 4.27 fixture; missing dependency detected.
+- Regression: Python 193 total, 182 passed, 11 fixture-dependent skips, zero failures. Native TestLevel and Western Overview level menu: 449 objects, 362 meshes, 31 armatures, save/reopen and no inherited imports.
+- Four inherited files and 29 literal import sites remain; this milestone bypasses the split fallback for native profiles, not physical removal of a core file. Next prioritize remaining production callers (older monolithic package/geometry and map dependencies) with source-backed tests, not material-only research. Windows acceptance, shader reconstruction, unsupported cooked layouts, original project completeness, rights/provenance and commercial clearance remain open.
+
+Isolated 0.10.113 Linux installer acceptance: 3 imports and save/reopen reuse passed. See immutable checkpoint for archive SHA-256.
